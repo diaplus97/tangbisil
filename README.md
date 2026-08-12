@@ -99,17 +99,16 @@ npx wrangler pages dev dist      # http://localhost:8788
 
 ### 5. 배포 직후 확인
 
-정적 파일이 함수를 가리지 않는지 한 번 확인하세요. SSE 가 아니라 HTML 이 오면
-클라이언트가 "AI 서버 없음" 으로 판단해 NPC 가 조용히 말을 못 합니다.
-
 ```bash
-curl -i -X POST https://<배포주소>/api/chat \
-  -H "content-type: application/json" \
-  -d '{"mode":"chat","memoryBlock":"x","messages":[{"role":"user","content":"안녕"}]}'
+npm run verify:deploy https://<배포주소>
 ```
 
-`content-type: text/event-stream` 이면 정상입니다.
-`text/html` 이 오면 함수가 안 잡힌 것이고, `503` 이면 키가 등록되지 않은 것입니다.
+라우팅 → 키 등록 → 실제 응답까지 한 번에 확인하고, 아저씨가 뭐라고 답했는지도 찍어줍니다.
+말투가 규칙에서 벗어나면(너무 길거나, 마크다운을 쓰거나, "힘내세요" 를 하거나) 같이 짚어줍니다.
+
+이 확인이 필요한 이유: 정적 파일이 함수를 가리면 `/api/chat` 이 `index.html` 을 돌려주고,
+클라이언트는 그걸 "AI 서버 없음" 으로 판단해 조용히 폴백합니다.
+**아저씨가 등장은 하는데 말을 못 하는 상태가 에러 없이 만들어집니다.**
 
 ### 모델 바꿔보기
 
