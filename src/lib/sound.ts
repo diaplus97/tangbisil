@@ -20,7 +20,12 @@ export type SoundName =
   | "water"   // 화분 물주기
   | "boom"    // 컵 결투 폭발
   | "purr"    // 고양이 골골
-  | "stamp";  // 출근 도장
+  | "stamp"   // 출근 도장
+  | "lighter" // 라이터 (흡연실)
+  | "inhale"  // 연기 들이마시기
+  | "stub"    // 담배 비벼 끄기
+  | "footsteps" // 복도 발자국
+  | "door";   // 문 열림
 
 const STORAGE_KEY = "tangbirsil_sound_v1";
 
@@ -213,6 +218,37 @@ class SoundEngine {
       case "stamp":
         this.tone({ from: 210, to: 85, dur: 0.07, gain: 0.16 });
         this.noiseBurst({ dur: 0.03, gain: 0.06, filter: "highpass", freq: 1200, delay: 0.005 });
+        break;
+
+      // ─── 흡연실 ───────────────────────────────────────────
+      case "lighter":
+        // 부싯돌 두 번 긁고, 세 번째에 불이 붙는다
+        this.noiseBurst({ dur: 0.05, gain: 0.09, filter: "highpass", freq: 3200, q: 1.2 });
+        this.noiseBurst({ dur: 0.05, gain: 0.09, filter: "highpass", freq: 3000, q: 1.2, delay: 0.16 });
+        this.noiseBurst({ dur: 0.5, gain: 0.05, filter: "lowpass", freq: 700, freqTo: 280, delay: 0.33 });
+        break;
+      case "inhale":
+        // 숨을 길게 빨아들이는 소리 — 대역폭이 좁아지며 올라간다
+        this.noiseBurst({ dur: 1.1, gain: 0.045, filter: "bandpass", freq: 420, freqTo: 1150, q: 2.4 });
+        break;
+      case "stub":
+        // 재떨이에 비벼 끄기 — 짧은 마찰 세 번
+        [0, 0.07, 0.15].forEach((d) =>
+          this.noiseBurst({ dur: 0.07, gain: 0.06, filter: "bandpass", freq: 1900, q: 0.9, delay: d }));
+        break;
+      case "footsteps":
+        // 복도에서 다가오는 발자국 — 뒤로 갈수록 커진다
+        [0, 0.42, 0.84, 1.26].forEach((d, i) => {
+          this.tone({ type: "sine", from: 105, to: 48, dur: 0.11, gain: 0.05 + i * 0.022, delay: d });
+          this.noiseBurst({ dur: 0.05, gain: 0.025 + i * 0.012, filter: "lowpass", freq: 420, delay: d });
+        });
+        break;
+      case "door":
+        // 경첩 삐걱 + 닫히는 쿵
+        this.tone({ type: "sawtooth", from: 240, to: 640, dur: 0.5, gain: 0.035, curve: "lin" });
+        this.noiseBurst({ dur: 0.45, gain: 0.03, filter: "bandpass", freq: 1500, freqTo: 2600, q: 3 });
+        this.tone({ from: 130, to: 42, dur: 0.22, gain: 0.15, delay: 0.62 });
+        this.noiseBurst({ dur: 0.12, gain: 0.07, filter: "lowpass", freq: 300, delay: 0.62 });
         break;
     }
   }

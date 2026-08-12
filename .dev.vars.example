@@ -1,0 +1,23 @@
+# 흡연실 NPC — 서버 전용 환경변수
+#
+# 로컬:  이 파일을 .dev.vars 로 복사한 뒤 `npx wrangler pages dev dist` 로 실행
+# 배포:  Cloudflare Pages → Settings → Environment variables 에 동일하게 등록
+#
+# ⚠️ 절대 VITE_ 접두사를 붙이지 마세요. 붙이면 API 키가 브라우저 번들에 박힙니다.
+
+# 필수 — console.anthropic.com 에서 발급
+# (Claude MAX 구독과는 별개인 종량제 API 키입니다)
+ANTHROPIC_API_KEY=sk-ant-...
+
+# 대화 모델. 미설정 시 claude-sonnet-5
+# 품질을 올리려면 claude-opus-5 (비용 약 2.5배)
+NPC_MODEL=claude-sonnet-5
+
+# 대화 요약 / 기억 갱신 모델. 미설정 시 claude-haiku-4-5
+# 사용자에게 안 보이는 백그라운드 작업이라 싼 모델로 충분합니다.
+NPC_SUMMARY_MODEL=claude-haiku-4-5
+
+# 하루 총 사용액 상한 (USD). 미설정 시 5달러.
+# 이 금액을 넘으면 NPC 가 등장하지 않습니다 ("오늘 아저씨 일찍 퇴근했다").
+# ⚠️ 아래 BUDGET_KV 바인딩이 있어야 실제로 동작합니다.
+DAILY_BUDGET_USD=5
