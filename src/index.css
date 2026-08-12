@@ -382,3 +382,63 @@
 .cup-armed         { animation: cupArmed  0.75s ease-in-out infinite; }
 .cup-hit           { animation: cupHit    0.75s ease-in-out; }
 .battle-explosion  { animation: battleExplosion 0.9s ease-out forwards; }
+
+/* ═══════════════════════════════════════════════════════════
+   흡연실
+   ═══════════════════════════════════════════════════════════ */
+
+/* 담배 연기 — 올라가면서 흔들리고 흩어진다 */
+@keyframes smokeRise {
+  0%   { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  12%  { opacity: 0.42; }
+  50%  { transform: translate(9px, -46px) scale(1.25); opacity: 0.26; }
+  100% { transform: translate(-7px, -96px) scale(2.1); opacity: 0; }
+}
+
+/* 불씨 — 들이마실 때 밝아진다 */
+@keyframes ember {
+  0%, 74%, 100% { opacity: 0.55; }
+  84%           { opacity: 1; }
+}
+
+/* 형광등 깜빡임 — 불규칙하게 */
+@keyframes flicker {
+  0%, 100%              { opacity: 1; }
+  8%, 10%               { opacity: 0.35; }
+  9%                    { opacity: 0.85; }
+  47%, 49%              { opacity: 0.5; }
+  48%                   { opacity: 1; }
+  72%                   { opacity: 0.72; }
+}
+
+/* NPC 등장 — 문 쪽에서 걸어 들어온다 */
+@keyframes npcEnter {
+  0%   { transform: translateX(-52px); opacity: 0; }
+  35%  { opacity: 1; }
+  100% { transform: translateX(0);     opacity: 1; }
+}
+
+/* 대화 패널 올라오기 */
+@keyframes panelUp {
+  from { transform: translateY(14px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* 발자국 힌트 텍스트 */
+@keyframes hintFade {
+  0%        { opacity: 0; transform: translateY(4px); }
+  18%, 76%  { opacity: 1; transform: translateY(0); }
+  100%      { opacity: 0; transform: translateY(-4px); }
+}
+
+/* 타이핑 커서 */
+@keyframes caret {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.smoke-puff  { animation: smokeRise 3.4s ease-out infinite; }
+.npc-enter   { animation: npcEnter 1.1s ease-out both; }
+.panel-up    { animation: panelUp 0.32s ease-out both; }
+.hint-fade   { animation: hintFade 4.2s ease-in-out both; }
+.tube-flicker{ animation: flicker 7s linear infinite; }

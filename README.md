@@ -11,11 +11,25 @@
 - **픽셀 오브젝트**: 문이 벌컥 열리는 전자레인지(창 너머 만두가 돌아가고 타이머가 줄어요), 유리창에 음료가 진열된 자판기, 쿠키 항아리가 놓인 나무 선반, 추출 중 커피가 차오르는 머신.
 - **출근 도장 + 쉼 타이머**: 하루 첫 커피에 도장 — 연속 출근 스트릭(헤더 🔥)과 오늘 쉰 시간이 시계 상태창에 은은하게 표시됩니다.
 
+**v0.3 — 흡연실 (프로토타입)**
+
+탕비실 오른쪽 아래 `복도 → 흡연실` 문으로 들어갑니다.
+
+- **소환 의식**: 담배 한 개비 = 실시간 12초. 연달아 4개비를 피우면 문이 열리고 누가 들어옵니다.
+  1개비에 재떨이, 2개비에 낙서, 3개비에 복도 발자국 — 단계마다 신호가 옵니다.
+- **비흡연자 경로**: 담배를 안 피우고 흡연실에 3분간 그냥 서 있어도 같은 사람이 옵니다.
+- **기억하는 NPC**: 이전 대화, 고민, 그리고 **지난번에 준 조언의 결과**를 기억합니다.
+  다음에 만나면 먼저 물어봅니다 — *"지난번에 팀장한테 말해보라 했잖아. 했어?"*
+- **기억은 이 브라우저에만** 저장됩니다. 서버에 남지 않고, 다른 사람에게 보이지 않습니다.
+  아저씨에게 "다 잊어줘"라고 하면 실제로 삭제됩니다.
+- **안전장치**: 위기 신호가 감지되면 캐릭터를 유지한 채 상담 전화(109)로 연결합니다.
+
 ## 기술 스택
 
 - **프론트엔드**: React 18 + TypeScript + Vite 7
 - **스타일**: Tailwind CSS 4 (+ 대부분 인라인 픽셀 스타일, DotGothic16 폰트)
 - **실시간 백엔드**: Supabase (Postgres + Realtime + Presence)
+- **NPC AI**: Anthropic API (Cloudflare Pages Functions 프록시, SSE 스트리밍)
 - **외부 데이터**: open-meteo(날씨·미세먼지), 연합뉴스 RSS
 
 ## 로컬 실행
@@ -38,6 +52,84 @@ npm run dev        # http://localhost:5173
 VITE_SUPABASE_URL=https://xxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
 ```
+
+## 흡연실 NPC 설정 (AI 연동)
+
+NPC 없이도 앱은 정상 동작합니다 — AI 서버가 없으면 아저씨가 등장은 하되 말을 못 합니다.
+
+### 1. API 키
+
+[console.anthropic.com](https://console.anthropic.com) 에서 API 키를 발급받습니다.
+**Claude MAX/Pro 구독과는 별개인 종량제 크레딧**입니다. 구독은 이 앱의 API 호출을 덮지 않습니다.
+
+### 2. 로컬 실행
+
+API 키는 서버에서만 쓰이므로 `vite dev` 로는 NPC 대화가 안 됩니다. Pages Functions 런타임이 필요합니다:
+
+```bash
+cp .dev.vars.example .dev.vars   # ANTHROPIC_API_KEY 채우기
+npm run build
+npx wrangler pages dev dist      # http://localhost:8788
+```
+
+### 3. 배포 (Cloudflare Pages)
+
+**Settings → Environment variables** 에 `ANTHROPIC_API_KEY` 를 **Secret 타입**으로 등록합니다.
+나머지 값(`NPC_MODEL`, `DAILY_BUDGET_USD` 등)은 선택 사항입니다 — [`.dev.vars.example`](./.dev.vars.example) 참고.
+
+> ⚠️ **[`wrangler.toml`](./wrangler.toml) 이 있으면 대시보드의 Functions 설정은 무시됩니다.**
+> compatibility flags 와 KV 바인딩은 대시보드가 아니라 **반드시 `wrangler.toml` 에** 적어야 합니다.
+> (환경변수/시크릿은 대시보드가 맞습니다)
+
+`wrangler.toml` 의 `compatibility_flags = ["nodejs_compat"]` 는 **빼면 안 됩니다.**
+`@anthropic-ai/sdk` 가 자격증명 체인 때문에 `node:fs` / `node:path` 를 정적 import 하는데,
+이 플래그가 없으면 모듈 평가 단계에서 Worker 가 죽습니다.
+
+### 4. 일일 예산 차단기 ⚠️ 배포 전 필수
+
+하루 사용액이 상한을 넘으면 NPC 가 등장하지 않게 하는 장치입니다.
+이게 없으면 트래픽이 몰렸을 때 청구액에 상한이 없습니다.
+
+1. Cloudflare → **Workers & Pages → KV** 에서 네임스페이스 생성 (예: `tangbisil-budget`)
+2. 생성된 ID 를 [`wrangler.toml`](./wrangler.toml) 의 `[[kv_namespaces]]` 블록에 넣고 주석 해제
+3. `DAILY_BUDGET_USD` 환경변수로 상한 설정 (미설정 시 5달러)
+
+바인딩이 없으면 차단기가 꺼진 채로 동작하며 서버 로그에 경고가 남습니다.
+백업으로 Anthropic Console 의 사용량 알림도 함께 걸어두는 걸 권장합니다.
+
+### 5. 배포 직후 확인
+
+```bash
+npm run verify:deploy https://<배포주소>
+```
+
+라우팅 → 키 등록 → 실제 응답까지 한 번에 확인하고, 아저씨가 뭐라고 답했는지도 찍어줍니다.
+말투가 규칙에서 벗어나면(너무 길거나, 마크다운을 쓰거나, "힘내세요" 를 하거나) 같이 짚어줍니다.
+
+이 확인이 필요한 이유: 정적 파일이 함수를 가리면 `/api/chat` 이 `index.html` 을 돌려주고,
+클라이언트는 그걸 "AI 서버 없음" 으로 판단해 조용히 폴백합니다.
+**아저씨가 등장은 하는데 말을 못 하는 상태가 에러 없이 만들어집니다.**
+
+### 모델 바꿔보기
+
+`NPC_MODEL` 환경변수만 바꾸면 코드 수정 없이 교체됩니다. 같은 하소연을 던져보고
+아저씨 말투가 사는 쪽을 고르세요 (짧게 말하는지, 상투적인 위로를 안 하는지).
+
+### 비용 참고
+
+15턴 대화 1회 기준 (프롬프트 캐싱 적용) 대략:
+
+| 모델 | 대화 1회 |
+|---|---|
+| `claude-opus-5` | 약 210원 |
+| `claude-sonnet-5` (기본값) | 약 90원 |
+| `claude-haiku-4-5` | 약 42원 |
+
+사용자당 상한은 담배 갑(하루 20개비)과 일일 대화 턴 수(40턴)로,
+서비스 전체 상한은 위의 예산 차단기로 걸립니다.
+
+> **GitHub Pages 로는 NPC 가 동작하지 않습니다.** 정적 호스팅이라 서버 함수를 올릴 수 없습니다.
+> AI 기능을 쓰려면 Cloudflare Pages(권장) 또는 Vercel 로 배포하세요.
 
 ## 배포
 
@@ -69,15 +161,25 @@ Supabase 값은 **Settings → Secrets and variables → Actions**에 등록합�
 ## 프로젝트 구조
 
 ```
+functions/api/chat.ts              # NPC AI 프록시 (API 키는 여기서만 쓰인다)
 src/
-├── context/BreakRoomContext.tsx   # 핵심 상태 — 컵/메시지/presence 실시간 동기화
-├── pages/TangbirsilRoom.tsx       # 메인 룸 레이아웃
+├── context/
+│   ├── BreakRoomContext.tsx       # 탕비실 상태 — 컵/메시지/presence 실시간 동기화
+│   └── SmokingRoomContext.tsx     # 흡연실 상태 — 담배 메커닉 + NPC 대화
+├── pages/TangbirsilRoom.tsx       # 룸 라우팅 (탕비실 ↔ 흡연실)
 ├── components/
-│   ├── BreakRoomScene.tsx         # 방 씬 (전자레인지·디저트·자판기 포함)
+│   ├── BreakRoomScene.tsx         # 탕비실 씬 (전자레인지·디저트·자판기 포함)
 │   ├── SharedCounter.tsx          # 공유 카운터 + 컵 결투
 │   ├── CoffeeMachine.tsx          # 커피 내리기 (자리잡기)
 │   ├── ComposerBar.tsx            # 한 줄 메시지 입력
+│   ├── SmokingRoom.tsx            # 흡연실 씬 (재떨이·낙서·NPC)
+│   ├── NpcDialogue.tsx            # NPC 대화 패널
 │   └── ...                        # 창문 날씨, 시계, 화분, 티커 등
+├── lib/
+│   ├── npcPrompt.ts               # NPC 캐릭터 프롬프트 + 위기 감지 + 요약 스키마
+│   ├── npcMemory.ts               # 기억 (localStorage) — 프로필/요약/미결 과제
+│   ├── npcClient.ts               # /api/chat 호출 + SSE 파싱
+│   └── sound.ts                   # Web Audio 합성 효과음
 └── hooks/                         # 날씨·미세먼지·뉴스·시계
 ```
 
