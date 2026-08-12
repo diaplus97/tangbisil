@@ -74,8 +74,16 @@ npx wrangler pages dev dist      # http://localhost:8788
 
 ### 3. 배포 (Cloudflare Pages)
 
-**Settings → Environment variables** 에 `ANTHROPIC_API_KEY` 를 등록합니다.
+**Settings → Environment variables** 에 `ANTHROPIC_API_KEY` 를 **Secret 타입**으로 등록합니다.
 나머지 값(`NPC_MODEL`, `DAILY_BUDGET_USD` 등)은 선택 사항입니다 — [`.dev.vars.example`](./.dev.vars.example) 참고.
+
+> ⚠️ **[`wrangler.toml`](./wrangler.toml) 이 있으면 대시보드의 Functions 설정은 무시됩니다.**
+> compatibility flags 와 KV 바인딩은 대시보드가 아니라 **반드시 `wrangler.toml` 에** 적어야 합니다.
+> (환경변수/시크릿은 대시보드가 맞습니다)
+
+`wrangler.toml` 의 `compatibility_flags = ["nodejs_compat"]` 는 **빼면 안 됩니다.**
+`@anthropic-ai/sdk` 가 자격증명 체인 때문에 `node:fs` / `node:path` 를 정적 import 하는데,
+이 플래그가 없으면 모듈 평가 단계에서 Worker 가 죽습니다.
 
 ### 4. 일일 예산 차단기 ⚠️ 배포 전 필수
 
@@ -83,12 +91,30 @@ npx wrangler pages dev dist      # http://localhost:8788
 이게 없으면 트래픽이 몰렸을 때 청구액에 상한이 없습니다.
 
 1. Cloudflare → **Workers & Pages → KV** 에서 네임스페이스 생성 (예: `tangbisil-budget`)
-2. Pages 프로젝트 → **Settings → Functions → KV namespace bindings**
-   변수명 `BUDGET_KV` 로 바인딩
+2. 생성된 ID 를 [`wrangler.toml`](./wrangler.toml) 의 `[[kv_namespaces]]` 블록에 넣고 주석 해제
 3. `DAILY_BUDGET_USD` 환경변수로 상한 설정 (미설정 시 5달러)
 
 바인딩이 없으면 차단기가 꺼진 채로 동작하며 서버 로그에 경고가 남습니다.
 백업으로 Anthropic Console 의 사용량 알림도 함께 걸어두는 걸 권장합니다.
+
+### 5. 배포 직후 확인
+
+정적 파일이 함수를 가리지 않는지 한 번 확인하세요. SSE 가 아니라 HTML 이 오면
+클라이언트가 "AI 서버 없음" 으로 판단해 NPC 가 조용히 말을 못 합니다.
+
+```bash
+curl -i -X POST https://<배포주소>/api/chat \
+  -H "content-type: application/json" \
+  -d '{"mode":"chat","memoryBlock":"x","messages":[{"role":"user","content":"안녕"}]}'
+```
+
+`content-type: text/event-stream` 이면 정상입니다.
+`text/html` 이 오면 함수가 안 잡힌 것이고, `503` 이면 키가 등록되지 않은 것입니다.
+
+### 모델 바꿔보기
+
+`NPC_MODEL` 환경변수만 바꾸면 코드 수정 없이 교체됩니다. 같은 하소연을 던져보고
+아저씨 말투가 사는 쪽을 고르세요 (짧게 말하는지, 상투적인 위로를 안 하는지).
 
 ### 비용 참고
 

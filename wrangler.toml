@@ -1,0 +1,42 @@
+#:schema node_modules/wrangler/config-schema.json
+# Cloudflare Pages 설정
+#
+# ⚠️ 이 파일이 존재하면 Cloudflare 대시보드의 "Functions" 설정
+#    (compatibility flags, KV/D1 등 바인딩)은 **무시됩니다**.
+#    바인딩은 대시보드가 아니라 반드시 이 파일에 적어야 합니다.
+
+name = "tangbisil"
+pages_build_output_dir = "dist"
+
+compatibility_date = "2026-08-12"
+
+# ⚠️ 필수 — 빼면 흡연실 NPC 가 런타임에 죽습니다.
+#
+# @anthropic-ai/sdk 는 자격증명 체인(OAuth 프로필, identity token 파일)을 위해
+# node:fs / node:path 를 정적 import 합니다. 우리는 apiKey 를 직접 넘기므로
+# 그 코드 경로는 실행되지 않지만, import 자체는 번들에 포함되기 때문에
+# 이 플래그가 없으면 모듈 평가 단계에서 터집니다.
+compatibility_flags = ["nodejs_compat"]
+
+# ─── 일일 예산 차단기용 KV ────────────────────────────────────
+#
+# 이걸 안 붙이면 예산 상한이 동작하지 않습니다 (경고만 남기고 통과).
+# 배포 전에 반드시 붙이세요.
+#
+#   1. Cloudflare → Workers & Pages → KV → 네임스페이스 생성
+#   2. 생성된 ID 를 아래에 넣고 주석 해제
+#
+# [[kv_namespaces]]
+# binding = "BUDGET_KV"
+# id = "여기에_KV_네임스페이스_ID"
+
+# ─── 시크릿 ───────────────────────────────────────────────────
+# ANTHROPIC_API_KEY 는 이 파일에 절대 넣지 마세요 (git 에 올라갑니다).
+#   로컬 → .dev.vars
+#   배포 → Cloudflare Pages → Settings → Environment variables (Secret 로 등록)
+#
+# 모델 선택 같은 비밀 아닌 값은 여기 둬도 됩니다:
+# [vars]
+# NPC_MODEL = "claude-sonnet-5"
+# NPC_SUMMARY_MODEL = "claude-haiku-4-5"
+# DAILY_BUDGET_USD = "5"
