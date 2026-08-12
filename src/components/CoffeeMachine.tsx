@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useBreakRoom, type CoffeeType } from "@/context/BreakRoomContext";
+import { sound } from "@/lib/sound";
 
 const BREW_COLORS: Record<CoffeeType, string> = {
   americano: "#1a0800",
@@ -32,9 +33,11 @@ export default function CoffeeMachine({ compact = false }: CoffeeMachineProps) {
   const handleBrew = (type: CoffeeType) => {
     if (brewing || myCup) return;
     setBrewing(type);
+    sound.play("brew");
     setTimeout(() => {
       brew(type);
       setBrewing(null);
+      sound.play("clink");
     }, 2000);
   };
 

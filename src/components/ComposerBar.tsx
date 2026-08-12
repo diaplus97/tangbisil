@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useBreakRoom } from "@/context/BreakRoomContext";
+import { sound } from "@/lib/sound";
 
 const QUICK_PHRASES = [
   "커피 한잔 하고 갑니다 ☕",
@@ -20,6 +21,7 @@ export default function ComposerBar() {
     const t = (msg ?? text).trim();
     if (!t) return;
     sendMessage(t);
+    sound.play("blip");
     setText("");
   };
 

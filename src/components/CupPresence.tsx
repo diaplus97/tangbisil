@@ -7,14 +7,24 @@ type CupPresenceProps = {
   isJiggling?: boolean;
   isHit?: boolean;
   canAttack?: boolean;
+  /** 식은 컵 (다녀간 흔적) — 회색조 + 김 없음 */
+  isCold?: boolean;
   onClick?: () => void;
 };
+
+function coldAgoText(cup: ActiveCup): string {
+  const t = cup.leftAt ?? cup.messageAt ?? cup.createdAt;
+  if (!t) return "쉬다 감";
+  const min = Math.max(1, Math.round((Date.now() - t) / 60_000));
+  if (min < 60) return `${min}분 전까지 있었음`;
+  return `${Math.round(min / 60)}시간 전까지 있었음`;
+}
 
 /** 카운터 위에 놓이는 한 개의 컵 */
 export default function CupPresence({
   cup, showSteam,
   isArmed = false, isJiggling = false, isHit = false,
-  canAttack = false, onClick,
+  canAttack = false, isCold = false, onClick,
 }: CupPresenceProps) {
   // 애니메이션 클래스 우선순위: hit > armed > jiggle
   let animClass = "";
@@ -26,7 +36,9 @@ export default function CupPresence({
     ? canAttack ? "crosshair" : "pointer"
     : "default";
 
-  const title = isArmed
+  const title = isCold
+    ? `${cup.nickname.replace("Anonymous", "A")} — ${coldAgoText(cup)}`
+    : isArmed
     ? "공격할 컵을 탭하세요 ⚔️"
     : cup.isMe
     ? "탭: 무장 / 재탭: 해제"
@@ -60,8 +72,18 @@ export default function CupPresence({
       )}
 
       {/* 컵 SVG + 애니메이션 */}
-      <div style={{ position: "relative" }} className={animClass}>
-        {showSteam && <SteamEffect />}
+      <div
+        className={animClass}
+        style={{
+          position: "relative",
+          filter: isCold ? "grayscale(0.85) brightness(0.92)" : "none",
+          opacity: isCold ? 0.6 : 1,
+          transform: isCold ? "scale(0.88)" : "none",
+          transformOrigin: "bottom center",
+          transition: "filter 0.6s, opacity 0.6s",
+        }}
+      >
+        {showSteam && !isCold && <SteamEffect />}
         {/* 무장 상태 검 아이콘 */}
         {isArmed && (
           <div style={{
@@ -79,9 +101,9 @@ export default function CupPresence({
       <div style={{
         fontFamily: "'DotGothic16', monospace",
         fontSize: 9,
-        color: cup.isMe ? cup.color : "hsl(30 25% 35%)",
-        background: cup.isMe ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.5)",
-        border: `2px solid ${isArmed ? "#f39c12" : canAttack ? "#e74c3c" : cup.isMe ? cup.color : "hsl(30 25% 55%)"}`,
+        color: isCold ? "hsl(30 12% 55%)" : cup.isMe ? cup.color : "hsl(30 25% 35%)",
+        background: cup.isMe ? "rgba(255,255,255,0.75)" : isCold ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.5)",
+        border: `2px solid ${isArmed ? "#f39c12" : canAttack ? "#e74c3c" : isCold ? "hsl(30 12% 68%)" : cup.isMe ? cup.color : "hsl(30 25% 55%)"}`,
         padding: "1px 5px",
         maxWidth: 80,
         textAlign: "center",
@@ -89,6 +111,7 @@ export default function CupPresence({
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
         transition: "border-color 0.2s",
+        opacity: isCold ? 0.75 : 1,
       }}>
         {cup.nickname.replace("Anonymous", "A")}
       </div>

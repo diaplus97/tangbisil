@@ -1,6 +1,7 @@
 import { useBreakRoom, type LiveStatus } from "@/context/BreakRoomContext";
 import { useClock } from "@/hooks/useClock";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSound } from "@/hooks/useSound";
 
 const STATUS_LABEL: Record<LiveStatus, { dot: string; text: string }> = {
   demo:       { dot: "#8899aa", text: "오프라인" },
@@ -10,9 +11,10 @@ const STATUS_LABEL: Record<LiveStatus, { dot: string; text: string }> = {
 };
 
 export default function HeaderBar() {
-  const { nickname, myColor, rerollNickname, onlineCount, myCup, liveStatus } = useBreakRoom();
+  const { nickname, myColor, rerollNickname, onlineCount, myCup, liveStatus, coldCups, streak } = useBreakRoom();
   const isMobile = useIsMobile();
   const now = useClock();
+  const { enabled: soundOn, toggle: toggleSound } = useSound();
   const timeStr = now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
   const status = STATUS_LABEL[liveStatus];
 
@@ -67,11 +69,42 @@ export default function HeaderBar() {
 
       {/* 오른쪽: 상태 */}
       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+        {/* 사운드 토글 */}
+        <button
+          onClick={toggleSound}
+          title={soundOn ? "소리 끄기" : "소리 켜기 (탕비실 ASMR)"}
+          style={{
+            padding: "2px 6px",
+            background: soundOn ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.22)",
+            border: `2px solid ${soundOn ? "rgba(120,255,160,0.5)" : "rgba(255,255,255,0.18)"}`,
+            color: "white", fontSize: 10, lineHeight: 1.4,
+            cursor: "pointer",
+            fontFamily: "'DotGothic16', monospace",
+            touchAction: "manipulation",
+          }}
+        >
+          {soundOn ? "🔊" : "🔇"}
+        </button>
+
+        {/* 연속 출근 스트릭 */}
+        {streak >= 2 && (
+          <Chip>
+            <span style={{ color: "#ffd27a" }}>🔥{streak}일</span>
+          </Chip>
+        )}
+
         {/* 온라인 수 — live 모드만 표시 */}
         {liveStatus !== "demo" && (
           <Chip>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#5aff7a", display: "inline-block", flexShrink: 0 }} />
             <span style={{ color: "rgba(255,255,255,0.85)" }}>{onlineCount}명</span>
+          </Chip>
+        )}
+
+        {/* 다녀간 사람 (식은 컵) — 데스크탑만 */}
+        {!isMobile && coldCups.length > 0 && (
+          <Chip>
+            <span style={{ color: "rgba(255,255,255,0.65)" }}>다녀감 {coldCups.length}</span>
           </Chip>
         )}
 

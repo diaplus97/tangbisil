@@ -11,8 +11,11 @@ import SharedCounter from "./SharedCounter";
 import WindowWeather from "./WindowWeather";
 import StatusClock from "./StatusClock";
 import PlantCorner from "./PlantCorner";
+import StampWidget from "./StampWidget";
+import TopicPoster from "./TopicPoster";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { sound } from "@/lib/sound";
 
 export default function BreakRoomScene() {
   const isMobile = useIsMobile();
@@ -120,6 +123,9 @@ function LeftZone({ compact }: { compact: boolean }) {
       {/* 디지털 시계 + 먼지 — 데스크탑만 */}
       {!compact && <StatusClock />}
 
+      {/* 출근 도장판 — 데스크탑만 */}
+      {!compact && <StampWidget />}
+
       {/* 화분 — 하단 */}
       <div style={{ marginTop: "auto", flexShrink: 0 }}>
         <PlantCorner compact={compact} />
@@ -144,8 +150,13 @@ function CenterZone({ compact, showHint }: { compact: boolean; showHint: boolean
       {/* 전자레인지 — 절대 위치, 레이아웃에 영향 없음 */}
       <MicrowaveStation compact={compact} />
 
-      {/* 빈 벽 공간 — machine을 아래로 밀기 */}
-      <div style={{ flex: 1 }} />
+      {/* 빈 벽 공간 — 오늘의 주제 포스터 + machine을 아래로 밀기 */}
+      <div style={{
+        flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+        minHeight: 0, paddingTop: compact ? 26 : 8,
+      }}>
+        <TopicPoster compact={compact} />
+      </div>
 
       {/* 안내 문구 — 자연스러운 흐름으로 machine 바로 위에 렌더링 */}
       {showHint && (
@@ -223,6 +234,7 @@ function MicrowaveStation({ compact }: { compact: boolean }) {
     setTimeout(() => setPopAnim(false), 600);
     setMwState("heating");
     setHeatPct(0);
+    sound.play("hum");
     const start = Date.now();
     const tick = () => {
       const elapsed = Date.now() - start;
@@ -232,6 +244,7 @@ function MicrowaveStation({ compact }: { compact: boolean }) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
         setMwState("done");
+        sound.play("ding");
       }
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -241,6 +254,7 @@ function MicrowaveStation({ compact }: { compact: boolean }) {
     if (mwState !== "done") return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     sendMessage("냉동만두 꺼냄 🥟 후후~ 식혀야지");
+    sound.play("pop");
     setMwState("idle");
     setHeatPct(0);
   }, [mwState, sendMessage]);
@@ -478,6 +492,7 @@ function DessertShelf({ compact }: { compact: boolean }) {
     setGrabCount(newCount);
 
     sendMessage(item.message);
+    sound.play("crunch");
     setPopEmoji(item.emoji);
     setTimeout(() => setPopEmoji(null), 1400);
 
@@ -586,6 +601,7 @@ function VendingMachine({ compact }: { compact: boolean }) {
   const insertCoin = () => {
     if (locked || state !== "idle") return;
     setState("ready");
+    sound.play("coin");
     setTimeout(() => setState((s) => s === "ready" ? "idle" : s), 8000);
   };
 
@@ -594,6 +610,7 @@ function VendingMachine({ compact }: { compact: boolean }) {
     setState("dispensing");
     setDropping(item.emoji);
     sendMessage(item.message);
+    sound.play("drop");
     setTimeout(() => { setState("idle"); setDropping(null); }, 1800);
   };
 

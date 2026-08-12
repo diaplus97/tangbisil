@@ -1,7 +1,9 @@
-import { useRef, useState, useEffect, useLayoutEffect, useCallback } from "react";
-import { useBreakRoom } from "@/context/BreakRoomContext";
+import { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+import { useBreakRoom, type ActiveCup } from "@/context/BreakRoomContext";
 import CupPresence from "./CupPresence";
 import FloatingMessageLayer from "./FloatingMessageLayer";
+import BreakRoomCat from "./BreakRoomCat";
+import { sound } from "@/lib/sound";
 
 const BATTLE_MSGS = (me: string, them: string): string[] => [
   `${me} ⚔️ ${them} 결투 신청!`,
@@ -14,10 +16,16 @@ const BATTLE_MSGS = (me: string, them: string): string[] => [
 
 /** 공용 카운터 — 더 크고 묵직하게 */
 export default function SharedCounter() {
-  const { cups, myCup, sendMessage } = useBreakRoom();
+  const { cups, coldCups, myCup, sendMessage } = useBreakRoom();
   const counterRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [cupPositions, setCupPositions] = useState<number[]>([]);
+
+  // 표시 순서: 식은 컵(오래된 것부터) → 살아있는 컵 — 시간이 왼쪽으로 흘러가는 느낌
+  const displayCups: ActiveCup[] = useMemo(
+    () => [...coldCups.slice().reverse(), ...cups],
+    [cups, coldCups],
+  );
 
   // 컵 상호작용 상태
   const [isArmed, setIsArmed]         = useState(false);
@@ -36,13 +44,13 @@ export default function SharedCounter() {
   }, []);
 
   useEffect(() => {
-    if (containerWidth === 0 || cups.length === 0) return;
+    if (containerWidth === 0 || displayCups.length === 0) return;
     const CUP_W = 76;
-    const spacing = Math.min(CUP_W, (containerWidth - 32) / cups.length);
-    const total = spacing * cups.length;
+    const spacing = Math.min(CUP_W, (containerWidth - 32) / displayCups.length);
+    const total = spacing * displayCups.length;
     const startX = (containerWidth - total) / 2 + spacing / 2;
-    setCupPositions(cups.map((_, i) => startX + i * spacing));
-  }, [cups, containerWidth]);
+    setCupPositions(displayCups.map((_, i) => startX + i * spacing));
+  }, [displayCups, containerWidth]);
 
   useEffect(() => {
     const mine = cups.find((c) => c.isMe);
@@ -63,12 +71,23 @@ export default function SharedCounter() {
     setTimeout(() => setJigglingId(null), 580);
   }, []);
 
-  const handleCupClick = useCallback((cup: typeof cups[0], idx: number) => {
+  // 식은 컵 판별용 ID 셋
+  const coldIds = useMemo(() => new Set(coldCups.map((c) => c.id)), [coldCups]);
+
+  const handleCupClick = useCallback((cup: ActiveCup, idx: number) => {
     const centerX = cupPositions[idx] ?? containerWidth / 2;
+
+    if (coldIds.has(cup.id)) {
+      // 식은 컵: 살짝 흔들리기만 (결투 대상 아님)
+      jiggle(cup.id);
+      sound.play("blip");
+      return;
+    }
 
     if (cup.isMe) {
       // 내 컵: 흔들림 + 무장 토글
       jiggle(cup.id);
+      sound.play("blip");
       setIsArmed((a) => !a);
       return;
     }
@@ -78,9 +97,10 @@ export default function SharedCounter() {
       setIsArmed(false);
       setHitId(cup.id);
       setTimeout(() => setHitId(null), 780);
+      sound.play("boom");
 
       // 폭발은 두 컵 사이 중간 지점
-      const myCupIdx = cups.findIndex((c) => c.isMe);
+      const myCupIdx = displayCups.findIndex((c) => c.isMe);
       const myCenterX = cupPositions[myCupIdx] ?? containerWidth / 2;
       setExplosionAt({ x: (myCenterX + centerX) / 2, y: 52 });
       setTimeout(() => setExplosionAt(null), 920);
@@ -94,9 +114,10 @@ export default function SharedCounter() {
 
     // 남의 컵: 그냥 흔들기
     jiggle(cup.id);
-  }, [cups, cupPositions, containerWidth, isArmed, myCup, jiggle, sendMessage]);
+    sound.play("blip");
+  }, [displayCups, coldIds, cupPositions, containerWidth, isArmed, myCup, jiggle, sendMessage]);
 
-  const cupsWithPos = cups.map((c, i) => ({ ...c, centerX: cupPositions[i] ?? containerWidth / 2 }));
+  const cupsWithPos = displayCups.map((c, i) => ({ ...c, centerX: cupPositions[i] ?? containerWidth / 2 }));
 
   return (
     <div style={{ width: "100%", flexShrink: 0 }}>
@@ -114,6 +135,9 @@ export default function SharedCounter() {
         <div style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(90deg, transparent 0px, transparent 60px, rgba(0,0,0,0.04) 60px, rgba(0,0,0,0.04) 61px)" }} />
 
         <FloatingMessageLayer cupsWithPos={cupsWithPos} containerWidth={containerWidth} />
+
+        {/* 탕비실 고양이 */}
+        <BreakRoomCat />
 
         {/* 결투 폭발 이펙트 */}
         {explosionAt && (
@@ -141,7 +165,7 @@ export default function SharedCounter() {
           minHeight: 122,
           position: "relative",
         }}>
-          {cups.length === 0 && (
+          {displayCups.length === 0 && (
             <div style={{
               width: "100%", textAlign: "center",
               fontFamily: "'DotGothic16', monospace", fontSize: 11,
@@ -150,7 +174,16 @@ export default function SharedCounter() {
               아직 아무도 없어요... 커피 한잔 내려볼까요? ☕
             </div>
           )}
-          {cups.map((cup, i) => (
+          {displayCups.length > 0 && cups.length === 0 && (
+            <div style={{
+              position: "absolute", top: 6, left: 0, right: 0, textAlign: "center",
+              fontFamily: "'DotGothic16', monospace", fontSize: 9,
+              color: "hsl(38 35% 70%)", pointerEvents: "none",
+            }}>
+              지금은 아무도 없어요 — 컵들이 식어가는 중...
+            </div>
+          )}
+          {displayCups.map((cup, i) => (
             <CupPresence
               key={cup.id}
               cup={cup}
@@ -158,7 +191,8 @@ export default function SharedCounter() {
               isArmed={cup.isMe && isArmed}
               isJiggling={jigglingId === cup.id}
               isHit={hitId === cup.id}
-              canAttack={isArmed && !cup.isMe && !!myCup}
+              canAttack={isArmed && !cup.isMe && !!myCup && !coldIds.has(cup.id)}
+              isCold={coldIds.has(cup.id)}
               onClick={() => handleCupClick(cup, i)}
             />
           ))}
