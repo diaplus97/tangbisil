@@ -39,13 +39,32 @@ VITE_SUPABASE_URL=https://xxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
 ```
 
-## 배포 (Vercel 기준)
+## 배포
 
-1. 이 레포를 Vercel에 연결 (Framework: Vite 자동 감지)
-2. Build Command `npm run build` / Output Directory `dist` (기본값)
-3. 환경변수 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` 등록
+어느 방식이든 환경변수 `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`를 등록하지 않으면
+오프라인 데모 모드로 빌드됩니다 (빌드는 실패하지 않음).
 
-Cloudflare Pages, Netlify도 동일한 설정으로 배포 가능합니다.
+### Cloudflare Pages (권장)
+
+무료 플랜에서 대역폭 제한이 없고 상업적 사용도 허용되어, 광고·후원 등 수익화를 붙일 때 가장 안전합니다.
+`public/_redirects`(SPA 폴백)와 `public/_headers`(캐시 정책)가 이미 들어 있어 추가 설정이 필요 없습니다.
+
+1. Cloudflare 대시보드 → **Workers & Pages** → **Create** → **Pages** → 이 레포 연결
+2. 빌드 설정 — 프레임워크 프리셋 `Vite`, Build command `npm run build`, Output directory `dist`
+3. **Settings → Environment variables**에 Supabase 값 두 개 등록 후 재배포
+
+### GitHub Pages (현재 설정됨)
+
+[`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml)이 `main` 푸시마다 자동 배포합니다.
+최초 1회만 레포 **Settings → Pages → Source**를 `GitHub Actions`로 바꿔주면 됩니다.
+Supabase 값은 **Settings → Secrets and variables → Actions**에 등록합니다.
+
+하위 경로(`/<레포명>/`)로 서빙되므로 워크플로가 `BASE_PATH`를 자동으로 맞춥니다.
+
+### Vercel
+
+[`vercel.json`](./vercel.json)이 있어 레포 연결만 하면 배포됩니다.
+단, 무료(Hobby) 플랜은 약관상 상업적 사용이 금지되어 있어 수익화 단계에서는 유료 플랜이 필요합니다.
 
 ## 프로젝트 구조
 
