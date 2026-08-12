@@ -1,10 +1,10 @@
 import { useClock } from "@/hooks/useClock";
 import { useAirQuality } from "@/hooks/useAirQuality";
+import { useBreakRoom, todayKey } from "@/context/BreakRoomContext";
 
 const STATUS_CYCLE = [
   "탕비실 온도 쾌적",
   "커피 잔여량 충분",
-  "오늘 방문 +1",
   "눈에 피로 쌓이는 중",
   "쉬어가도 괜찮아요",
 ];
@@ -13,14 +13,20 @@ const STATUS_CYCLE = [
 export default function StatusClock() {
   const now = useClock();
   const air = useAirQuality();
+  const { stampDays, streak, restMinutes } = useBreakRoom();
 
   const h = now.getHours().toString().padStart(2, "0");
   const m = now.getMinutes().toString().padStart(2, "0");
   const colon = now.getSeconds() % 2 === 0;
 
-  // 30초마다 상태 텍스트 변경
-  const statusIdx = Math.floor(now.getTime() / 30000) % STATUS_CYCLE.length;
-  const statusText = STATUS_CYCLE[statusIdx];
+  // 기본 문구 + 개인 기록 (도장/스트릭/쉼 시간)을 섞어서 30초마다 로테이션
+  const cycle = [...STATUS_CYCLE];
+  if (stampDays.includes(todayKey())) cycle.push("오늘 출근 도장 ✓");
+  if (streak >= 2) cycle.push(`${streak}일 연속 출근 중 🔥`);
+  if (restMinutes > 0) cycle.push(`오늘 ${restMinutes}분 쉬는 중 ☕`);
+
+  const statusIdx = Math.floor(now.getTime() / 30000) % cycle.length;
+  const statusText = cycle[statusIdx];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>

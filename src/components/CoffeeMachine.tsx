@@ -208,6 +208,19 @@ function MachineSvg({ brewing, done, compact }: { brewing: CoffeeType | null; do
           fill={brewing ? "#3a0a00" : "#0a0400"} stroke="#1e0e04" strokeWidth="1" />
       ))}
 
+      {/* 추출 중인 컵 — 커피가 차오른다 */}
+      {brewing && (
+        <g>
+          <rect x="70" y="158" width="20" height="0" fill={BREW_COLORS[brewing]}>
+            <animate attributeName="y" from="158" to="147" dur="1.7s" begin="0.2s" fill="freeze" />
+            <animate attributeName="height" from="0" to="11" dur="1.7s" begin="0.2s" fill="freeze" />
+          </rect>
+          <polygon points="66,144 94,144 91,161 69,161"
+            fill="rgba(245,239,230,0.34)" stroke="#1e0e04" strokeWidth="2" />
+          <rect x="66" y="142" width="28" height="3" fill="#f5efe6" stroke="#1e0e04" strokeWidth="1.5" />
+        </g>
+      )}
+
       {/* ── 컵 받침 ── */}
       <rect x="20" y="160" width="120" height="8" rx="2" fill="#2e1e0e" stroke="#1e0e04" strokeWidth="1.5" />
       <rect x="30" y="162" width="100" height="2" fill="#3e2e1e" />
