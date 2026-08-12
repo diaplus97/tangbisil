@@ -20,7 +20,7 @@ export default function NotFound() {
         <div style={{ fontSize: 11, color: "hsl(30 20% 48%)", marginBottom: 16 }}>
           탕비실은 저쪽입니다
         </div>
-        <a href="/" style={{
+        <a href={import.meta.env.BASE_URL} style={{
           display: "inline-block",
           padding: "7px 16px",
           background: "hsl(25 80% 52%)",
