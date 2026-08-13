@@ -525,10 +525,23 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
     // 테이블 존재 여부가 확인돼야만 "connected" 로 전환
     let tableReady = false;
 
-    // 0. 오래된 컵 정리 (8시간 이상 된 row 삭제 — 식은 컵의 수명이기도 함)
+    // 0. 오래된 컵 정리 (8시간 이상 된 row — 식은 컵의 수명이기도 함)
+    //
+    // 클라이언트가 직접 DELETE 하면 anon key 를 쥔 누구나 방 전체를 비울 수 있다.
+    // (anon key 는 번들에 그대로 들어간다) 그래서 삭제 권한은 RLS 로 막고,
+    // "8시간 지난 것만" 지우는 함수로만 정리한다.
+    // 아직 구버전 스키마를 쓰는 프로젝트를 위해 실패하면 예전 방식으로 폴백한다.
     const pruneOldCups = () => {
-      const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
-      supabase!.from("cups").delete().lt("created_at", cutoff).then();
+      supabase!.rpc("prune_old_cups").then(({ error }) => {
+        if (!error) return;
+        const cutoff = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+        supabase!.from("cups").delete().lt("created_at", cutoff).then(({ error: e2 }) => {
+          if (e2) console.warn(
+            "[탕비실] 오래된 컵 정리 실패. supabase/schema.sql 을 다시 실행하세요:",
+            error.message,
+          );
+        });
+      });
     };
     pruneOldCups();
     // 30분마다 재실행
@@ -632,8 +645,9 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
         .update({ left_at: new Date().toISOString() })
         .eq("id", SESSION_ID)
         .then(({ error }) => {
-          // left_at 컬럼이 없는 구버전 스키마면 기존 동작(삭제)으로 폴백
-          if (error) supabase!.from("cups").delete().eq("id", SESSION_ID).then();
+          // 예전엔 여기서 DELETE 로 폴백했지만, 이제 삭제는 RLS 로 막혀 있다.
+          // (막아야 anon key 로 방을 통째로 비우는 걸 방지할 수 있다)
+          if (error) console.warn("[탕비실] 퇴장 표시 실패:", error.message);
         });
     };
     window.addEventListener("beforeunload", markLeft);
