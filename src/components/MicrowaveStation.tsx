@@ -8,6 +8,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
+import BlastFx from "./BlastFx";
 
 type MwState = "idle" | "heating" | "done" | "burnt" | "wrecked";
 
@@ -30,6 +31,8 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
   const [selected, setSelected] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [popAnim, setPopAnim]   = useState(false);
+  /** 터진 순간의 연출 — 잠깐만 얹혔다 사라진다 */
+  const [blastAt, setBlastAt]   = useState(0);
   const rafRef = useRef<number | null>(null);
 
   const startHeating = useCallback(() => {
@@ -87,11 +90,19 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
       if (Math.random() >= BLAST_CHANCE) return;
       clearInterval(t);
       setMwState("wrecked");
+      setBlastAt(Date.now());
       triggerExplosion();
       sendMessage("전자레인지가 터졌다 💥");
     }, BLAST_ROLL_MS);
     return () => clearInterval(t);
   }, [mwState, triggerExplosion, sendMessage]);
+
+  // 폭발 연출은 잠깐이면 된다 — 그을음은 wrecked 동안 계속 남는다
+  useEffect(() => {
+    if (!blastAt) return;
+    const t = setTimeout(() => setBlastAt(0), 1400);
+    return () => clearTimeout(t);
+  }, [blastAt]);
 
   // 터진 뒤 복구
   useEffect(() => {
@@ -178,6 +189,20 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
           lineHeight: 0,
         }}
       >
+        {/* 폭발 순간 — 화염구 / 충격파 / 파편 */}
+        {blastAt > 0 && <BlastFx key={blastAt} scale={compact ? 0.72 : 1} />}
+
+        {/* 벽에 남은 그을음 — 터진 자리라는 걸 한참 뒤에 와도 알 수 있게 */}
+        {mwState === "wrecked" && (
+          <div className="soot" style={{
+            position: "absolute",
+            left: "-22%", right: "-14%", top: "-46%", bottom: "-16%",
+            background:
+              "radial-gradient(ellipse at 40% 62%, rgba(28,22,18,0.5) 0%, rgba(28,22,18,0.28) 38%, rgba(28,22,18,0.1) 62%, transparent 78%)",
+            pointerEvents: "none", zIndex: 0,
+          }} />
+        )}
+
         {/* 탄 상태 — 검은 연기 */}
         {(mwState === "burnt" || mwState === "wrecked") && (
           <div style={{
@@ -207,9 +232,12 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
           </div>
         )}
         <div style={{
+          position: "relative", zIndex: 1,
           filter: mwState === "wrecked" ? "grayscale(0.7) brightness(0.55)"
             : mwState === "burnt" ? "brightness(0.82) sepia(0.25)" : "none",
-          transition: "filter 0.4s",
+          // 터진 뒤엔 살짝 주저앉는다
+          transform: mwState === "wrecked" ? "rotate(-2.5deg) translateY(2px)" : "none",
+          transition: "filter 0.4s, transform 0.5s cubic-bezier(0.3, 1.3, 0.5, 1)",
           lineHeight: 0,
         }}>
           <MicrowaveSvg
@@ -317,9 +345,13 @@ function MicrowaveSvg({ w, state, heatPct }: { w: number; state: MwState; heatPc
 
       {/* 문 — 완료 시 힌지 기준으로 벌컥 */}
       <g style={{
-        transform: state === "done" || state === "burnt" ? "rotate(-58deg)" : "none",
+        // 터지면 문짝이 경첩째 젖혀진다
+        transform: state === "wrecked" ? "rotate(-108deg)"
+          : state === "done" || state === "burnt" ? "rotate(-58deg)" : "none",
         transformOrigin: "9px 33px",
-        transition: "transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1)",
+        transition: state === "wrecked"
+          ? "transform 0.22s cubic-bezier(0.2, 1.6, 0.5, 1)"
+          : "transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1)",
       }}>
         {/* 문 프레임 — 창 부분이 뚫려 있어 내부가 실제로 비쳐 보인다 */}
         <rect x="8" y="10" width="6" height="46" fill="#494952" />

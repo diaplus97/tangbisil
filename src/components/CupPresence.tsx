@@ -9,6 +9,8 @@ type CupPresenceProps = {
   canAttack?: boolean;
   /** 식은 컵 (다녀간 흔적) — 회색조 + 김 없음 */
   isCold?: boolean;
+  /** 건네줄 상대로 고를 수 있는 컵 */
+  isGiftTarget?: boolean;
   onClick?: () => void;
 };
 
@@ -24,12 +26,12 @@ function coldAgoText(cup: ActiveCup): string {
 export default function CupPresence({
   cup, showSteam,
   isArmed = false, isJiggling = false, isHit = false,
-  canAttack = false, isCold = false, onClick,
+  canAttack = false, isCold = false, isGiftTarget = false, onClick,
 }: CupPresenceProps) {
   // 애니메이션 클래스 우선순위: hit > armed > jiggle
   let animClass = "";
   if (isHit)       animClass = "cup-hit";
-  else if (isArmed) animClass = "cup-armed";
+  else if (isArmed || isGiftTarget) animClass = "cup-armed";
   else if (isJiggling) animClass = "cup-jiggle";
 
   const cursor = onClick
@@ -38,6 +40,8 @@ export default function CupPresence({
 
   const title = isCold
     ? `${cup.nickname.replace("Anonymous", "A")} — ${coldAgoText(cup)}`
+    : isGiftTarget
+    ? `${cup.nickname.replace("Anonymous", "A")} 님한테 건네주기 🎁`
     : isArmed
     ? "공격할 컵을 탭하세요 ⚔️"
     : cup.isMe

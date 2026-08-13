@@ -447,16 +447,20 @@
    전자레인지 폭발
    ═══════════════════════════════════════════════════════════ */
 
-/* 방 전체가 흔들린다 */
+/* 방 전체가 흔들린다 — 처음 한 방이 세게, 그 뒤로 잔진동 */
 @keyframes roomShake {
-  0%, 100% { transform: translate(0, 0); }
-  10% { transform: translate(-5px, 3px); }
-  20% { transform: translate(6px, -3px); }
-  30% { transform: translate(-4px, -3px); }
-  40% { transform: translate(4px, 3px); }
-  55% { transform: translate(-3px, 1px); }
-  70% { transform: translate(2px, -2px); }
-  85% { transform: translate(-1px, 1px); }
+  0%   { transform: translate(0, 0) scale(1.012); }
+  6%   { transform: translate(-11px, 7px) scale(1.012); }
+  13%  { transform: translate(12px, -7px) scale(1.01); }
+  20%  { transform: translate(-9px, -6px) scale(1.008); }
+  28%  { transform: translate(8px, 6px) scale(1.006); }
+  37%  { transform: translate(-6px, 3px); }
+  47%  { transform: translate(5px, -4px); }
+  58%  { transform: translate(-4px, 2px); }
+  69%  { transform: translate(3px, 2px); }
+  80%  { transform: translate(-2px, -1px); }
+  90%  { transform: translate(1px, 1px); }
+  100% { transform: translate(0, 0); }
 }
 
 /* 창밖으로 소방차가 지나간다 */
@@ -471,6 +475,119 @@
   50%, 100% { background: #2050e0; box-shadow: 0 0 5px 2px rgba(32,80,224,0.8); }
 }
 
-.room-shake  { animation: roomShake 0.75s ease-out; }
+.room-shake  { animation: roomShake 1.15s cubic-bezier(0.2, 0.7, 0.3, 1); }
 .fire-truck  { animation: fireTruckPass 5s linear; }
 .beacon-light{ animation: beacon 0.32s steps(1) infinite; }
+
+/* 방 전체가 번쩍 — 흰색에서 주황으로 빠지며 사라진다 */
+@keyframes blastFlash {
+  0%   { opacity: 0;    background: #fff; }
+  4%   { opacity: 0.92; background: #fff; }
+  16%  { opacity: 0.5;  background: #ffd08a; }
+  45%  { opacity: 0.18; background: #ff9a3c; }
+  100% { opacity: 0;    background: #ff7a1c; }
+}
+.blast-flash { animation: blastFlash 0.85s ease-out forwards; }
+
+/* 충격파 링 — 전자레인지 자리에서 퍼진다 */
+@keyframes blastRing {
+  0%   { transform: translate(-50%, -50%) scale(0.15); opacity: 0.95; border-width: 9px; }
+  70%  { opacity: 0.35; }
+  100% { transform: translate(-50%, -50%) scale(3.6);  opacity: 0;    border-width: 1px; }
+}
+.blast-ring  { animation: blastRing 0.7s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; }
+
+/* 화염구 */
+@keyframes blastCore {
+  0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+  35%  { transform: translate(-50%, -50%) scale(1.25); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.7);  opacity: 0; }
+}
+.blast-core  { animation: blastCore 0.6s ease-out forwards; }
+
+/* 파편 — --dx / --dy 로 방향을 준다 */
+@keyframes debrisFly {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--spin, 320deg)); opacity: 0; }
+}
+.debris { animation: debrisFly 1.05s cubic-bezier(0.15, 0.6, 0.5, 1) forwards; }
+
+/* 벽에 남는 그을음 */
+@keyframes sootSettle {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.soot { animation: sootSettle 0.5s ease-out 0.25s both; }
+
+/* ═══════════════════════════════════════════════════════════
+   창밖 손님들
+   ═══════════════════════════════════════════════════════════ */
+
+/* 새 — 날아와 앉았다가 콩콩 뛴다 */
+@keyframes birdLand {
+  0%   { transform: translate(30px, -26px) scaleX(-1); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translate(0, 0) scaleX(-1);        opacity: 1; }
+}
+@keyframes birdHop {
+  0%, 62%, 100% { transform: translateY(0) scaleX(-1); }
+  70%           { transform: translateY(-5px) scaleX(-1); }
+  78%           { transform: translateY(0) scaleX(-1); }
+  86%           { transform: translateY(-3px) scaleX(-1); }
+}
+@keyframes birdFlee {
+  0%   { transform: translate(0, 0) scaleX(-1);         opacity: 1; }
+  100% { transform: translate(-34px, -40px) scaleX(-1); opacity: 0; }
+}
+.bird-land { animation: birdLand 0.75s ease-out both, birdHop 2.6s ease-in-out 0.8s infinite; }
+.bird-flee { animation: birdFlee 0.55s ease-in forwards; }
+
+/* 고양이 앞발 — 유리를 톡톡톡 */
+@keyframes pawTap {
+  0%, 100%      { transform: translateY(9px); }
+  12%, 30%, 48% { transform: translateY(-2px); }
+  20%, 38%, 56% { transform: translateY(3px); }
+  70%           { transform: translateY(-1px); }
+}
+.paw-tap { animation: pawTap 2.6s ease-in-out infinite; }
+
+/* 고양이 얼굴 — 창틀 아래에서 슬쩍 올라온다 */
+@keyframes catPeek {
+  0%   { transform: translateY(120%); }
+  100% { transform: translateY(0); }
+}
+.cat-peek { animation: catPeek 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) both; }
+
+/* 소나기 — 빗줄기가 위에서 아래로 */
+@keyframes rainFall {
+  0%   { transform: translateY(-110%); }
+  100% { transform: translateY(210%); }
+}
+.rain-line { animation: rainFall 0.55s linear infinite; }
+
+/* 유리에 맺힌 물방울이 주르륵 */
+@keyframes dropRun {
+  0%   { transform: translateY(0);    opacity: 0; }
+  12%  { opacity: 0.85; }
+  100% { transform: translateY(46px); opacity: 0; }
+}
+.glass-drop { animation: dropRun 2.4s linear infinite; }
+
+/* 종이비행기 — 가로지르며 살짝 흔들린다 */
+@keyframes planeGlide {
+  0%   { transform: translate(-40%, 8px) rotate(-8deg);  opacity: 0; }
+  12%  { opacity: 1; }
+  50%  { transform: translate(160%, -6px) rotate(6deg); }
+  88%  { opacity: 1; }
+  100% { transform: translate(340%, 14px) rotate(-4deg); opacity: 0; }
+}
+.paper-plane { animation: planeGlide 6s linear forwards; }
+
+/* 창밖 사건 자막 */
+@keyframes eventTag {
+  0%        { opacity: 0; transform: translateY(3px); }
+  14%, 78%  { opacity: 1; transform: translateY(0); }
+  100%      { opacity: 0; transform: translateY(-3px); }
+}
+.event-tag { animation: eventTag 4s ease-in-out both; }

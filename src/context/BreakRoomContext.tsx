@@ -50,11 +50,40 @@ export type ActiveCup = {
   isMe?: boolean;
 };
 
-/** 손에 든 물건 — 탕비실에서 집어서 흡연실 아저씨에게 건넬 수 있다 */
+/**
+ * 손에 든 물건.
+ * 셋 중 하나를 할 수 있다 — 내가 먹거나, 옆 사람한테 주거나, 흡연실 아저씨한테 가져가거나.
+ */
 export type HeldItem = {
   id: string;
   emoji: string;
   label: string;
+};
+
+/** 받았을 때 붙는 한마디 — 물건마다 다르다 */
+const GIFT_FLAVOR: Record<string, string> = {
+  "mandu": "앗 뜨거!",
+  "burnt-mandu": "…이거 탄 거 아닌가",
+  "drink": "시원하다",
+  "juice": "오 이런 걸 다",
+  "apple": "잘 먹을게요",
+  "orange": "귤은 언제나 옳지",
+};
+
+/** 먹었을 때 나가는 메시지 */
+function eatMessage(item: HeldItem): string {
+  if (item.id === "burnt-mandu") return "탄 만두 먹음… 맛없어 🥟";
+  if (item.id === "mandu") return "만두 먹음 🥟 후후";
+  return `${item.label} 먹음 ${item.emoji}`;
+}
+
+/** 남에게서 받은 물건 (토스트로 잠깐 뜬다) */
+export type IncomingGift = {
+  key: number;
+  fromNick: string;
+  fromColor: string;
+  item: HeldItem;
+  flavor: string;
 };
 
 export type RecentMsg = {
@@ -96,6 +125,16 @@ type BreakRoomContextValue = {
   /** 전자레인지가 터진 시각 — 화면 흔들림·창밖 소방차가 여기에 반응한다 */
   explosionAt: number | null;
   triggerExplosion: () => void;
+  /** 손에 든 걸 내가 먹는다 */
+  eatHeld: () => void;
+  /** 손에 든 걸 다른 사람 컵에 건넨다 */
+  giveTo: (cup: ActiveCup) => void;
+  /** 방금 누가 나한테 준 것 */
+  incomingGift: IncomingGift | null;
+  dismissGift: () => void;
+  /** 건네줄 상대를 고르는 중 — 카운터의 컵이 대상이 된다 */
+  giftMode: boolean;
+  setGiftMode: (on: boolean) => void;
 };
 
 const BreakRoomContext = createContext<BreakRoomContextValue | null>(null);
@@ -231,6 +270,12 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
   const [heldItem, setHeldItem] = useState<HeldItem | null>(null);
   // 폭발 신호 — 방 전체가 반응해야 해서 여기 둔다
   const [explosionAt, setExplosionAt] = useState<number | null>(null);
+  // 남이 나한테 준 물건
+  const [incomingGift, setIncomingGift] = useState<IncomingGift | null>(null);
+  // 건네줄 상대를 고르는 중인가
+  const [giftMode, setGiftMode] = useState(false);
+  // 선물 broadcast 채널 — 스키마 변경 없이 순간 전달만 한다
+  const giftChannelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
 
   const [lastWatered, setLastWatered] = useState<number | null>(() => {
     try { const v = localStorage.getItem(STORAGE_PLANT); return v ? Number(v) : null; } catch { return null; }
@@ -266,6 +311,14 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
   }, [allCups, presenceIds]);
 
   const myCup = cups.find((c) => c.isMe) ?? null;
+  // sendMessage 는 아래에서 정의되지만 eatHeld/giveTo 가 먼저 선언된다.
+  // 호출 시점에 읽도록 ref 로 우회한다.
+  const sendMessageRef = useRef<((text: string) => void) | null>(null);
+  const heldItemRef = useRef<HeldItem | null>(null);
+  heldItemRef.current = heldItem;
+  const nicknameRef = useRef(nickname);
+  nicknameRef.current = nickname;
+
   const myCupRef = useRef<ActiveCup | null>(null);
   myCupRef.current = myCup;
   // 이번 페이지 세션에서 커피를 내렸는지 (다른 탭 종료로 식은 내 컵 복구 판단용)
@@ -345,13 +398,50 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
         });
     }
   }, [nickname, myColor, pushRecent]);
+  sendMessageRef.current = sendMessage;
 
   const pickUp = useCallback((item: HeldItem) => {
     setHeldItem(item);
     sound.play("blip");
   }, []);
 
-  const clearHeld = useCallback(() => setHeldItem(null), []);
+  const clearHeld = useCallback(() => { setHeldItem(null); setGiftMode(false); }, []);
+
+  /** 내가 먹는다 — 네트워크 불필요 */
+  const eatHeld = useCallback(() => {
+    const item = heldItemRef.current;
+    if (!item) return;
+    setHeldItem(null);
+    setGiftMode(false);
+    sendMessageRef.current?.(eatMessage(item));
+    sound.play("crunch");
+  }, []);
+
+  /** 옆 사람한테 건넨다 — broadcast 로 순간 전달 (DB 에 남기지 않는다) */
+  const giveTo = useCallback((cup: ActiveCup) => {
+    const item = heldItemRef.current;
+    if (!item || cup.isMe) return;
+    setHeldItem(null);
+    setGiftMode(false);
+
+    const me = nicknameRef.current.replace("Anonymous", "A");
+    const them = cup.nickname.replace("Anonymous", "A");
+    sendMessageRef.current?.(`${them}님한테 ${item.label} 건넴 ${item.emoji}`);
+    sound.play("pop");
+
+    giftChannelRef.current?.send({
+      type: "broadcast",
+      event: "gift",
+      payload: {
+        to: cup.id,
+        fromNick: me,
+        fromColor: colorFor(nicknameRef.current),
+        item,
+      },
+    });
+  }, []);
+
+  const dismissGift = useCallback(() => setIncomingGift(null), []);
 
   const triggerExplosion = useCallback(() => {
     setExplosionAt(Date.now());
@@ -483,6 +573,32 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
         }
       });
 
+    // 3.5 선물 채널 — broadcast 라 DB 에 남지 않는다.
+    //     스키마 변경이 필요 없고, 선물은 원래 순간적인 것이라 이 편이 맞다.
+    const giftChannel = supabase.channel("tangbirsil-gifts", {
+      config: { broadcast: { self: false } },
+    });
+    giftChannel
+      .on("broadcast", { event: "gift" }, ({ payload }) => {
+        if (cancelled) return;
+        const p = payload as {
+          to?: string; fromNick?: string; fromColor?: string; item?: HeldItem;
+        };
+        if (p?.to !== SESSION_ID || !p.item) return;
+        // 받은 물건은 내 손에 들린다 — 먹든, 넘기든, 아저씨한테 가져가든 자유
+        setHeldItem(p.item);
+        setIncomingGift({
+          key: Date.now(),
+          fromNick: p.fromNick ?? "누군가",
+          fromColor: p.fromColor ?? "#888",
+          item: p.item,
+          flavor: GIFT_FLAVOR[p.item.id] ?? "",
+        });
+        sound.play("pop");
+      })
+      .subscribe();
+    giftChannelRef.current = giftChannel;
+
     // 4. 페이지를 떠날 때 — 컵을 지우지 않고 "식은 컵"으로 마킹
     const markLeft = () => {
       supabase!.from("cups")
@@ -504,6 +620,8 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
       markLeft(); // unmount 시에도 마킹
       supabase!.removeChannel(cupsChannel);
       supabase!.removeChannel(presenceChannel);
+      supabase!.removeChannel(giftChannel);
+      giftChannelRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -518,6 +636,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
       restMinutes: Math.floor(restSeconds / 60),
       heldItem, pickUp, clearHeld,
       explosionAt, triggerExplosion,
+      eatHeld, giveTo, incomingGift, dismissGift, giftMode, setGiftMode,
     }}>
       {children}
     </BreakRoomContext.Provider>
