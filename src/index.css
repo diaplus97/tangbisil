@@ -602,3 +602,10 @@
   78%       { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1); }
   100%      { opacity: 0; transform: translateX(-50%) translateY(-9px) scale(0.97); }
 }
+
+/* 강아지 꼬리 흔들기 (앉아서 기다릴 때) */
+@keyframes dogWag {
+  0%, 100% { transform: rotate(-5deg); }
+  50%      { transform: rotate(5deg); }
+}
+.dog-wag { animation: dogWag 0.42s ease-in-out infinite; }

@@ -67,9 +67,20 @@ const GIFT_FLAVOR: Record<string, string> = {
   "drink": "시원하다",
   "juice": "오 이런 걸 다",
   "apple": "잘 먹을게요",
-  "orange": "귤은 언제나 옳지",
+  "orange": "오렌지는 언제나 옳지",
+  "orange-plate": "오 이거 회의실 갈 거 아니었나",
+  "sliced-orange": "썰어서 주네",
+  "messy-orange": "…이거 썬 거 맞나",
   "peeled-apple": "깎아서까지 주다니",
   "rough-apple": "…껍질 좀 남았는데",
+  "sausage": "오 따끈하네",
+  "burnt-sausage": "…이건 좀 탔는데",
+  // 아래 다섯은 그동안 빠져 있었다 — 받는 쪽 토스트에 한마디가 안 붙고 있었다
+  "banana": "바나나 좋지",
+  "candy": "달다",
+  "cookie": "잘 먹을게요",
+  "donut": "이거 좋아하는데",
+  "royce": "초콜릿이라니",
 };
 
 /** 먹었을 때 나가는 메시지 */
@@ -78,6 +89,11 @@ function eatMessage(item: HeldItem): string {
   if (item.id === "mandu") return "만두 먹음 🥟 후후";
   if (item.id === "peeled-apple") return "깎은 사과 먹음 🍎 역시 깎아 먹어야";
   if (item.id === "rough-apple") return "대충 깎은 사과 먹음 🍎 껍질 씹힌다";
+  if (item.id === "sausage") return "소세지 먹음 🌭 육즙";
+  if (item.id === "burnt-sausage") return "탄 소세지 먹음 🌭 …쓰다";
+  if (item.id === "orange-plate") return "오렌지 접시 혼자 다 먹음 🍊";
+  if (item.id === "sliced-orange") return "자른 오렌지 먹음 🍊 손이 안 끈적";
+  if (item.id === "messy-orange") return "엉망으로 썬 오렌지 먹음 🍊";
   return `${item.label} 먹음 ${item.emoji}`;
 }
 

@@ -3,6 +3,7 @@ import { useBreakRoom, type ActiveCup } from "@/context/BreakRoomContext";
 import CupPresence from "./CupPresence";
 import FloatingMessageLayer from "./FloatingMessageLayer";
 import BreakRoomCat from "./BreakRoomCat";
+import BreakRoomDog from "./BreakRoomDog";
 import { sound } from "@/lib/sound";
 
 const BATTLE_MSGS = (me: string, them: string): string[] => [
@@ -175,6 +176,7 @@ export default function SharedCounter() {
 
         {/* 탕비실 고양이 */}
         <BreakRoomCat />
+        <BreakRoomDog />
 
         {/* 결투 폭발 이펙트 */}
         {explosionAt && (

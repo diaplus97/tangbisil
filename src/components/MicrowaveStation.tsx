@@ -11,6 +11,28 @@ import { sound } from "@/lib/sound";
 import BlastFx from "./BlastFx";
 
 type MwState = "idle" | "heating" | "done" | "burnt" | "wrecked";
+type FoodId = "mandu" | "sausage";
+
+/** 냉동고에 든 것들. 데우면 hot, 태우면 burnt 가 손에 들린다 */
+const FOODS: Record<FoodId, {
+  emoji: string;
+  hot: { id: string; emoji: string; label: string; msg: string };
+  burnt: { id: string; emoji: string; label: string; msg: string };
+  burnMsg: string;
+}> = {
+  mandu: {
+    emoji: "🥟",
+    hot:   { id: "mandu",        emoji: "🥟", label: "만두",    msg: "냉동만두 꺼냄 🥟 후후~ 식혀야지" },
+    burnt: { id: "burnt-mandu",  emoji: "🥟", label: "탄 만두",  msg: "탄 만두 꺼냄 🥟 …이거 먹어도 되나" },
+    burnMsg: "아 만두 태웠다 🔥",
+  },
+  sausage: {
+    emoji: "🌭",
+    hot:   { id: "sausage",       emoji: "🌭", label: "소세지",    msg: "소세지 데워서 꺼냄 🌭" },
+    burnt: { id: "burnt-sausage", emoji: "🌭", label: "탄 소세지", msg: "소세지 태웠다 🌭 …강아지는 좋아하려나" },
+    burnMsg: "아 소세지 태웠다 🔥",
+  },
+};
 
 const HEAT_MS = 8000;
 /** 다 됐는데 이만큼 방치하면 탄다 */
@@ -33,16 +55,19 @@ export default function MicrowaveStation({ compact, inline, scale: scaleProp }: 
 
   const [mwState, setMwState]   = useState<MwState>("idle");
   const [heatPct, setHeatPct]   = useState(0);
-  const [selected, setSelected] = useState(false);
+  const [selected, setSelected] = useState<FoodId | null>(null);
+  /** 지금 레인지 안에 든 것 */
+  const [cooking, setCooking] = useState<FoodId>("mandu");
   const [dragOver, setDragOver] = useState(false);
   const [popAnim, setPopAnim]   = useState(false);
   /** 터진 순간의 연출 — 잠깐만 얹혔다 사라진다 */
   const [blastAt, setBlastAt]   = useState(0);
   const rafRef = useRef<number | null>(null);
 
-  const startHeating = useCallback(() => {
+  const startHeating = useCallback((food: FoodId) => {
     if (locked || mwState !== "idle") return;
-    setSelected(false);
+    setCooking(food);
+    setSelected(null);
     setPopAnim(true);
     setTimeout(() => setPopAnim(false), 600);
     setMwState("heating");
@@ -66,27 +91,23 @@ export default function MicrowaveStation({ compact, inline, scale: scaleProp }: 
   const takeOut = useCallback(() => {
     if (mwState !== "done" && mwState !== "burnt") return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    if (mwState === "burnt") {
-      sendMessage("탄 만두 꺼냄 🥟 …이거 먹어도 되나");
-      pickUp({ id: "burnt-mandu", emoji: "🥟", label: "탄 만두" });
-    } else {
-      sendMessage("냉동만두 꺼냄 🥟 후후~ 식혀야지");
-      pickUp({ id: "mandu", emoji: "🥟", label: "만두" });
-    }
+    const out = mwState === "burnt" ? FOODS[cooking].burnt : FOODS[cooking].hot;
+    sendMessage(out.msg);
+    pickUp({ id: out.id, emoji: out.emoji, label: out.label });
     sound.play("pop");
     setMwState("idle");
     setHeatPct(0);
-  }, [mwState, sendMessage, pickUp]);
+  }, [mwState, cooking, sendMessage, pickUp]);
 
   // 다 됐는데 안 꺼내면 탄다
   useEffect(() => {
     if (mwState !== "done") return;
     const t = setTimeout(() => {
       setMwState("burnt");
-      sendMessage("아 만두 태웠다 🔥");
+      sendMessage(FOODS[cooking].burnMsg);
     }, BURN_AFTER_MS);
     return () => clearTimeout(t);
-  }, [mwState, sendMessage]);
+  }, [mwState, cooking, sendMessage]);
 
   // 탄 채로 계속 두면 가끔 터진다
   useEffect(() => {
@@ -118,7 +139,7 @@ export default function MicrowaveStation({ compact, inline, scale: scaleProp }: 
 
   const handleMicrowaveClick = () => {
     if (mwState === "done" || mwState === "burnt") { takeOut(); return; }
-    if (mwState === "idle" && selected) { startHeating(); return; }
+    if (mwState === "idle" && selected) { startHeating(selected); return; }
   };
 
   const mwTitle =
@@ -127,8 +148,8 @@ export default function MicrowaveStation({ compact, inline, scale: scaleProp }: 
     : mwState === "burnt" ? "새까맣게 탔어요 — 꺼내기"
     : mwState === "done" ? "문이 열렸어요 — 꺼내기!"
     : mwState === "heating" ? "가열 중..."
-    : selected ? "탭해서 투입!"
-    : "만두를 드래그해서 넣어주세요";
+    : selected ? `${FOODS[selected].hot.label} 투입!`
+    : "냉동고에서 만두나 소세지를 골라주세요";
 
   const scale = scaleProp ?? (compact ? 0.68 : 1);
 
@@ -140,36 +161,59 @@ export default function MicrowaveStation({ compact, inline, scale: scaleProp }: 
       zIndex: 3,
     }}>
       <div style={{ display: "flex", alignItems: "flex-end", gap: compact ? 3 : 7 }}>
-      {/* 냉동고 + 만두 */}
-      <button
-        draggable={!locked && mwState === "idle"}
-        onDragStart={(e) => {
-          if (locked || mwState !== "idle") { e.preventDefault(); return; }
-          e.dataTransfer.setData("text/plain", "mandu");
-        }}
-        onClick={() => {
-          if (locked || mwState !== "idle") return;
-          setSelected((s) => !s);
-        }}
-        disabled={locked || mwState !== "idle"}
-        title={locked ? "커피를 먼저 내려주세요" : mwState !== "idle" ? "가열 중..." : compact ? "만두 탭 → 레인지 탭" : "만두를 레인지로 드래그"}
+      {/* 냉동고 — 만두와 소세지가 들어 있다. 하나를 골라 레인지에 넣는다 */}
+      <div
         style={{
-          background: "none", border: "none", padding: 0,
-          cursor: locked || mwState !== "idle" ? "not-allowed" : "grab",
-          filter: selected ? "drop-shadow(0 0 6px rgba(255,200,40,0.85))" : "none",
-          opacity: locked ? 0.55 : 1,
-          touchAction: "manipulation",
-          transition: "filter 0.15s",
+          position: "relative",
           lineHeight: 0,
+          opacity: locked ? 0.55 : 1,
+          filter: selected ? "drop-shadow(0 0 6px rgba(255,200,40,0.85))" : "none",
+          transition: "filter 0.15s",
         }}
       >
         <FreezerSvg
           w={Math.round(38 * scale)}
-          manduVisible={mwState === "idle"}
+          foodVisible={mwState === "idle"}
           popAnim={popAnim}
           selected={selected}
         />
-      </button>
+        {/* 품목별 탭/드래그 영역 (FreezerSvg viewBox 38x46 기준 좌/우 절반) */}
+        {(["mandu", "sausage"] as FoodId[]).map((food, i) => (
+          <button
+            key={food}
+            draggable={!locked && mwState === "idle"}
+            onDragStart={(e) => {
+              if (locked || mwState !== "idle") { e.preventDefault(); return; }
+              e.dataTransfer.setData("text/plain", food);
+            }}
+            onClick={() => {
+              if (locked || mwState !== "idle") return;
+              setSelected((cur) => (cur === food ? null : food));
+            }}
+            disabled={locked || mwState !== "idle"}
+            title={
+              locked ? "커피를 먼저 내려주세요"
+              : mwState !== "idle" ? "가열 중..."
+              : compact ? `${FOODS[food].hot.label} 탭 → 레인지 탭`
+              : `${FOODS[food].hot.label}를 레인지로 드래그`
+            }
+            aria-label={FOODS[food].hot.label}
+            style={{
+              position: "absolute",
+              left: `${8 + i * 45}%`,
+              top: "52%",
+              width: "44%",
+              height: "34%",
+              background: "transparent",
+              border: selected === food ? "2px solid rgba(255,200,40,0.9)" : "none",
+              padding: 0,
+              cursor: locked || mwState !== "idle" ? "not-allowed" : "grab",
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+            }}
+          />
+        ))}
+      </div>
 
       {/* 이동 화살표 */}
       <span style={{
@@ -183,7 +227,8 @@ export default function MicrowaveStation({ compact, inline, scale: scaleProp }: 
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => {
           e.preventDefault(); setDragOver(false);
-          if (e.dataTransfer.getData("text/plain") === "mandu") startHeating();
+          const dropped = e.dataTransfer.getData("text/plain");
+          if (dropped === "mandu" || dropped === "sausage") startHeating(dropped);
         }}
         onClick={handleMicrowaveClick}
         title={mwTitle}
@@ -251,6 +296,7 @@ export default function MicrowaveStation({ compact, inline, scale: scaleProp }: 
             w={Math.round(136 * scale)}
             state={mwState}
             heatPct={heatPct}
+            cooking={cooking}
           />
         </div>
       </div>
@@ -281,8 +327,8 @@ export default function MicrowaveStation({ compact, inline, scale: scaleProp }: 
 }
 
 /* ─── 냉동고 SVG ─────────────────────────────────────────── */
-function FreezerSvg({ w, manduVisible, popAnim, selected }: {
-  w: number; manduVisible: boolean; popAnim: boolean; selected: boolean;
+function FreezerSvg({ w, foodVisible, popAnim, selected }: {
+  w: number; foodVisible: boolean; popAnim: boolean; selected: FoodId | null;
 }) {
   return (
     <svg width={w} height={Math.round(w * 46 / 38)} viewBox="0 0 38 46" style={{ imageRendering: "pixelated", display: "block", overflow: "visible" }}>
@@ -296,24 +342,25 @@ function FreezerSvg({ w, manduVisible, popAnim, selected }: {
       {/* 성에 */}
       <rect x="6" y="17" width="5" height="2" fill="#c8dcec" />
       <rect x="8" y="34" width="6" height="2" fill="#c8dcec" />
-      {/* 만두 (문 앞에 슬쩍) */}
-      {manduVisible && (
-        <text x="17" y="33" textAnchor="middle" fontSize="13"
+      {/* 만두 / 소세지 — 문 앞에 나란히 */}
+      {foodVisible && (["mandu", "sausage"] as FoodId[]).map((food, i) => (
+        <text key={food} x={11 + i * 16} y="33" textAnchor="middle" fontSize="11"
           style={{
-            transformOrigin: "17px 30px",
-            transform: popAnim ? "translateX(12px) scale(0.4)" : selected ? "scale(1.12)" : "none",
-            opacity: popAnim ? 0 : 1,
+            transformOrigin: `${11 + i * 16}px 30px`,
+            transform: popAnim && selected === food ? "translateX(14px) scale(0.4)"
+              : selected === food ? "scale(1.18)" : "none",
+            opacity: popAnim && selected === food ? 0 : 1,
             transition: popAnim ? "all 0.5s ease-in" : "transform 0.15s",
-          }}>🥟</text>
-      )}
+          }}>{FOODS[food].emoji}</text>
+      ))}
       {/* 라벨 */}
-      <text x="19" y="42" textAnchor="middle" fontSize="4.5" fill="#5a7080" fontFamily="'DotGothic16', monospace">냉동만두</text>
+      <text x="19" y="42" textAnchor="middle" fontSize="4.5" fill="#5a7080" fontFamily="'DotGothic16', monospace">냉동실</text>
     </svg>
   );
 }
 
 /* ─── 전자레인지 SVG ─────────────────────────────────────── */
-function MicrowaveSvg({ w, state, heatPct }: { w: number; state: MwState; heatPct: number }) {
+function MicrowaveSvg({ w, state, heatPct, cooking }: { w: number; state: MwState; heatPct: number; cooking: FoodId }) {
   const remainSec = Math.max(0, Math.ceil(8 - (heatPct / 100) * 8));
   const display =
     state === "heating" ? `0:0${remainSec}` :
@@ -346,7 +393,7 @@ function MicrowaveSvg({ w, state, heatPct }: { w: number; state: MwState; heatPc
             <animateTransform attributeName="transform" type="rotate"
               values="-5 50 46; 5 50 46; -5 50 46" dur="1.1s" repeatCount="indefinite" />
           )}
-          <text x="50" y="47" textAnchor="middle" fontSize="15">🥟</text>
+          <text x="50" y="47" textAnchor="middle" fontSize="15">{FOODS[cooking].emoji}</text>
         </g>
       )}
 
