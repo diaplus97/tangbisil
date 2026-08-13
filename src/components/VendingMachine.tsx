@@ -164,7 +164,7 @@ function VendingSvg({ w, state }: { w: number; state: VendState }) {
       <rect x="2" y="2" width="122" height="164" rx="3" fill="#24466a" stroke="#0e1c30" strokeWidth="3" />
       {/* 상단 간판 */}
       <rect x="8" y="8" width="110" height="15" rx="1" fill="#142c46" stroke="#0e1c30" strokeWidth="1.5" />
-      <text x="63" y="19" textAnchor="middle" fontSize="8" fill={isReady ? "#8affc0" : "#7ab8e8"} fontFamily="'DotGothic16', monospace">
+      <text x="63" y="19.5" textAnchor="middle" fontSize="10" fill={isReady ? "#8affc0" : "#7ab8e8"} fontFamily="'DotGothic16', monospace">
         ─ 시원한 음료 ─
       </text>
 

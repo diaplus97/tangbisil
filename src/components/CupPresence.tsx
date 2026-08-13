@@ -54,6 +54,8 @@ export default function CupPresence({
     <div
       onClick={onClick}
       title={title}
+      // 말풍선 꼬리를 이 컵에 정확히 맞추려면 실제 위치를 재야 한다 (SharedCounter 참고)
+      data-cup={cup.id}
       style={{
         display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
         userSelect: "none",
