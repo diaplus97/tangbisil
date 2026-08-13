@@ -29,7 +29,10 @@ export type SoundName =
   | "blast"   // 전자레인지 폭발 (컵 결투 boom 보다 크다)
   | "siren"   // 창밖 소방차
   | "chirp"   // 창틀에 앉은 새
-  | "knock";  // 유리 두드리는 소리
+  | "knock"   // 유리 두드리는 소리
+  | "peel"    // 사과 껍질 깎이는 소리
+  | "snap"    // 껍질이 툭 끊김
+  | "fanfare"; // 한 번에 다 깎았을 때
 
 const STORAGE_KEY = "tangbirsil_sound_v1";
 
@@ -274,6 +277,21 @@ class SoundEngine {
           this.tone({ type: "sine", from: 1750, to: 900, dur: 0.05, gain: 0.06, delay: d });
           this.noiseBurst({ dur: 0.025, gain: 0.035, filter: "highpass", freq: 4200, delay: d });
         });
+        break;
+      case "peel":
+        // 껍질이 벗겨지는 짧은 마찰 — 깎는 동안 반복해서 깔린다
+        this.noiseBurst({ dur: 0.13, gain: 0.028, filter: "bandpass", freq: 2600, freqTo: 1500, q: 1.6 });
+        break;
+      case "snap":
+        // 툭 — 끊기는 순간
+        this.tone({ type: "sine", from: 900, to: 190, dur: 0.09, gain: 0.13 });
+        this.noiseBurst({ dur: 0.06, gain: 0.05, filter: "highpass", freq: 2400 });
+        this.tone({ type: "sine", from: 240, to: 90, dur: 0.2, gain: 0.07, delay: 0.05 });
+        break;
+      case "fanfare":
+        // 다 깎았다 — 짧게 올라가는 세 음
+        [523, 659, 784, 1047].forEach((f, i) =>
+          this.tone({ type: "triangle", from: f, to: f, dur: 0.16, gain: 0.07, delay: i * 0.09 }));
         break;
       case "door":
         // 경첩 삐걱 + 닫히는 쿵

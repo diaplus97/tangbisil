@@ -68,12 +68,16 @@ const GIFT_FLAVOR: Record<string, string> = {
   "juice": "오 이런 걸 다",
   "apple": "잘 먹을게요",
   "orange": "귤은 언제나 옳지",
+  "peeled-apple": "깎아서까지 주다니",
+  "rough-apple": "…껍질 좀 남았는데",
 };
 
 /** 먹었을 때 나가는 메시지 */
 function eatMessage(item: HeldItem): string {
   if (item.id === "burnt-mandu") return "탄 만두 먹음… 맛없어 🥟";
   if (item.id === "mandu") return "만두 먹음 🥟 후후";
+  if (item.id === "peeled-apple") return "깎은 사과 먹음 🍎 역시 깎아 먹어야";
+  if (item.id === "rough-apple") return "대충 깎은 사과 먹음 🍎 껍질 씹힌다";
   return `${item.label} 먹음 ${item.emoji}`;
 }
 
