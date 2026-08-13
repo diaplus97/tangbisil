@@ -45,8 +45,12 @@ try {
 // ── 2. Supabase 설정이 번들에 박혔는가 ────────────────────────
 console.log("\n2. 빌드에 Supabase 설정이 들어갔는가");
 const urlMatch = bundle.match(/https:\/\/[a-z0-9]+\.supabase\.co/);
-// anon key = 앞이 eyJ 인 JWT. 공개용 키라 노출돼도 되는 값이다.
-const keyMatch = bundle.match(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/);
+// 공개 키 — 두 형식 다 받는다.
+//  새 형식: sb_publishable_...   (신규 프로젝트 기본값)
+//  옛 형식: eyJ... (anon JWT)
+const keyMatch =
+  bundle.match(/sb_publishable_[A-Za-z0-9_-]{10,}/) ??
+  bundle.match(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/);
 
 if (!urlMatch || !keyMatch) {
   fail(

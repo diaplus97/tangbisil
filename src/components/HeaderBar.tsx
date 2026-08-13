@@ -11,7 +11,7 @@ const STATUS_LABEL: Record<LiveStatus, { dot: string; text: string }> = {
 };
 
 export default function HeaderBar() {
-  const { nickname, myColor, rerollNickname, onlineCount, myCup, liveStatus, coldCups, streak } = useBreakRoom();
+  const { nickname, myColor, rerollNickname, onlineCount, myCup, liveStatus, liveError, coldCups, streak } = useBreakRoom();
   const isMobile = useIsMobile();
   const now = useClock();
   const { enabled: soundOn, toggle: toggleSound } = useSound();
@@ -19,6 +19,7 @@ export default function HeaderBar() {
   const status = STATUS_LABEL[liveStatus];
 
   return (
+    <>
     <header style={{
       background: "hsl(28 70% 48%)",
       borderBottom: "3px solid hsl(28 40% 28%)",
@@ -44,17 +45,21 @@ export default function HeaderBar() {
           ☕ 온라인 탕비실
         </span>
 
-        {/* 라이브/데모 상태 표시 */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 3,
-          padding: "2px 6px",
-          background: "rgba(0,0,0,0.22)",
-          border: "1px solid rgba(255,255,255,0.15)",
-          fontFamily: "'DotGothic16', monospace",
-          fontSize: 10, color: "rgba(255,255,255,0.8)",
-          whiteSpace: "nowrap",
-          flexShrink: 0,
-        }}>
+        {/* 라이브/데모 상태 표시 — 문제가 있으면 서버가 한 말을 그대로 물고 있는다 */}
+        <div
+          title={liveError ?? undefined}
+          style={{
+            display: "flex", alignItems: "center", gap: 3,
+            padding: "2px 6px",
+            background: "rgba(0,0,0,0.22)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            fontFamily: "'DotGothic16', monospace",
+            fontSize: 10, color: "rgba(255,255,255,0.8)",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+            cursor: liveError ? "help" : "default",
+          }}
+        >
           <span style={{
             display: "inline-block",
             width: 6, height: 6,
@@ -140,6 +145,24 @@ export default function HeaderBar() {
         {!isMobile && <Chip>{timeStr}</Chip>}
       </div>
     </header>
+
+    {/* 연결이 깨졌으면 이유를 화면에 그대로 띄운다.
+        툴팁은 폰에서 못 보고, "연결 오류" 네 글자로는 아무것도 알 수 없다. */}
+    {liveStatus === "error" && liveError && (
+      <div style={{
+        background: "hsl(355 55% 32%)",
+        borderBottom: "2px solid hsl(355 40% 20%)",
+        color: "hsl(355 25% 92%)",
+        fontFamily: "'DotGothic16', monospace",
+        fontSize: 9, lineHeight: 1.6,
+        padding: "4px 10px",
+        flexShrink: 0,
+        wordBreak: "break-word",
+      }}>
+        실시간 연결 실패 — {liveError}
+      </div>
+    )}
+    </>
   );
 }
 
