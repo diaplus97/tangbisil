@@ -110,6 +110,8 @@ type BreakRoomContextValue = {
   sendMessage: (text: string) => void;
   onlineCount: number;
   liveStatus: LiveStatus;
+  /** 연결이 안 될 때 서버가 실제로 뭐라고 했는지 — 화면에 그대로 보여준다 */
+  liveError: string | null;
   recentMessages: RecentMsg[];
   plantState: PlantState;
   canWater: boolean;
@@ -273,6 +275,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
   const [allCups, setAllCups] = useState<ActiveCup[]>([]);
   const [onlineCount, setOnlineCount] = useState<number>(0);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>(isDemoMode ? "demo" : "connecting");
+  const [liveError, setLiveError] = useState<string | null>(null);
   const [recentMessages, setRecentMessages] = useState<RecentMsg[]>([]);
   // presence 채널에 실제로 접속 중인 세션 ID 들 (유령 컵 판별용)
   const [presenceIds, setPresenceIds] = useState<Set<string> | null>(null);
@@ -529,6 +532,17 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
     // 테이블 존재 여부가 확인돼야만 "connected" 로 전환
     let tableReady = false;
 
+    // 초기 조회가 영영 안 돌아오는 경우가 있다 (주소가 틀렸거나 네트워크가 막혔을 때
+    // supabase-js 가 조용히 재시도만 하고 then 이 안 불린다). 그러면 화면은
+    // "연결 중" 에서 멈춘 채 아무 말도 안 한다. 시간을 못 박아 원인을 띄운다.
+    const connectTimer = setTimeout(() => {
+      if (cancelled || tableReady) return;
+      setLiveError(
+        "서버가 응답하지 않습니다. Supabase 주소·키가 맞는지, 네트워크가 막혀 있지 않은지 확인하세요.",
+      );
+      setLiveStatus("error");
+    }, 8000);
+
     // 0. 오래된 컵 정리 (8시간 이상 된 row — 식은 컵의 수명이기도 함)
     //
     // 클라이언트가 직접 DELETE 하면 anon key 를 쥔 누구나 방 전체를 비울 수 있다.
@@ -566,9 +580,12 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
             "[탕비실] cups 테이블이 없습니다. 레포의 supabase/schema.sql 을 " +
             "Supabase SQL Editor 에서 실행한 뒤 새로고침하세요."
           );
+          setLiveError("cups 테이블이 없습니다. supabase/schema.sql 을 실행하세요.");
           setLiveStatus("demo"); // 테이블 없으면 데모 모드로 전환
         } else {
           console.warn("[탕비실] initial fetch error:", error.message);
+          // "연결 오류" 네 글자로는 아무것도 알 수 없다. 서버가 한 말을 그대로 남긴다.
+          setLiveError(error.message);
           setLiveStatus("error");
         }
         return;
@@ -576,6 +593,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
       if (data) {
         tableReady = true;
         setAllCups(data.map((row) => rowToCup(row, SESSION_ID)));
+        setLiveError(null);
         setLiveStatus("connected");
       }
     });
@@ -590,10 +608,12 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
           setAllCups(data.map((row) => rowToCup(row, SESSION_ID)));
         });
       })
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         if (cancelled) return;
         // CHANNEL_ERROR 는 실질적인 연결 오류 (테이블 없는 경우 제외)
         if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && tableReady) {
+          console.warn("[탕비실] 실시간 채널 오류:", status, err?.message ?? "");
+          setLiveError(err?.message ?? `실시간 채널 ${status}`);
           setLiveStatus("error");
         }
       });
@@ -659,6 +679,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+      clearTimeout(connectTimer);
       clearInterval(pruneTimer);
       window.removeEventListener("beforeunload", markLeft);
       window.removeEventListener("pagehide", markLeft);
@@ -674,7 +695,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
     <BreakRoomContext.Provider value={{
       nickname, myColor, rerollNickname,
       cups, coldCups, myCup, brew, sendMessage,
-      onlineCount, liveStatus,
+      onlineCount, liveStatus, liveError,
       recentMessages,
       plantState, canWater, waterPlant, plantStage, waterCount,
       stampDays, streak: computeStreak(stampDays),
