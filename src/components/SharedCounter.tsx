@@ -131,10 +131,13 @@ export default function SharedCounter() {
       {/* 카운터 후면 판자 (배경 깊이감) */}
       <div style={{ height: 8, background: "hsl(28 40% 22%)", width: "100%" }} />
 
-      {/* 컵 영역 + 말풍선 */}
+      {/* 컵 영역 + 말풍선
+          — 아무도 없을 땐 낮게. 컵이 놓이면 그만큼 자란다.
+            혼자 있을 때 화면의 1/4 이 빈 갈색 벽인 건 낭비다 */}
       <div ref={counterRef} style={{
         position: "relative",
-        minHeight: 128,
+        minHeight: displayCups.length === 0 ? 64 : 128,
+        transition: "min-height 0.35s cubic-bezier(0.3, 1.1, 0.5, 1)",
         background: "hsl(28 42% 36%)",
         borderTop: "3px solid hsl(28 35% 24%)",
       }}>
@@ -173,15 +176,22 @@ export default function SharedCounter() {
           justifyContent: cups.length > 0 ? "center" : "flex-start",
           flexWrap: "wrap",
           gap: 6,
-          padding: "16px 16px 6px",
-          minHeight: 122,
-          position: "relative",
+          padding: displayCups.length === 0 ? "10px 16px 6px" : "16px 16px 6px",
+          minHeight: displayCups.length === 0 ? 58 : 122,
+          transition: "min-height 0.35s cubic-bezier(0.3, 1.1, 0.5, 1)",
+          // 고양이(zIndex 1)보다 위 — 안 그러면 안내 문구를 깔고 앉는다
+          position: "relative", zIndex: 2,
         }}>
           {displayCups.length === 0 && (
             <div style={{
               width: "100%", textAlign: "center",
               fontFamily: "'DotGothic16', monospace", fontSize: 11,
-              color: "hsl(38 40% 75%)", paddingTop: 32,
+              color: "hsl(38 40% 78%)",
+              // 이 줄은 flex-end 로 깔리면 고양이(바닥을 돌아다닌다)와 겹친다.
+              // 위로 올려서 고양이 머리 위를 비켜준다.
+              alignSelf: "flex-start",
+              position: "relative", zIndex: 3,
+              textShadow: "0 1px 0 hsl(28 42% 26%)",
             }}>
               아직 아무도 없어요... 커피 한잔 내려볼까요? ☕
             </div>

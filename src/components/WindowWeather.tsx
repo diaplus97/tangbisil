@@ -143,10 +143,10 @@ export default function WindowWeather({ compact = false }: Props) {
   const raining = isRainy || visit?.kind === "shower";
 
   // 창문을 키웠다 — 벽의 주인공이 되게
-  const W = compact ? 74 : 176;
-  const H = compact ? 96 : 148;
+  const W = compact ? 118 : 176;
+  const H = compact ? 134 : 148;
   const borderW = compact ? 4 : 6;
-  const px = (n: number) => Math.round(n * (compact ? 0.52 : 1));
+  const px = (n: number) => Math.round(n * (compact ? 0.72 : 1));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: compact ? 3 : 4, alignItems: "stretch" }}>
@@ -327,8 +327,9 @@ export default function WindowWeather({ compact = false }: Props) {
         boxSizing: "border-box",
       }} />
 
-      {/* 날씨 + 기온 */}
-      <div style={{
+      {/* 날씨 + 기온 — 폰에서는 상단 바가 이미 "현재 기온 29°C · 구름조금"
+          을 띄우고 있어서 같은 말을 두 번 한다. 창턱만 남기고 뺀다 */}
+      {!compact && <div style={{
         fontFamily: "'DotGothic16', monospace",
         fontSize: compact ? 8 : 9,
         background: "rgba(255,255,255,0.45)",
@@ -341,13 +342,11 @@ export default function WindowWeather({ compact = false }: Props) {
         overflow: "hidden",
         whiteSpace: "nowrap",
       }}>
-        <span style={{ fontSize: compact ? 9 : 12 }}>{weather.icon}</span>
+        <span style={{ fontSize: 12 }}>{weather.icon}</span>
         <span style={{ color: "hsl(30 25% 28%)" }}>
-          {compact
-            ? (weather.temp !== null ? `${weather.temp}°C` : weather.label)
-            : `${weather.label}${weather.temp !== null ? ` ${weather.temp}°C` : ""}`}
+          {`${weather.label}${weather.temp !== null ? ` ${weather.temp}°C` : ""}`}
         </span>
-      </div>
+      </div>}
     </div>
   );
 }

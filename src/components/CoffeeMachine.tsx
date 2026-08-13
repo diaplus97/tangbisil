@@ -56,6 +56,9 @@ export default function CoffeeMachine({ compact = false }: CoffeeMachineProps) {
       <div style={{
         display: "flex", gap: compact ? 4 : 5,
         flexWrap: "wrap", justifyContent: "center",
+        // 벽 전체가 430 논리폭으로 고정 배치된 뒤 화면에 맞춰 축소되므로
+        // 폰에서도 세 개가 한 줄에 들어간다
+        maxWidth: compact ? 178 : undefined,
         position: "relative", zIndex: 10,
       }}>
         {myCup ? (

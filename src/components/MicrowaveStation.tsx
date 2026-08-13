@@ -22,7 +22,12 @@ const BLAST_CHANCE = 0.1;
 /** 터지고 나면 이만큼 못 쓴다 */
 const WRECKED_MS = 20_000;
 
-export default function MicrowaveStation({ compact }: { compact: boolean }) {
+export default function MicrowaveStation({ compact, inline, scale: scaleProp }: {
+  compact: boolean;
+  /** 밴드 레이아웃 안에서는 흐름에 맡긴다 (absolute 로 띄우지 않는다) */
+  inline?: boolean;
+  scale?: number;
+}) {
   const { sendMessage, myCup, pickUp, triggerExplosion } = useBreakRoom();
   const locked = !myCup;
 
@@ -125,11 +130,13 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
     : selected ? "탭해서 투입!"
     : "만두를 드래그해서 넣어주세요";
 
-  const scale = compact ? 0.68 : 1;
+  const scale = scaleProp ?? (compact ? 0.68 : 1);
 
   return (
     <div style={{
-      position: "absolute", top: compact ? 6 : 10, left: compact ? 4 : 8,
+      ...(inline
+        ? { position: "relative" }
+        : { position: "absolute", top: compact ? 6 : 10, left: compact ? 4 : 8 }),
       zIndex: 3,
     }}>
       <div style={{ display: "flex", alignItems: "flex-end", gap: compact ? 3 : 7 }}>

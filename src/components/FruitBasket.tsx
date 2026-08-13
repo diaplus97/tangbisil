@@ -90,7 +90,8 @@ export default function FruitBasket({ compact }: { compact: boolean }) {
         color: locked || cooling ? "hsl(30 12% 55%)" : "hsl(30 25% 38%)",
         whiteSpace: "nowrap",
       }}>
-        {locked ? "☕ 커피 먼저" : cooling ? "방금 집었어요" : "과일 바구니"}
+        {/* 잠겼다고 이름까지 지우면 이게 뭔지 알 수가 없다 */}
+        {locked ? "🔒 과일 바구니" : cooling ? "방금 집었어요" : "과일 바구니"}
       </div>
     </div>
   );

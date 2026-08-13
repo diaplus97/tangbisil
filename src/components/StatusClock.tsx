@@ -10,7 +10,7 @@ const STATUS_CYCLE = [
 ];
 
 /** 디지털 시계 + 미세먼지 상태 (실시간 또는 데모) */
-export default function StatusClock() {
+export default function StatusClock({ compact = false }: { compact?: boolean } = {}) {
   const now = useClock();
   const air = useAirQuality();
   const { stampDays, streak, restMinutes } = useBreakRoom();
@@ -68,8 +68,8 @@ export default function StatusClock() {
         {air.pm25 !== null && air.isReal && ` ${air.pm25}㎍`}
       </div>
 
-      {/* 상태 스크롤 */}
-      <div style={{
+      {/* 상태 스크롤 — 폰에서는 한 줄 줄인다 (벽 공간이 아깝다) */}
+      {!compact && <div style={{
         background: "#1a1a2e",
         border: "3px solid hsl(30 25% 20%)",
         boxShadow: "2px 2px 0 rgba(0,0,0,0.4)",
@@ -83,7 +83,7 @@ export default function StatusClock() {
         whiteSpace: "nowrap",
       }}>
         {statusText}
-      </div>
+      </div>}
     </div>
   );
 }

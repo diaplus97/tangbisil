@@ -61,7 +61,7 @@ export default function VendingMachine({ compact }: { compact: boolean }) {
   };
 
   const isReady = state === "ready";
-  const W = compact ? 94 : 126;
+  const W = compact ? 96 : 126;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
