@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
+import { createPortal } from "react-dom";
 import ApplePeelGame from "./ApplePeelGame";
+import OrangeNinjaGame from "./OrangeNinjaGame";
 
 /** 칼로 깎을 수 있는 것 */
 const PEELABLE = new Set(["apple"]);
+/** 도마에 올릴 수 있는 것 */
+const SLICEABLE = new Set(["orange"]);
 
 function SmallBtn({ children, onClick, tone, disabled, title }: {
   children: React.ReactNode;
@@ -24,12 +28,12 @@ function SmallBtn({ children, onClick, tone, disabled, title }: {
       disabled={disabled}
       title={title}
       style={{
-        padding: "4px 9px",
+        padding: "8px 13px",
         background: bg,
         color: disabled ? "hsl(30 10% 55%)" : "hsl(38 60% 96%)",
-        border: "2px solid hsl(30 25% 26%)",
-        boxShadow: disabled ? "none" : "1px 1px 0 rgba(0,0,0,0.28)",
-        fontFamily: "'DotGothic16', monospace", fontSize: 10,
+        border: "3px solid hsl(30 25% 22%)",
+        boxShadow: disabled ? "none" : "2px 2px 0 rgba(0,0,0,0.35)",
+        fontFamily: "'DotGothic16', monospace", fontSize: 13,
         cursor: disabled ? "not-allowed" : "pointer",
         whiteSpace: "nowrap",
         touchAction: "manipulation",
@@ -46,6 +50,7 @@ export default function ComposerBar() {
   const { sendMessage, myCup, recentMessages, heldItem, eatHeld, cups, giftMode, setGiftMode } = useBreakRoom();
   const [text, setText] = useState("");
   const [peeling, setPeeling] = useState(false);
+  const [slicing, setSlicing] = useState(false);
 
   const send = (msg?: string) => {
     const t = (msg ?? text).trim();
@@ -89,20 +94,25 @@ export default function ComposerBar() {
 
       {/* 손에 든 물건 — 먹거나 / 옆 사람 주거나 / 흡연실로 가져가거나 */}
       {heldItem && (
-        <div style={{
-          display: "flex", alignItems: "center", gap: 7,
-          padding: "5px 10px",
-          background: giftMode ? "hsl(140 40% 82%)" : "hsl(38 50% 86%)",
-          borderBottom: "2px solid hsl(30 25% 62%)",
-          fontFamily: "'DotGothic16', monospace",
-          transition: "background 0.2s",
-        }}>
-          <span style={{ fontSize: 17, lineHeight: 1 }}>{heldItem.emoji}</span>
-          <span style={{ fontSize: 10, color: "hsl(30 28% 28%)", whiteSpace: "nowrap" }}>
-            {giftMode ? "누구한테 줄까요? 컵을 탭하세요" : `${heldItem.label} 들고 있음`}
+        <div
+          key={heldItem.id}
+          className="held-bar"
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "7px 10px",
+            background: giftMode ? "hsl(140 40% 82%)" : "hsl(45 85% 82%)",
+            borderTop: "3px solid hsl(38 65% 55%)",
+            borderBottom: "3px solid hsl(30 25% 55%)",
+            fontFamily: "'DotGothic16', monospace",
+            transition: "background 0.2s",
+          }}
+        >
+          <span style={{ fontSize: 22, lineHeight: 1 }}>{heldItem.emoji}</span>
+          <span style={{ fontSize: 12, color: "hsl(30 30% 24%)", whiteSpace: "nowrap", fontWeight: "bold" }}>
+            {giftMode ? "누구한테 줄까요? 컵을 탭!" : heldItem.label}
           </span>
 
-          <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
             {giftMode ? (
               <SmallBtn onClick={() => setGiftMode(false)} tone="cancel">취소</SmallBtn>
             ) : (
@@ -111,6 +121,11 @@ export default function ComposerBar() {
                 {PEELABLE.has(heldItem.id) && (
                   <SmallBtn onClick={() => setPeeling(true)} tone="peel" title="껍질 안 끊고 얼마나 길게?">
                     깎기 🔪
+                  </SmallBtn>
+                )}
+                {SLICEABLE.has(heldItem.id) && (
+                  <SmallBtn onClick={() => setSlicing(true)} tone="peel" title="던져지는 과일을 그어서 자르기">
+                    썰기 🔪
                   </SmallBtn>
                 )}
                 <SmallBtn
@@ -161,8 +176,11 @@ export default function ComposerBar() {
         </button>
       </div>
 
-      {/* 사과 깎기 — 결과물이 다시 손에 들린다 */}
-      {peeling && <ApplePeelGame onClose={() => setPeeling(false)} />}
+      {/* 미니게임 — 결과물이 다시 손에 들린다.
+          portal 로 body 에 붙인다: 이 바는 transform 밖이라 지금은 없어도 되지만,
+          위치가 바뀌어도 안 깨지게 (방 안은 scale 이 걸려 fixed 가 갇힌다) */}
+      {peeling && createPortal(<ApplePeelGame onClose={() => setPeeling(false)} />, document.body)}
+      {slicing && createPortal(<OrangeNinjaGame onClose={() => setSlicing(false)} />, document.body)}
     </div>
   );
 }

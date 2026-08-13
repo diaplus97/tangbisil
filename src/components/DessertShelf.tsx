@@ -64,7 +64,7 @@ export default function DessertShelf({ compact }: { compact: boolean }) {
 
   const isCooling = Date.now() < cooldownEnd;
   const isLocked  = locked || isCooling;
-  const W = compact ? 84 : 140;
+  const W = compact ? 112 : 140;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>

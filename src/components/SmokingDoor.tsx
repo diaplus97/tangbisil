@@ -19,7 +19,7 @@ interface SmokingDoorProps {
 }
 
 export default function SmokingDoor({ compact, onEnter, inline, width }: SmokingDoorProps) {
-  const W = width ?? (compact ? 64 : 112);
+  const W = width ?? (compact ? 78 : 112);
   // 폰에서는 원래 비율(1:1.91)로 두면 문이 뭉툭하고 낮아서 '문'으로 안 읽힌다.
   // 좁고 높게 세운다 — 실제 문도 그렇다.
   const H = compact ? W * 2.35 : (W * 176) / 92;
