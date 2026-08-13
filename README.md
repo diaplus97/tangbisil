@@ -43,7 +43,7 @@ npm run dev        # http://localhost:5173
 환경변수 없이 실행하면 **오프라인 데모 모드**(혼자 있는 방)로 동작합니다.
 실시간 모드를 쓰려면 `.env.example`을 `.env`로 복사하고 Supabase 값을 채우세요.
 
-## Supabase 설정 (실시간 모드)
+## Supabase 설정 (실시간 모드 = 동시접속)
 
 1. [supabase.com](https://supabase.com)에서 프로젝트 생성
 2. **SQL Editor**에서 [`supabase/schema.sql`](./supabase/schema.sql) 전체 실행
@@ -53,6 +53,37 @@ npm run dev        # http://localhost:5173
 VITE_SUPABASE_URL=https://xxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
 ```
+
+### ⚠️ `VITE_` 변수는 빌드할 때 번들에 박힌다
+
+런타임에 읽는 값이 아닙니다. Cloudflare/Vercel 대시보드에 값을 넣기만 하고
+**재배포를 안 하면 기존 번들은 그대로**라서 사이트는 계속 오프라인입니다.
+에러가 안 나기 때문에 눈으로는 구별되지 않습니다.
+
+값을 넣은 뒤 반드시 재배포하고, 아래로 확인하세요:
+
+```bash
+npm run verify:online https://내주소.pages.dev
+```
+
+번들에 설정이 실제로 박혔는지, cups 테이블이 읽히는지, 삭제가 막혀 있는지,
+Realtime 웹소켓이 붙는지까지 한 번에 검사합니다.
+
+### 보안 — anon key 는 공개 키입니다
+
+anon key 는 브라우저 번들에 그대로 들어갑니다(원래 그런 용도의 키입니다).
+따라서 **RLS 정책이 유일한 방어선**입니다. `schema.sql` 은 이렇게 잡혀 있습니다:
+
+| 동작 | 허용 | 이유 |
+|---|---|---|
+| SELECT | ✅ | 남의 컵이 보여야 방이 성립함 |
+| INSERT / UPDATE | ✅ | 익명 서비스라 "이 컵이 네 것인지" 서버가 검증할 방법이 없음 |
+| DELETE | ❌ | 막지 않으면 누구나 요청 한 번으로 방 전체를 비울 수 있음 |
+
+오래된 컵(8시간 경과)은 `prune_old_cups()` 함수로만 정리됩니다.
+
+> 구버전 `public_all` 정책을 쓰던 프로젝트라면 `schema.sql` 을 **다시 실행**하세요.
+> `npm run verify:online` 의 4번 항목이 이걸 잡아냅니다.
 
 ## 흡연실 NPC 설정 (AI 연동)
 
@@ -144,7 +175,22 @@ npm run verify:deploy https://<배포주소>
 
 1. Cloudflare 대시보드 → **Workers & Pages** → **Create** → **Pages** → 이 레포 연결
 2. 빌드 설정 — 프레임워크 프리셋 `Vite`, Build command `npm run build`, Output directory `dist`
-3. **Settings → Environment variables**에 Supabase 값 두 개 등록 후 재배포
+3. **Settings → Environment variables** → **Production** 에 등록
+   (Preview 는 별도 환경입니다. 배포 주소에서 쓰려면 Production 에 넣어야 합니다)
+
+   | 이름 | 값 | 타입 |
+   |---|---|---|
+   | `VITE_SUPABASE_URL` | `https://xxxx.supabase.co` | Text |
+   | `VITE_SUPABASE_ANON_KEY` | `eyJ...` | Text |
+   | `ANTHROPIC_API_KEY` | `sk-ant-...` | **Secret** |
+
+4. **Deployments → 최신 배포 → Retry deployment** 로 재빌드
+   (환경변수만 추가하면 기존 번들은 안 바뀝니다)
+5. `npm run verify:online <주소>` 로 확인
+
+> 배포 주소 주의: `a385fd93.내앱.pages.dev` 처럼 앞에 해시가 붙은 주소는
+> **그 시점 배포의 스냅샷**이라 영원히 그 빌드에 고정됩니다.
+> 실제 서비스 주소는 해시 없는 `내앱.pages.dev` 입니다.
 
 ### GitHub Pages (현재 설정됨)
 
