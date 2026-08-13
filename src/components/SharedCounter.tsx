@@ -149,6 +149,13 @@ export default function SharedCounter() {
 
   const cupsWithPos = displayCups.map((c, i) => ({ ...c, centerX: cupPositions[i] ?? containerWidth / 2 }));
 
+  // 정이 붙은 고양이/강아지가 내 컵 옆으로 오려면 컵이 어디 있는지 알아야 한다
+  const myCupPct = (() => {
+    const i = displayCups.findIndex((c) => c.isMe);
+    if (i < 0 || !containerWidth || cupPositions[i] == null) return null;
+    return (cupPositions[i] / containerWidth) * 100;
+  })();
+
   return (
     <div style={{ width: "100%", flexShrink: 0 }}>
       {/* 카운터 후면 판자 (배경 깊이감) */}
@@ -175,8 +182,8 @@ export default function SharedCounter() {
         )}
 
         {/* 탕비실 고양이 */}
-        <BreakRoomCat />
-        <BreakRoomDog />
+        <BreakRoomCat myCupPct={myCupPct} />
+        <BreakRoomDog myCupPct={myCupPct} />
 
         {/* 결투 폭발 이펙트 */}
         {explosionAt && (
