@@ -5,7 +5,7 @@
  * 모바일에서는 컬럼 폭을 줄이고 컴팩트 컴포넌트로 대체.
  * 오브젝트(전자레인지/자판기/디저트 선반)는 각자 픽셀 SVG 컴포넌트.
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import CoffeeMachine from "./CoffeeMachine";
 import SharedCounter from "./SharedCounter";
 import WindowWeather from "./WindowWeather";
@@ -18,19 +18,24 @@ import SmokingDoor from "./SmokingDoor";
 import FruitBasket from "./FruitBasket";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useRoomEvent } from "@/hooks/useRoomEvent";
 
 export default function BreakRoomScene({ onEnterSmoking }: { onEnterSmoking: () => void }) {
   const isMobile = useIsMobile();
   const { myCup, explosionAt } = useBreakRoom();
   const [shaking, setShaking] = useState(false);
+  const [flash, setFlash] = useState(false);
 
-  // 폭발하면 방이 한 번 흔들린다
-  useEffect(() => {
-    if (!explosionAt) return;
+  // 폭발하면 방이 번쩍하고 흔들린다.
+  // useRoomEvent — 흡연실에 갔다 오면 explosionAt 은 그대로 남아 있는데
+  // 씬은 새로 마운트되니까, 그냥 useEffect 로 두면 돌아올 때마다 다시 흔들린다.
+  useRoomEvent(explosionAt, () => {
     setShaking(true);
-    const t = setTimeout(() => setShaking(false), 800);
-    return () => clearTimeout(t);
-  }, [explosionAt]);
+    setFlash(true);
+    const f = setTimeout(() => setFlash(false), 900);
+    const s = setTimeout(() => setShaking(false), 1200);
+    return () => { clearTimeout(f); clearTimeout(s); };
+  });
 
   return (
     <div className={shaking ? "room-shake" : undefined} style={{
@@ -39,8 +44,17 @@ export default function BreakRoomScene({ onEnterSmoking }: { onEnterSmoking: () 
       display: "flex", flexDirection: "column",
       alignItems: "stretch",
       overflow: "hidden",
+      position: "relative",
     }}>
       <RoomLayout compact={isMobile} showHint={!myCup} onEnterSmoking={onEnterSmoking} />
+
+      {/* 폭발 섬광 — 방 전체를 덮는다 */}
+      {flash && (
+        <div className="blast-flash" style={{
+          position: "absolute", inset: 0,
+          zIndex: 40, pointerEvents: "none",
+        }} />
+      )}
     </div>
   );
 }
@@ -130,9 +144,6 @@ function LeftZone({ compact }: { compact: boolean }) {
       minWidth: 0,
       boxSizing: "border-box",
     }}>
-      {/* 창문 — compact 시 실제 작은 크기로 렌더링 */}
-      <WindowWeather compact={compact} />
-
       {/* 디지털 시계 + 먼지 — 데스크탑만 */}
       {!compact && <StatusClock />}
 
@@ -166,6 +177,16 @@ function CenterZone({ compact, showHint, onEnterSmoking }: {
     }}>
       {/* 전자레인지 — 절대 위치, 레이아웃에 영향 없음 */}
       <MicrowaveStation compact={compact} />
+
+      {/* 창문 — 구석에 있으면 아무도 안 본다. 벽 한가운데로 옮기고 키웠다 */}
+      <div style={{
+        position: "absolute",
+        top: compact ? 4 : 10,
+        right: compact ? 2 : 12,
+        zIndex: 3,
+      }}>
+        <WindowWeather compact={compact} />
+      </div>
 
       {/* 빈 벽 공간 — machine을 아래로 밀기 */}
       <div style={{ flex: 1 }} />

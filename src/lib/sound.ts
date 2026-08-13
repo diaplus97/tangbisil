@@ -27,7 +27,9 @@ export type SoundName =
   | "footsteps" // 복도 발자국
   | "door"    // 문 열림
   | "blast"   // 전자레인지 폭발 (컵 결투 boom 보다 크다)
-  | "siren";  // 창밖 소방차
+  | "siren"   // 창밖 소방차
+  | "chirp"   // 창틀에 앉은 새
+  | "knock";  // 유리 두드리는 소리
 
 const STORAGE_KEY = "tangbirsil_sound_v1";
 
@@ -257,6 +259,20 @@ class SoundEngine {
         [0, 0.62, 1.24, 1.86].forEach((d, i) => {
           const far = i >= 2;
           this.tone({ type: "square", from: far ? 760 : 640, to: far ? 560 : 900, dur: 0.5, gain: far ? 0.03 : 0.05, delay: d, curve: "lin" });
+        });
+        break;
+      case "chirp":
+        // 짹짹 — 짧은 상승 삑 두 번
+        [0, 0.13].forEach((d) => {
+          this.tone({ type: "sine", from: 2600, to: 3900, dur: 0.06, gain: 0.045, delay: d, curve: "lin" });
+          this.tone({ type: "sine", from: 3900, to: 2900, dur: 0.05, gain: 0.035, delay: d + 0.055, curve: "lin" });
+        });
+        break;
+      case "knock":
+        // 유리를 톡톡톡 — 얇고 딱딱한 타격
+        [0, 0.19, 0.38].forEach((d) => {
+          this.tone({ type: "sine", from: 1750, to: 900, dur: 0.05, gain: 0.06, delay: d });
+          this.noiseBurst({ dur: 0.025, gain: 0.035, filter: "highpass", freq: 4200, delay: d });
         });
         break;
       case "door":

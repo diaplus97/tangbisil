@@ -16,7 +16,7 @@ const BATTLE_MSGS = (me: string, them: string): string[] => [
 
 /** 공용 카운터 — 더 크고 묵직하게 */
 export default function SharedCounter() {
-  const { cups, coldCups, myCup, sendMessage } = useBreakRoom();
+  const { cups, coldCups, myCup, sendMessage, giftMode, giveTo, heldItem, incomingGift, dismissGift } = useBreakRoom();
   const counterRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [cupPositions, setCupPositions] = useState<number[]>([]);
@@ -84,6 +84,13 @@ export default function SharedCounter() {
       return;
     }
 
+    // 선물 모드 — 결투보다 우선한다 (물건을 들고 있을 때만 켜진다)
+    if (giftMode && heldItem && !cup.isMe) {
+      jiggle(cup.id);
+      giveTo(cup);
+      return;
+    }
+
     if (cup.isMe) {
       // 내 컵: 흔들림 + 무장 토글
       jiggle(cup.id);
@@ -115,7 +122,7 @@ export default function SharedCounter() {
     // 남의 컵: 그냥 흔들기
     jiggle(cup.id);
     sound.play("blip");
-  }, [displayCups, coldIds, cupPositions, containerWidth, isArmed, myCup, jiggle, sendMessage]);
+  }, [displayCups, coldIds, cupPositions, containerWidth, isArmed, myCup, jiggle, sendMessage, giftMode, heldItem, giveTo]);
 
   const cupsWithPos = displayCups.map((c, i) => ({ ...c, centerX: cupPositions[i] ?? containerWidth / 2 }));
 
@@ -135,6 +142,11 @@ export default function SharedCounter() {
         <div style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(90deg, transparent 0px, transparent 60px, rgba(0,0,0,0.04) 60px, rgba(0,0,0,0.04) 61px)" }} />
 
         <FloatingMessageLayer cupsWithPos={cupsWithPos} containerWidth={containerWidth} />
+
+        {/* 누가 나한테 뭔가 줬을 때 */}
+        {incomingGift && (
+          <GiftToast key={incomingGift.key} gift={incomingGift} onDone={dismissGift} />
+        )}
 
         {/* 탕비실 고양이 */}
         <BreakRoomCat />
@@ -193,6 +205,7 @@ export default function SharedCounter() {
               isHit={hitId === cup.id}
               canAttack={isArmed && !cup.isMe && !!myCup && !coldIds.has(cup.id)}
               isCold={coldIds.has(cup.id)}
+              isGiftTarget={giftMode && !!heldItem && !cup.isMe && !coldIds.has(cup.id)}
               onClick={() => handleCupClick(cup, i)}
             />
           ))}
@@ -213,6 +226,45 @@ export default function SharedCounter() {
         ))}
       </div>
       <div style={{ height: 14, background: "hsl(28 38% 22%)" }} />
+    </div>
+  );
+}
+
+
+/* ─── 받은 선물 토스트 ───────────────────────────────────── */
+function GiftToast({ gift, onDone }: {
+  gift: NonNullable<ReturnType<typeof useBreakRoom>["incomingGift"]>;
+  onDone: () => void;
+}) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 4200);
+    return () => clearTimeout(t);
+  }, [onDone]);
+
+  return (
+    <div
+      className="panel-up"
+      style={{
+        position: "absolute",
+        left: "50%", top: 8,
+        transform: "translateX(-50%)",
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "7px 12px",
+        background: "hsl(38 55% 92%)",
+        border: "3px solid hsl(30 25% 20%)",
+        boxShadow: "3px 3px 0 rgba(0,0,0,0.35)",
+        fontFamily: "'DotGothic16', monospace",
+        zIndex: 20,
+        maxWidth: "92%",
+        pointerEvents: "none",
+      }}
+    >
+      <span style={{ fontSize: 20, lineHeight: 1 }}>{gift.item.emoji}</span>
+      <span style={{ fontSize: 11, color: "hsl(30 25% 22%)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <b style={{ color: gift.fromColor }}>{gift.fromNick}</b>
+        님이 {gift.item.label}을(를) 건네주었습니다
+        {gift.flavor && <span style={{ color: "hsl(28 45% 40%)" }}> — {gift.flavor}</span>}
+      </span>
     </div>
   );
 }
