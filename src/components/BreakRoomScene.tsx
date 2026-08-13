@@ -15,6 +15,7 @@ import MicrowaveStation from "./MicrowaveStation";
 import DessertShelf from "./DessertShelf";
 import VendingMachine from "./VendingMachine";
 import SmokingDoor from "./SmokingDoor";
+import FruitBasket from "./FruitBasket";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -134,6 +135,11 @@ function LeftZone({ compact }: { compact: boolean }) {
 
       {/* 디지털 시계 + 먼지 — 데스크탑만 */}
       {!compact && <StatusClock />}
+
+      {/* 과일 바구니 — 시계와 화분 사이의 빈 벽 */}
+      <div style={{ marginTop: compact ? 4 : 10, flexShrink: 0 }}>
+        <FruitBasket compact={compact} />
+      </div>
 
       {/* 화분 — 하단 */}
       <div style={{ marginTop: "auto", flexShrink: 0 }}>
