@@ -50,6 +50,13 @@ export type ActiveCup = {
   isMe?: boolean;
 };
 
+/** 손에 든 물건 — 탕비실에서 집어서 흡연실 아저씨에게 건넬 수 있다 */
+export type HeldItem = {
+  id: string;
+  emoji: string;
+  label: string;
+};
+
 export type RecentMsg = {
   id: string;
   nickname: string;
@@ -80,6 +87,12 @@ type BreakRoomContextValue = {
   streak: number;
   /** 오늘 탕비실에서 쉰 시간 (분) */
   restMinutes: number;
+  /** 손에 든 물건 (한 번에 하나) */
+  heldItem: HeldItem | null;
+  /** 물건을 집는다. 이미 들고 있으면 교체된다. */
+  pickUp: (item: HeldItem) => void;
+  /** 손에 든 걸 비운다 (건네줬거나 먹었을 때) */
+  clearHeld: () => void;
 };
 
 const BreakRoomContext = createContext<BreakRoomContextValue | null>(null);
@@ -211,6 +224,9 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
   // presence 채널에 실제로 접속 중인 세션 ID 들 (유령 컵 판별용)
   const [presenceIds, setPresenceIds] = useState<Set<string> | null>(null);
 
+  // 손에 든 물건 — 방을 옮겨도 유지되도록 Provider 최상단에 둔다
+  const [heldItem, setHeldItem] = useState<HeldItem | null>(null);
+
   const [lastWatered, setLastWatered] = useState<number | null>(() => {
     try { const v = localStorage.getItem(STORAGE_PLANT); return v ? Number(v) : null; } catch { return null; }
   });
@@ -324,6 +340,13 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
         });
     }
   }, [nickname, myColor, pushRecent]);
+
+  const pickUp = useCallback((item: HeldItem) => {
+    setHeldItem(item);
+    sound.play("blip");
+  }, []);
+
+  const clearHeld = useCallback(() => setHeldItem(null), []);
 
   const waterPlant = useCallback(() => {
     if (!canWater) return;
@@ -481,6 +504,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
       plantState, canWater, waterPlant,
       stampDays, streak: computeStreak(stampDays),
       restMinutes: Math.floor(restSeconds / 60),
+      heldItem, pickUp, clearHeld,
     }}>
       {children}
     </BreakRoomContext.Provider>

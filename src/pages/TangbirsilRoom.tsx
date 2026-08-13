@@ -54,12 +54,11 @@ export default function TangbirsilRoom() {
             <AmbientTicker />
 
             {/* 방 씬 (데스크탑: 3열 / 모바일: 수직 스택) */}
-            <BreakRoomScene />
+            <BreakRoomScene onEnterSmoking={goSmoking} />
 
             {/* 컴포저 */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "hsl(38 22% 78%)", flexShrink: 0 }}>
               <ComposerBar />
-              <SmokingDoor onEnter={goSmoking} />
             </div>
           </>
         ) : (
@@ -69,47 +68,5 @@ export default function TangbirsilRoom() {
         )}
       </div>
     </BreakRoomProvider>
-  );
-}
-
-/** 탕비실 구석의 문 — 복도 지나 흡연실로 */
-function SmokingDoor({ onEnter }: { onEnter: () => void }) {
-  return (
-    <div style={{
-      width: "100%", maxWidth: 1100,
-      display: "flex", justifyContent: "flex-end",
-      padding: "0 10px 8px",
-      flexShrink: 0,
-    }}>
-      <button
-        onClick={onEnter}
-        title="복도 끝 흡연실"
-        style={{
-          display: "flex", alignItems: "center", gap: 6,
-          padding: "6px 10px",
-          background: "hsl(30 18% 34%)",
-          color: "hsl(38 35% 82%)",
-          border: "3px solid hsl(30 25% 14%)",
-          boxShadow: "3px 3px 0 rgba(0,0,0,0.35)",
-          fontFamily: "'DotGothic16', monospace",
-          fontSize: 9, letterSpacing: "0.03em",
-          cursor: "pointer",
-          touchAction: "manipulation",
-          WebkitTapHighlightColor: "transparent",
-        }}
-      >
-        <DoorIcon />
-        복도 → 흡연실
-      </button>
-    </div>
-  );
-}
-
-function DoorIcon() {
-  return (
-    <svg width="12" height="16" viewBox="0 0 12 16" style={{ imageRendering: "pixelated", display: "block" }}>
-      <rect x="1" y="1" width="10" height="14" fill="hsl(30 22% 26%)" stroke="hsl(30 25% 10%)" strokeWidth="2" />
-      <circle cx="8.5" cy="8" r="1.2" fill="hsl(45 40% 70%)" />
-    </svg>
   );
 }

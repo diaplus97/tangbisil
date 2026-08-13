@@ -22,11 +22,12 @@ const INK = "hsl(150 10% 8%)";
  * 0 짜리는 들어오자마자 보인다. 아무 힌트도 없으면 아무도 4개비를 안 피운다.
  */
 const GRAFFITI = [
-  // 문(왼쪽 3~26%)과 창문(오른쪽 63~93%, 위쪽)을 피해 가운데 벽에 적는다
+  // 문(왼쪽 3~26%)과 창문(오른쪽 63~93%, 위쪽)을 피해 가운데 벽에 적는다.
+  // reveal 을 0/1/2 로 흩어놔서 개비마다 읽을 게 새로 생기게 한다 — 빈 개비를 없앤다.
   { text: "여기서 계속 피우면 누가 온다", x: 31, y: 44, rot: -2, size: 11, reveal: 0 },
   { text: "ㄴ 진짜임 ㅇㅇ", x: 40, y: 51, rot: 2, size: 9, reveal: 0 },
-  { text: "나도 봤음", x: 34, y: 58, rot: -1, size: 9, reveal: 2 },
-  { text: "퇴사 D-32", x: 66, y: 52, rot: 4, size: 10, reveal: 2 },
+  { text: "나도 봤음", x: 34, y: 58, rot: -1, size: 9, reveal: 1 },
+  { text: "퇴사 D-32", x: 66, y: 52, rot: 4, size: 10, reveal: 1 },
   { text: "월요일 싫어", x: 30, y: 66, rot: -2, size: 9, reveal: 2 },
   { text: "이번엔 진짜 끊는다", x: 58, y: 63, rot: 1, size: 9, reveal: 2 },
 ];
@@ -41,14 +42,14 @@ interface SmokingRoomProps {
 
 export default function SmokingRoom({ onExit }: SmokingRoomProps) {
   const {
-    phase, chain, progress, butts, graffitiVisible, footstepsHeard,
+    phase, chain, progress, butts, metCount, footstepsHeard,
     cigsLeft, packEmpty, light, leave,
   } = useSmokingRoom();
 
   const smoking = phase === "smoking";
   const talking = phase === "talking" || phase === "arriving";
-  // 낙서는 단계적으로 드러난다. 재방문자는 처음부터 전부 보인다.
-  const graffitiLevel = graffitiVisible ? Math.max(chain, 2) : chain;
+  // 낙서는 개비마다 단계적으로 드러난다. 재방문자는 처음부터 전부 보인다.
+  const graffitiLevel = metCount > 0 ? Infinity : chain;
   // 바닥선 — 대화 중엔 올라와서 인물이 패널 위에 서게 된다
   const floorH = talking ? FLOOR_H_TALK : FLOOR_H_IDLE;
   const standOn = `${floorH - 4}%`;

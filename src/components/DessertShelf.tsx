@@ -28,7 +28,7 @@ const ITEM_ZONES = [
 ];
 
 export default function DessertShelf({ compact }: { compact: boolean }) {
-  const { sendMessage, myCup } = useBreakRoom();
+  const { sendMessage, myCup, pickUp } = useBreakRoom();
   const locked = !myCup;
 
   const [popItem, setPopItem]         = useState<{ emoji: string; x: number } | null>(null);
@@ -48,6 +48,7 @@ export default function DessertShelf({ compact }: { compact: boolean }) {
     setGrabCount(newCount);
 
     sendMessage(item.message);
+    pickUp({ id: item.id, emoji: item.emoji, label: item.label });
     sound.play("crunch");
     setPopItem({ emoji: item.emoji, x: ITEM_ZONES[idx].x + ITEM_ZONES[idx].w / 2 });
     setTimeout(() => setPopItem(null), 1400);

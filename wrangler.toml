@@ -5,7 +5,10 @@
 #    (compatibility flags, KV/D1 등 바인딩)은 **무시됩니다**.
 #    바인딩은 대시보드가 아니라 반드시 이 파일에 적어야 합니다.
 
-name = "tangbisil"
+# Cloudflare Pages 프로젝트명과 일치해야 한다 (배포 주소 tangbisil-7h3.pages.dev).
+# Git 연동 빌드는 대시보드의 프로젝트를 쓰므로 어긋나도 넘어가지만,
+# wrangler pages deploy 를 직접 쓸 때는 이 이름으로 프로젝트를 찾는다.
+name = "tangbisil-7h3"
 pages_build_output_dir = "dist"
 
 compatibility_date = "2026-08-12"
@@ -20,15 +23,15 @@ compatibility_flags = ["nodejs_compat"]
 
 # ─── 일일 예산 차단기용 KV ────────────────────────────────────
 #
-# 이걸 안 붙이면 예산 상한이 동작하지 않습니다 (경고만 남기고 통과).
-# 배포 전에 반드시 붙이세요.
+# 하루 누적 사용액이 DAILY_BUDGET_USD 를 넘으면 NPC 가 등장하지 않는다.
+# /api/chat 은 인증 없는 공개 엔드포인트라, 클라이언트측 제한(담배 갑·턴 수)은
+# 우회가 쉽다. 서버측 유일한 방어선이므로 이 바인딩을 지우면 안 된다.
 #
-#   1. Cloudflare → Workers & Pages → KV → 네임스페이스 생성
-#   2. 생성된 ID 를 아래에 넣고 주석 해제
-#
-# [[kv_namespaces]]
-# binding = "BUDGET_KV"
-# id = "여기에_KV_네임스페이스_ID"
+# 이 블록은 Production 에 적용된다. Preview 는 ANTHROPIC_API_KEY 가 없어
+# 503 으로 떨어지므로 비용이 발생하지 않는다.
+[[kv_namespaces]]
+binding = "BUDGET_KV"
+id = "9946a364b8fb4f358a61bb3668e65b86"
 
 # ─── 시크릿 ───────────────────────────────────────────────────
 # ANTHROPIC_API_KEY 는 이 파일에 절대 넣지 마세요 (git 에 올라갑니다).

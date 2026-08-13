@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
+import { buyCigarettes, loadPack, canBuyCigarettes, BUY_PACK_SIZE } from "@/lib/npcMemory";
 
 const VEND_ITEMS = [
   { id: "drink",  emoji: "🥤", label: "음료",     message: "자판기 음료 뽑음 🥤" },
@@ -22,10 +23,11 @@ const VB_H = 172;
 const ITEM_XS = [24, 47, 70]; // 1열 아이템 중심 x
 
 export default function VendingMachine({ compact }: { compact: boolean }) {
-  const { sendMessage, myCup } = useBreakRoom();
+  const { sendMessage, myCup, pickUp } = useBreakRoom();
   const locked = !myCup;
   const [state, setState] = useState<VendState>("idle");
   const [dropping, setDropping] = useState<{ emoji: string; x: number } | null>(null);
+  const [soldOut, setSoldOut] = useState(!canBuyCigarettes(loadPack()));
 
   const insertCoin = () => {
     if (locked || state !== "idle") return;
@@ -39,6 +41,21 @@ export default function VendingMachine({ compact }: { compact: boolean }) {
     setState("dispensing");
     setDropping({ emoji: item.emoji, x: ITEM_XS[idx] });
     sendMessage(item.message);
+    // 뽑은 건 손에 들린다 — 흡연실 아저씨한테 건넬 수 있다
+    pickUp({ id: item.id, emoji: item.emoji, label: item.label });
+    sound.play("drop");
+    setTimeout(() => { setState("idle"); setDropping(null); }, 1800);
+  };
+
+  /** 담배 한 갑 — 흡연실에서 쓸 개비를 보충한다 */
+  const buySmokes = () => {
+    if (locked || state !== "idle" || soldOut) return;
+    const next = buyCigarettes();
+    if (!next) { setSoldOut(true); return; }
+    setSoldOut(!canBuyCigarettes(next));
+    setState("dispensing");
+    setDropping({ emoji: "🚬", x: ITEM_XS[1] });
+    sendMessage(`담배 한 갑 뽑음 🚬`);
     sound.play("drop");
     setTimeout(() => { setState("idle"); setDropping(null); }, 1800);
   };
@@ -105,6 +122,33 @@ export default function VendingMachine({ compact }: { compact: boolean }) {
         }}>
         {locked ? "☕ 커피 먼저" : isReady ? "✓ 동전 투입됨" : "🪙 동전 넣기"}
       </button>
+
+      {/* 담배 — 흡연실과 물리는 유일한 품목 */}
+      <button onClick={buySmokes} disabled={locked || state !== "idle" || soldOut}
+        title={soldOut ? "오늘은 다 나갔습니다" : `${BUY_PACK_SIZE}개비 — 흡연실에서 쓸 수 있어요`}
+        style={{
+          display: "block", width: W, marginTop: -2,
+          fontFamily: "'DotGothic16', monospace", fontSize: compact ? 9 : 8.5,
+          background: locked || soldOut ? "#1a2838" : "#3a2a20",
+          color: locked || soldOut ? "#3a4a5a" : "#d8a878",
+          border: `2px solid ${locked || soldOut ? "#2a4a6a" : "#5a3a24"}`,
+          padding: compact ? "6px 2px" : "5px 0",
+          cursor: locked || state !== "idle" || soldOut ? "not-allowed" : "pointer",
+          touchAction: "manipulation",
+        }}>
+        {soldOut ? "🚬 오늘 품절" : `🚬 담배 (${BUY_PACK_SIZE}개비)`}
+      </button>
+
+      {/* 경고 문구 — 실제 담뱃갑처럼 */}
+      {!compact && (
+        <div style={{
+          width: W, textAlign: "center",
+          fontFamily: "'DotGothic16', monospace", fontSize: 6.5,
+          color: "hsl(30 12% 48%)", lineHeight: 1.4, marginTop: 1,
+        }}>
+          흡연은 질병의 원인
+        </div>
+      )}
     </div>
   );
 }

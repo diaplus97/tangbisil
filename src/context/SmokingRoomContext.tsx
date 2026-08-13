@@ -5,12 +5,15 @@
  *   담배 한 개비 = 12초 실시간. 연달아 피우면 체인이 오른다.
  *   체인이 임계치에 닿으면 문이 열리고 NPC 가 들어온다.
  *
- *   1개비 — 재떨이에 꽁초
- *   2개비 — 벽 낙서가 눈에 들어옴
- *   3개비 — 복도에서 발자국. 안 옴. (여기서 "한 대 더"가 나온다)
- *   4개비 — 문이 열린다
+ *   입장   — 벽 낙서 두 줄이 이미 보인다 (유일한 발견 단서)
+ *   1개비 — 재떨이에 꽁초 + 낙서가 더 드러남
+ *   2개비 — 낙서가 더 드러나고, 복도에서 발자국. 안 옴.
+ *   3개비 — 문이 열린다
  *
- *   한 번 만난 뒤엔 2개비로 낮아지고, 들어왔을 때 이미 앉아 있기도 하다.
+ *   개비마다 반드시 뭔가 일어나야 한다. 아무 일도 없는 개비가 있으면
+ *   그 12초가 통째로 지루해진다.
+ *
+ *   한 번 만난 뒤엔 한 대면 오고, 들어왔을 때 이미 앉아 있기도 하다.
  *   매번 처음부터 소환하게 만들면 재방문이 고문이 된다.
  *
  * 비흡연자 경로:
@@ -52,14 +55,16 @@ import { looksLikeCrisis } from "@/lib/npcPrompt";
 const CIGARETTE_MS = 12_000;
 /** 한 개비 끝나고 이 시간 안에 다시 붙이면 체인 유지 */
 const CHAIN_WINDOW_MS = 60_000;
-/** 초면일 때 소환에 필요한 연속 개비 수 */
-const SUMMON_CHAIN_FIRST = 4;
-/** 이미 만난 사이일 때 */
-const SUMMON_CHAIN_RETURN = 2;
-/** 발자국 소리가 들리는 체인 */
-const FOOTSTEPS_AT = 3;
-/** 낙서가 눈에 들어오는 체인 */
-const GRAFFITI_AT = 2;
+/**
+ * 초면일 때 소환에 필요한 연속 개비 수.
+ * 4개비(48초)는 지루하다는 피드백을 받아 3개비(36초)로 줄였다.
+ * 대신 개비마다 반드시 뭔가 일어나게 해서 빈 개비가 없도록 했다.
+ */
+const SUMMON_CHAIN_FIRST = 3;
+/** 이미 만난 사이면 한 대면 온다 (재방문을 고문으로 만들지 않는다) */
+const SUMMON_CHAIN_RETURN = 1;
+/** 발자국 소리가 들리는 체인 — 소환 직전 개비 */
+const FOOTSTEPS_AT = 2;
 /** 비흡연자: 이 시간만큼 그냥 서 있으면 NPC 등장 */
 const STANDING_MS = 180_000;
 /** 재방문 시 들어오자마자 NPC 가 있을 확률 */
@@ -68,6 +73,14 @@ const ALREADY_HERE_CHANCE = 0.4;
 const ARRIVAL_MS = 2600;
 
 export const NPC_NAME = "박정우";
+
+/** 재방문 첫 인사 — 매번 같은 말이면 금방 대사처럼 느껴진다 */
+const RETURN_GREETINGS = [
+  "…또 왔네.",
+  "어. 왔어?",
+  "…오늘도 별로였나 보네.",
+  "왔어. 불 있어?",
+];
 
 export type Phase = "idle" | "smoking" | "arriving" | "talking";
 
@@ -89,7 +102,6 @@ type SmokingRoomValue = {
   progress: number;
   /** 재떨이에 쌓인 꽁초 (이번 방문) */
   butts: number;
-  graffitiVisible: boolean;
   footstepsHeard: boolean;
   /** 남은 담배 (하루 한 갑) */
   cigsLeft: number;
@@ -165,13 +177,13 @@ export function SmokingRoomProvider({ children }: { children: ReactNode }) {
     sound.play("door");
     setTimeout(() => {
       setPhase("talking");
-      const first = hasMetBefore(memoryRef.current);
+      const met = hasMetBefore(memoryRef.current);
       setMessages([
         {
           id: nextId(),
           role: "assistant",
-          content: first
-            ? "…또 왔네."
+          content: met
+            ? RETURN_GREETINGS[Math.floor(Math.random() * RETURN_GREETINGS.length)]
             : "담배… 끊어.\n\n…라고 하려다 말았다. 라이터 좀.",
         },
       ]);
@@ -371,7 +383,6 @@ export function SmokingRoomProvider({ children }: { children: ReactNode }) {
       chain,
       progress,
       butts,
-      graffitiVisible: chain >= GRAFFITI_AT || hasMetBefore(memory),
       footstepsHeard: chain >= FOOTSTEPS_AT,
       cigsLeft: cigarettesLeft(pack),
       turnsLeft: turnsLeft(pack),

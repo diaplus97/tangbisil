@@ -13,7 +13,7 @@ type MwState = "idle" | "heating" | "done";
 const HEAT_MS = 8000;
 
 export default function MicrowaveStation({ compact }: { compact: boolean }) {
-  const { sendMessage, myCup } = useBreakRoom();
+  const { sendMessage, myCup, pickUp } = useBreakRoom();
   const locked = !myCup;
 
   const [mwState, setMwState]   = useState<MwState>("idle");
@@ -50,10 +50,11 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
     if (mwState !== "done") return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     sendMessage("냉동만두 꺼냄 🥟 후후~ 식혀야지");
+    pickUp({ id: "mandu", emoji: "🥟", label: "만두" });
     sound.play("pop");
     setMwState("idle");
     setHeatPct(0);
-  }, [mwState, sendMessage]);
+  }, [mwState, sendMessage, pickUp]);
 
   const handleMicrowaveClick = () => {
     if (mwState === "done") { takeOut(); return; }
@@ -72,9 +73,9 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
   return (
     <div style={{
       position: "absolute", top: compact ? 6 : 10, left: compact ? 4 : 8,
-      display: "flex", alignItems: "flex-end", gap: compact ? 3 : 7,
       zIndex: 3,
     }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: compact ? 3 : 7 }}>
       {/* 냉동고 + 만두 */}
       <button
         draggable={!locked && mwState === "idle"}
@@ -148,6 +149,28 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
           state={mwState}
           heatPct={heatPct}
         />
+      </div>
+      </div>
+
+      {/* 선반 — 벽에 떠 있지 않게 받쳐준다 */}
+      <div style={{
+        height: compact ? 5 : 8,
+        background: "hsl(28 32% 54%)",
+        borderTop: `${compact ? 2 : 3}px solid hsl(30 25% 18%)`,
+        borderBottom: `${compact ? 2 : 3}px solid hsl(30 25% 18%)`,
+        marginTop: -1,
+      }} />
+      {/* 선반 받침 브래킷 */}
+      <div style={{ display: "flex", justifyContent: "space-between", padding: compact ? "0 6px" : "0 12px" }}>
+        {[0, 1].map((i) => (
+          <div key={i} style={{
+            width: compact ? 3 : 5,
+            height: compact ? 5 : 9,
+            background: "hsl(30 22% 34%)",
+            borderLeft: "2px solid hsl(30 25% 18%)",
+            borderRight: "2px solid hsl(30 25% 18%)",
+          }} />
+        ))}
       </div>
     </div>
   );
