@@ -13,10 +13,11 @@ import PlantCorner from "./PlantCorner";
 import MicrowaveStation from "./MicrowaveStation";
 import DessertShelf from "./DessertShelf";
 import VendingMachine from "./VendingMachine";
+import SmokingDoor from "./SmokingDoor";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-export default function BreakRoomScene() {
+export default function BreakRoomScene({ onEnterSmoking }: { onEnterSmoking: () => void }) {
   const isMobile = useIsMobile();
   const { myCup } = useBreakRoom();
 
@@ -28,7 +29,7 @@ export default function BreakRoomScene() {
       alignItems: "stretch",
       overflow: "hidden",
     }}>
-      <RoomLayout compact={isMobile} showHint={!myCup} />
+      <RoomLayout compact={isMobile} showHint={!myCup} onEnterSmoking={onEnterSmoking} />
     </div>
   );
 }
@@ -36,7 +37,9 @@ export default function BreakRoomScene() {
 /* ═══════════════════════════════════════════════════════════════
    RoomLayout — 3열 방 구조 (데스크탑 / 모바일 공통)
    ═══════════════════════════════════════════════════════════════ */
-function RoomLayout({ compact, showHint }: { compact: boolean; showHint: boolean }) {
+function RoomLayout({ compact, showHint, onEnterSmoking }: {
+  compact: boolean; showHint: boolean; onEnterSmoking: () => void;
+}) {
   // 모바일: vw 기반 + 최솟값 보장 → 어떤 폰 너비에서도 content 보호
   const leftW  = compact ? "clamp(72px, 18vw, 90px)"  : "clamp(110px, 17%, 190px)";
   const rightW = compact ? "clamp(92px, 27vw, 112px)" : "clamp(105px, 16%, 182px)";
@@ -62,7 +65,7 @@ function RoomLayout({ compact, showHint }: { compact: boolean; showHint: boolean
         overflow: "hidden",
       }}>
         <LeftZone compact={compact} />
-        <CenterZone compact={compact} showHint={showHint} />
+        <CenterZone compact={compact} showHint={showHint} onEnterSmoking={onEnterSmoking} />
         <RightZone compact={compact} />
       </div>
 
@@ -131,7 +134,9 @@ function LeftZone({ compact }: { compact: boolean }) {
 }
 
 /* ─── 중앙 영역 ──────────────────────────────────────────────── */
-function CenterZone({ compact, showHint }: { compact: boolean; showHint: boolean }) {
+function CenterZone({ compact, showHint, onEnterSmoking }: {
+  compact: boolean; showHint: boolean; onEnterSmoking: () => void;
+}) {
   return (
     <div style={{
       display: "flex", flexDirection: "column",
@@ -170,10 +175,13 @@ function CenterZone({ compact, showHint }: { compact: boolean; showHint: boolean
         </div>
       )}
 
-      {/* 커피 머신 */}
-      <div style={{ position: "relative", zIndex: 1, flexShrink: 0 }}>
+      {/* 커피 머신 — 모바일에서는 문이 라떼 버튼을 가리므로 왼쪽으로 밀어준다 */}
+      <div style={{ position: "relative", zIndex: 1, flexShrink: 0, marginRight: compact ? 62 : 0 }}>
         <CoffeeMachine compact={compact} />
       </div>
+
+      {/* 흡연실 문 — 벽에 세워 바닥에 붙인다 */}
+      <SmokingDoor compact={compact} onEnter={onEnterSmoking} />
     </div>
   );
 }

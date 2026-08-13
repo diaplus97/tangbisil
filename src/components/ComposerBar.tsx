@@ -2,17 +2,7 @@ import { useState } from "react";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
 
-const QUICK_PHRASES = [
-  "커피 한잔 하고 갑니다 ☕",
-  "점심 뭐 먹지 🍱",
-  "오늘도 버틴다 💪",
-  "잠깐 숨 좀 돌리자 🌿",
-  "퇴근은 언제지 🏃",
-  "쿠키 하나 집어감 🍪",
-  "화분에 물 줌 💧",
-];
-
-/** 메시지 입력 + 빠른 문구 + 최근 메시지 3개 */
+/** 메시지 입력 + 최근 메시지 3개 */
 export default function ComposerBar() {
   const { sendMessage, myCup, recentMessages } = useBreakRoom();
   const [text, setText] = useState("");
@@ -56,32 +46,6 @@ export default function ComposerBar() {
           ))}
         </div>
       )}
-
-      {/* 빠른 문구 */}
-      <div style={{ display: "flex", gap: 5, padding: "6px 10px 5px", flexWrap: "wrap", borderBottom: "2px solid hsl(30 25% 75%)" }}>
-        {QUICK_PHRASES.map((phrase) => (
-          <button
-            key={phrase}
-            onClick={() => send(phrase)}
-            disabled={locked}
-            title={locked ? "먼저 커피를 내려주세요" : undefined}
-            style={{
-              padding: "4px 9px",
-              background: locked ? "hsl(38 20% 86%)" : "hsl(38 52% 87%)",
-              color: locked ? "hsl(30 15% 55%)" : "hsl(30 25% 22%)",
-              border: "2px solid hsl(30 25% 52%)",
-              boxShadow: locked ? "none" : "1px 1px 0 rgba(0,0,0,0.22)",
-              fontFamily: "'DotGothic16', monospace",
-              fontSize: 12,
-              cursor: locked ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap",
-              touchAction: "manipulation",
-            }}
-          >
-            {phrase}
-          </button>
-        ))}
-      </div>
 
       {/* 텍스트 입력 */}
       <div style={{ display: "flex" }}>
