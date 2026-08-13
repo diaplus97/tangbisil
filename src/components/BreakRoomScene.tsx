@@ -117,7 +117,7 @@ function RoomLayout({ compact, showHint, onEnterSmoking }: {
  *  폰마다 세로 길이가 제각각인데 붙박이들은 고정 px 이라, 이렇게 안 하면
  *  작은 폰에서 아래쪽(커피 버튼·문 아랫부분)이 카운터에 잘려 나간다. */
 const DESIGN_W = 430;
-const DESIGN_H = 560;
+const DESIGN_H = 508;
 
 function WallBands({ showHint, onEnterSmoking }: {
   showHint: boolean; onEnterSmoking: () => void;
@@ -164,32 +164,26 @@ function WallBands({ showHint, onEnterSmoking }: {
         flexShrink: 0,
       }}>
         <FruitBasket compact />
-        <MicrowaveStation compact inline />
+        <MicrowaveStation compact inline scale={0.86} />
         <WindowWeather compact />
       </div>
 
-      {/* ── 중간 벽 — 두 단 사이가 그냥 비면 그게 아까 그 공백이다.
-             폰에는 시계가 아예 없었으니 여기에 건다 ── */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 14,
-        flexShrink: 0,
-        padding: "4px 0",
-      }}>
-        <StatusClock compact />
-        {showHint && (
-          <div style={{
-            fontFamily: "'DotGothic16', monospace",
-            fontSize: 12, lineHeight: 1.9,
-            color: "hsl(28 58% 36%)",
-            pointerEvents: "none",
-          }}>
-            커피를 내려<br />자리를 잡으세요
-          </div>
-        )}
-      </div>
+      {/* ── 중간 벽 ──
+             예전엔 여기에 시계를 걸어 빈 공간을 메웠는데, 그 한 줄이 논리 108px 을
+             먹어서 방 전체가 78% 크기로 축소되고 있었다. 시계는 상단 띠로 옮기고
+             여기는 안내 문구만 한 줄 남긴다 — 그만큼 붙박이들이 커진다. */}
+      {showHint && (
+        <div style={{
+          textAlign: "center",
+          fontFamily: "'DotGothic16', monospace",
+          fontSize: 13, lineHeight: 1.7,
+          color: "hsl(28 58% 36%)",
+          pointerEvents: "none",
+          flexShrink: 0,
+        }}>
+          커피를 내려 자리를 잡으세요
+        </div>
+      )}
 
       {/* ── 바닥단 — 바닥에 서 있는 것들 ── */}
       <div style={{

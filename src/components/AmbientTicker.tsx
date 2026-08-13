@@ -5,6 +5,8 @@
  * - 뉴스: 한국 뉴스 헤드라인 / 없으면 앰비언트 문구로 대체
  */
 import { useState, useEffect, useRef } from "react";
+import { useClock } from "@/hooks/useClock";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useWeather } from "@/hooks/useWeather";
 import { useAirQuality } from "@/hooks/useAirQuality";
 import { useNews } from "@/hooks/useNews";
@@ -103,6 +105,10 @@ export default function AmbientTicker() {
     return () => clearInterval(t);
   }, [items.length]);
 
+  const isMobile = useIsMobile();
+  const now = useClock();
+  const timeStr = now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+
   const current = items[idx] ?? items[0];
   if (!current) return null;
 
@@ -131,15 +137,21 @@ export default function AmbientTicker() {
         {isNews ? "◈ 뉴스" : "◈ 탕비실"}
       </div>
 
-      {air.isReal && (
-        <div style={{
-          position: "absolute", right: 10,
-          fontFamily: "'DotGothic16', monospace", fontSize: 8,
-          color: "#4ec94e", whiteSpace: "nowrap", pointerEvents: "none",
-        }}>
-          ● 실시간
-        </div>
-      )}
+      {/* 시계 + 실시간 표시 — 여기 두면 벽에서 시계 한 줄을 통째로 뺄 수 있다.
+          그만큼 방이 세로로 넓어지고, 방 안의 모든 게 더 크게 그려진다. */}
+      <div style={{
+        position: "absolute", right: 9,
+        display: "flex", alignItems: "center", gap: 5,
+        fontFamily: "'DotGothic16', monospace",
+        whiteSpace: "nowrap", pointerEvents: "none",
+      }}>
+        {air.isReal && (
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#4ec94e", display: "inline-block" }} />
+        )}
+        <span style={{ fontSize: 8, color: air.color }}>{air.level}</span>
+        {/* 데스크탑은 헤더와 벽시계에 이미 시간이 있다 — 폰에서만 */}
+        {isMobile && <span style={{ fontSize: 11, color: "hsl(140 60% 72%)", letterSpacing: "0.04em" }}>{timeStr}</span>}
+      </div>
 
       <div
         onClick={isNews ? () => window.open((current as Extract<TickerItem, { kind: "news" }>).url, "_blank", "noopener,noreferrer") : undefined}

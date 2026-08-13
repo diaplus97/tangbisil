@@ -159,7 +159,7 @@ export default function SharedCounter() {
             혼자 있을 때 화면의 1/4 이 빈 갈색 벽인 건 낭비다 */}
       <div ref={counterRef} style={{
         position: "relative",
-        minHeight: displayCups.length === 0 ? 64 : 128,
+        minHeight: displayCups.length === 0 ? 60 : 96,
         transition: "min-height 0.35s cubic-bezier(0.3, 1.1, 0.5, 1)",
         background: "hsl(28 42% 36%)",
         borderTop: "3px solid hsl(28 35% 24%)",
@@ -200,8 +200,8 @@ export default function SharedCounter() {
           justifyContent: cups.length > 0 ? "center" : "flex-start",
           flexWrap: "wrap",
           gap: 6,
-          padding: displayCups.length === 0 ? "10px 16px 6px" : "16px 16px 6px",
-          minHeight: displayCups.length === 0 ? 58 : 122,
+          padding: displayCups.length === 0 ? "8px 16px 6px" : "10px 16px 6px",
+          minHeight: displayCups.length === 0 ? 54 : 90,
           transition: "min-height 0.35s cubic-bezier(0.3, 1.1, 0.5, 1)",
           // 고양이(zIndex 1)보다 위 — 안 그러면 안내 문구를 깔고 앉는다
           position: "relative", zIndex: 2,

@@ -609,3 +609,10 @@
   50%      { transform: rotate(5deg); }
 }
 .dog-wag { animation: dogWag 0.42s ease-in-out infinite; }
+
+/* 손에 물건이 들어오면 바가 한 번 번쩍 — 버튼이 있는 줄 모른다는 지적 */
+@keyframes heldFlash {
+  0%   { background: hsl(45 100% 72%); }
+  100% { background: hsl(45 85% 82%); }
+}
+.held-bar { animation: heldFlash 0.85s ease-out; }

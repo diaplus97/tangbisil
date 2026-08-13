@@ -58,7 +58,7 @@ export default function CoffeeMachine({ compact = false }: CoffeeMachineProps) {
         flexWrap: "wrap", justifyContent: "center",
         // 벽 전체가 430 논리폭으로 고정 배치된 뒤 화면에 맞춰 축소되므로
         // 폰에서도 세 개가 한 줄에 들어간다
-        maxWidth: compact ? 178 : undefined,
+        maxWidth: compact ? 200 : undefined,
         position: "relative", zIndex: 10,
       }}>
         {myCup ? (
@@ -147,8 +147,8 @@ function CoffeeDrip({ type, compact }: { type: CoffeeType; compact: boolean }) {
 function MachineSvg({ brewing, done, compact }: { brewing: CoffeeType | null; done: boolean; compact: boolean }) {
   const lightColor = brewing ? "#ffcc44" : done ? "#44aaff" : "#444";
   const type = brewing;
-  const W = compact ? 112 : 160;
-  const H = compact ? 123 : 176;
+  const W = compact ? 140 : 160;
+  const H = compact ? 154 : 176;
 
   return (
     <svg

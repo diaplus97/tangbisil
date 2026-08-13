@@ -6,8 +6,6 @@
  * (아저씨한테 과일을 주면 반응이 제일 좋다 — 나이 든 사람이라)
  */
 import { useState, useCallback } from "react";
-import { createPortal } from "react-dom";
-import OrangeNinjaGame from "./OrangeNinjaGame";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
 
@@ -28,7 +26,6 @@ export default function FruitBasket({ compact }: { compact: boolean }) {
 
   const [cooldownEnd, setCooldownEnd] = useState(0);
   const [popped, setPopped] = useState<string | null>(null);
-  const [slicing, setSlicing] = useState(false);
 
   const cooling = Date.now() < cooldownEnd;
 
@@ -40,11 +37,9 @@ export default function FruitBasket({ compact }: { compact: boolean }) {
     setPopped(fruit.emoji);
     setTimeout(() => setPopped(null), 1200);
     setCooldownEnd(Date.now() + COOLDOWN_MS);
-    // 오렌지는 집는 걸로 끝나지 않는다 — 썰러 간다
-    if (fruit.id === "orange") setSlicing(true);
   }, [locked, cooldownEnd, sendMessage, pickUp]);
 
-  const W = compact ? 66 : 108;
+  const W = compact ? 84 : 108;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
@@ -57,7 +52,7 @@ export default function FruitBasket({ compact }: { compact: boolean }) {
             key={f.id}
             onClick={() => grab(f)}
             disabled={locked || cooling}
-            title={locked ? "커피를 먼저 내려주세요" : cooling ? "방금 집었어요" : f.id === "orange" ? "오렌지 썰기 🔪" : f.label}
+            title={locked ? "커피를 먼저 내려주세요" : cooling ? "방금 집었어요" : f.label}
             aria-label={f.label}
             style={{
               position: "absolute",
@@ -98,14 +93,6 @@ export default function FruitBasket({ compact }: { compact: boolean }) {
         {/* 잠겼다고 이름까지 지우면 이게 뭔지 알 수가 없다 */}
         {locked ? "🔒 과일 바구니" : cooling ? "방금 집었어요" : "과일 바구니"}
       </div>
-
-      {/* 반드시 portal — 폰에서 이 컴포넌트는 transform: scale() 안에 있고,
-          transform 조상은 position:fixed 의 기준이 되어 오버레이를 방 안에 가둔다.
-          (데스크탑은 transform 밖이라 이 버그가 안 보인다) */}
-      {slicing && createPortal(
-        <OrangeNinjaGame onClose={() => setSlicing(false)} />,
-        document.body,
-      )}
     </div>
   );
 }

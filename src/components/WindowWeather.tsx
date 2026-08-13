@@ -143,10 +143,10 @@ export default function WindowWeather({ compact = false }: Props) {
   const raining = isRainy || visit?.kind === "shower";
 
   // 창문을 키웠다 — 벽의 주인공이 되게
-  const W = compact ? 118 : 176;
-  const H = compact ? 134 : 148;
+  const W = compact ? 150 : 176;
+  const H = compact ? 168 : 148;
   const borderW = compact ? 4 : 6;
-  const px = (n: number) => Math.round(n * (compact ? 0.72 : 1));
+  const px = (n: number) => Math.round(n * (compact ? 0.9 : 1));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: compact ? 3 : 4, alignItems: "stretch" }}>
