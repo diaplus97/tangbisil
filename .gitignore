@@ -6,6 +6,10 @@ dist/
 .env
 .env.*
 !.env.example
+# 프로덕션 Supabase 설정은 일부러 커밋한다 —
+# VITE_ 값은 어차피 번들에 박히는 공개 값이라 숨겨봐야 의미가 없고,
+# 대시보드 "런타임/빌드 변수" 구분 때문에 조용히 오프라인으로 빌드되는 걸 막는다.
+!.env.production
 
 # Cloudflare Pages Functions 로컬 시크릿
 .dev.vars
