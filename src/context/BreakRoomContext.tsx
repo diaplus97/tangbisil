@@ -93,6 +93,9 @@ type BreakRoomContextValue = {
   pickUp: (item: HeldItem) => void;
   /** 손에 든 걸 비운다 (건네줬거나 먹었을 때) */
   clearHeld: () => void;
+  /** 전자레인지가 터진 시각 — 화면 흔들림·창밖 소방차가 여기에 반응한다 */
+  explosionAt: number | null;
+  triggerExplosion: () => void;
 };
 
 const BreakRoomContext = createContext<BreakRoomContextValue | null>(null);
@@ -226,6 +229,8 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
 
   // 손에 든 물건 — 방을 옮겨도 유지되도록 Provider 최상단에 둔다
   const [heldItem, setHeldItem] = useState<HeldItem | null>(null);
+  // 폭발 신호 — 방 전체가 반응해야 해서 여기 둔다
+  const [explosionAt, setExplosionAt] = useState<number | null>(null);
 
   const [lastWatered, setLastWatered] = useState<number | null>(() => {
     try { const v = localStorage.getItem(STORAGE_PLANT); return v ? Number(v) : null; } catch { return null; }
@@ -347,6 +352,13 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearHeld = useCallback(() => setHeldItem(null), []);
+
+  const triggerExplosion = useCallback(() => {
+    setExplosionAt(Date.now());
+    sound.play("blast");
+    // 소방차는 조금 늦게 온다
+    setTimeout(() => sound.play("siren"), 2200);
+  }, []);
 
   const waterPlant = useCallback(() => {
     if (!canWater) return;
@@ -505,6 +517,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
       stampDays, streak: computeStreak(stampDays),
       restMinutes: Math.floor(restSeconds / 60),
       heldItem, pickUp, clearHeld,
+      explosionAt, triggerExplosion,
     }}>
       {children}
     </BreakRoomContext.Provider>

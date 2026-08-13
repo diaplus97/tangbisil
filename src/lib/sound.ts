@@ -25,7 +25,9 @@ export type SoundName =
   | "inhale"  // 연기 들이마시기
   | "stub"    // 담배 비벼 끄기
   | "footsteps" // 복도 발자국
-  | "door";   // 문 열림
+  | "door"    // 문 열림
+  | "blast"   // 전자레인지 폭발 (컵 결투 boom 보다 크다)
+  | "siren";  // 창밖 소방차
 
 const STORAGE_KEY = "tangbirsil_sound_v1";
 
@@ -241,6 +243,20 @@ class SoundEngine {
         [0, 0.42, 0.84, 1.26].forEach((d, i) => {
           this.tone({ type: "sine", from: 105, to: 48, dur: 0.11, gain: 0.05 + i * 0.022, delay: d });
           this.noiseBurst({ dur: 0.05, gain: 0.025 + i * 0.012, filter: "lowpass", freq: 420, delay: d });
+        });
+        break;
+      case "blast":
+        // 저역 충격 + 파편 노이즈 + 여운
+        this.tone({ type: "sine", from: 150, to: 24, dur: 0.55, gain: 0.34 });
+        this.noiseBurst({ dur: 0.35, gain: 0.22, filter: "lowpass", freq: 900, freqTo: 120 });
+        this.noiseBurst({ dur: 0.7, gain: 0.07, filter: "bandpass", freq: 2400, freqTo: 500, q: 0.7, delay: 0.06 });
+        this.tone({ type: "sine", from: 60, to: 18, dur: 1.1, gain: 0.12, delay: 0.12 });
+        break;
+      case "siren":
+        // 도플러 — 다가왔다 멀어진다
+        [0, 0.62, 1.24, 1.86].forEach((d, i) => {
+          const far = i >= 2;
+          this.tone({ type: "square", from: far ? 760 : 640, to: far ? 560 : 900, dur: 0.5, gain: far ? 0.03 : 0.05, delay: d, curve: "lin" });
         });
         break;
       case "door":
