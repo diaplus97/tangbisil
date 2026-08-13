@@ -5,6 +5,7 @@
  * 모바일에서는 컬럼 폭을 줄이고 컴팩트 컴포넌트로 대체.
  * 오브젝트(전자레인지/자판기/디저트 선반)는 각자 픽셀 SVG 컴포넌트.
  */
+import { useState, useEffect } from "react";
 import CoffeeMachine from "./CoffeeMachine";
 import SharedCounter from "./SharedCounter";
 import WindowWeather from "./WindowWeather";
@@ -19,10 +20,19 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function BreakRoomScene({ onEnterSmoking }: { onEnterSmoking: () => void }) {
   const isMobile = useIsMobile();
-  const { myCup } = useBreakRoom();
+  const { myCup, explosionAt } = useBreakRoom();
+  const [shaking, setShaking] = useState(false);
+
+  // 폭발하면 방이 한 번 흔들린다
+  useEffect(() => {
+    if (!explosionAt) return;
+    setShaking(true);
+    const t = setTimeout(() => setShaking(false), 800);
+    return () => clearTimeout(t);
+  }, [explosionAt]);
 
   return (
-    <div style={{
+    <div className={shaking ? "room-shake" : undefined} style={{
       flex: 1, minHeight: 0,
       background: "hsl(38 25% 80%)",
       display: "flex", flexDirection: "column",

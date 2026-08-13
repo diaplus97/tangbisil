@@ -1,5 +1,11 @@
+import { useEffect, useState } from "react";
 import { useClock } from "@/hooks/useClock";
 import { useWeather } from "@/hooks/useWeather";
+import { useBreakRoom } from "@/context/BreakRoomContext";
+
+/** 폭발 후 소방차가 지나가기까지 / 지나가는 데 걸리는 시간 */
+const TRUCK_DELAY_MS = 2000;
+const TRUCK_RIDE_MS = 5000;
 
 type TimeOfDay = "morning" | "afternoon" | "evening" | "night";
 
@@ -30,6 +36,16 @@ export default function WindowWeather({ compact = false }: Props) {
   const h = now.getHours();
   const tod = getTimeOfDay(h);
   const weather = useWeather();
+  const { explosionAt } = useBreakRoom();
+  const [truck, setTruck] = useState(false);
+
+  // 전자레인지가 터지면 잠시 뒤 창밖으로 소방차가 지나간다
+  useEffect(() => {
+    if (!explosionAt) return;
+    const show = setTimeout(() => setTruck(true), TRUCK_DELAY_MS);
+    const hide = setTimeout(() => setTruck(false), TRUCK_DELAY_MS + TRUCK_RIDE_MS);
+    return () => { clearTimeout(show); clearTimeout(hide); };
+  }, [explosionAt]);
 
   const sky: [string, string] =
     tod === "night" || tod === "evening"
@@ -87,6 +103,33 @@ export default function WindowWeather({ compact = false }: Props) {
               <div style={{ position: "absolute", bottom: 5, left: 8, fontSize: 9, opacity: 0.6 }}>🌅</div>
             )}
           </>
+        )}
+
+        {/* 소방차 — 폭발 뒤에만 */}
+        {truck && (
+          <div className="fire-truck" style={{
+            position: "absolute",
+            bottom: compact ? 4 : 8,
+            left: 0,
+            width: compact ? 26 : 40,
+            pointerEvents: "none",
+            zIndex: 2,
+          }}>
+            <div className="beacon-light" style={{
+              width: compact ? 3 : 4, height: compact ? 3 : 4,
+              margin: "0 auto 1px",
+            }} />
+            <div style={{
+              height: compact ? 8 : 12,
+              background: "#c8241c",
+              border: "1px solid #4a0c08",
+              display: "flex", alignItems: "flex-end", justifyContent: "space-between",
+              padding: "0 1px",
+            }}>
+              <div style={{ width: compact ? 3 : 4, height: compact ? 3 : 4, background: "#221a16", borderRadius: "50%", marginBottom: -1 }} />
+              <div style={{ width: compact ? 3 : 4, height: compact ? 3 : 4, background: "#221a16", borderRadius: "50%", marginBottom: -1 }} />
+            </div>
+          </div>
         )}
 
         {/* 반사광 */}

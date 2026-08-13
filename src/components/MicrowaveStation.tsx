@@ -5,15 +5,24 @@
  * 창 너머로 턴테이블 위 만두가 돌아가고, 타이머가 줄어들고,
  * 완료되면 문이 벌컥 열리며 김이 난다.
  */
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
 
-type MwState = "idle" | "heating" | "done";
+type MwState = "idle" | "heating" | "done" | "burnt" | "wrecked";
+
 const HEAT_MS = 8000;
+/** 다 됐는데 이만큼 방치하면 탄다 */
+const BURN_AFTER_MS = 30_000;
+/** 탄 채로 방치하면 이 간격마다 폭발 판정 */
+const BLAST_ROLL_MS = 20_000;
+/** 판정 1회당 폭발 확률 — 낮아야 "봤다!"가 된다 */
+const BLAST_CHANCE = 0.1;
+/** 터지고 나면 이만큼 못 쓴다 */
+const WRECKED_MS = 20_000;
 
 export default function MicrowaveStation({ compact }: { compact: boolean }) {
-  const { sendMessage, myCup, pickUp } = useBreakRoom();
+  const { sendMessage, myCup, pickUp, triggerExplosion } = useBreakRoom();
   const locked = !myCup;
 
   const [mwState, setMwState]   = useState<MwState>("idle");
@@ -47,22 +56,59 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
   }, [locked, mwState]);
 
   const takeOut = useCallback(() => {
-    if (mwState !== "done") return;
+    if (mwState !== "done" && mwState !== "burnt") return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    sendMessage("냉동만두 꺼냄 🥟 후후~ 식혀야지");
-    pickUp({ id: "mandu", emoji: "🥟", label: "만두" });
+    if (mwState === "burnt") {
+      sendMessage("탄 만두 꺼냄 🥟 …이거 먹어도 되나");
+      pickUp({ id: "burnt-mandu", emoji: "🥟", label: "탄 만두" });
+    } else {
+      sendMessage("냉동만두 꺼냄 🥟 후후~ 식혀야지");
+      pickUp({ id: "mandu", emoji: "🥟", label: "만두" });
+    }
     sound.play("pop");
     setMwState("idle");
     setHeatPct(0);
   }, [mwState, sendMessage, pickUp]);
 
+  // 다 됐는데 안 꺼내면 탄다
+  useEffect(() => {
+    if (mwState !== "done") return;
+    const t = setTimeout(() => {
+      setMwState("burnt");
+      sendMessage("아 만두 태웠다 🔥");
+    }, BURN_AFTER_MS);
+    return () => clearTimeout(t);
+  }, [mwState, sendMessage]);
+
+  // 탄 채로 계속 두면 가끔 터진다
+  useEffect(() => {
+    if (mwState !== "burnt") return;
+    const t = setInterval(() => {
+      if (Math.random() >= BLAST_CHANCE) return;
+      clearInterval(t);
+      setMwState("wrecked");
+      triggerExplosion();
+      sendMessage("전자레인지가 터졌다 💥");
+    }, BLAST_ROLL_MS);
+    return () => clearInterval(t);
+  }, [mwState, triggerExplosion, sendMessage]);
+
+  // 터진 뒤 복구
+  useEffect(() => {
+    if (mwState !== "wrecked") return;
+    const t = setTimeout(() => setMwState("idle"), WRECKED_MS);
+    return () => clearTimeout(t);
+  }, [mwState]);
+
   const handleMicrowaveClick = () => {
-    if (mwState === "done") { takeOut(); return; }
+    if (mwState === "done" || mwState === "burnt") { takeOut(); return; }
     if (mwState === "idle" && selected) { startHeating(); return; }
   };
 
   const mwTitle =
     locked ? "커피를 먼저 내려주세요"
+    : mwState === "wrecked" ? "…수리 중입니다"
+    : mwState === "burnt" ? "새까맣게 탔어요 — 꺼내기"
     : mwState === "done" ? "문이 열렸어요 — 꺼내기!"
     : mwState === "heating" ? "가열 중..."
     : selected ? "탭해서 투입!"
@@ -125,13 +171,29 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
         title={mwTitle}
         style={{
           position: "relative",
-          cursor: mwState === "done" || (mwState === "idle" && selected) ? "pointer" : dragOver ? "copy" : "default",
+          cursor: mwState === "done" || mwState === "burnt" || (mwState === "idle" && selected) ? "pointer" : dragOver ? "copy" : "default",
           filter: dragOver ? "drop-shadow(0 0 6px rgba(120,220,120,0.8))"
             : selected && mwState === "idle" ? "drop-shadow(0 0 5px rgba(255,200,40,0.55))" : "none",
           transition: "filter 0.15s",
           lineHeight: 0,
         }}
       >
+        {/* 탄 상태 — 검은 연기 */}
+        {(mwState === "burnt" || mwState === "wrecked") && (
+          <div style={{
+            position: "absolute", top: -18, left: "34%",
+            display: "flex", gap: 6, pointerEvents: "none", zIndex: 2,
+          }}>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="smoke-puff" style={{
+                width: 12, height: 12,
+                background: "radial-gradient(circle, rgba(40,36,32,0.55) 0%, rgba(40,36,32,0.2) 45%, transparent 70%)",
+                animationDelay: `${i * 1.1}s`,
+              }} />
+            ))}
+          </div>
+        )}
+
         {/* 완료 시 김 */}
         {mwState === "done" && (
           <div style={{
@@ -144,11 +206,18 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
             ))}
           </div>
         )}
-        <MicrowaveSvg
-          w={Math.round(136 * scale)}
-          state={mwState}
-          heatPct={heatPct}
-        />
+        <div style={{
+          filter: mwState === "wrecked" ? "grayscale(0.7) brightness(0.55)"
+            : mwState === "burnt" ? "brightness(0.82) sepia(0.25)" : "none",
+          transition: "filter 0.4s",
+          lineHeight: 0,
+        }}>
+          <MicrowaveSvg
+            w={Math.round(136 * scale)}
+            state={mwState}
+            heatPct={heatPct}
+          />
+        </div>
       </div>
       </div>
 
@@ -213,7 +282,9 @@ function MicrowaveSvg({ w, state, heatPct }: { w: number; state: MwState; heatPc
   const remainSec = Math.max(0, Math.ceil(8 - (heatPct / 100) * 8));
   const display =
     state === "heating" ? `0:0${remainSec}` :
-    state === "done" ? "땡!" : "--:--";
+    state === "done" ? "땡!" :
+    state === "burnt" ? "탔음" :
+    state === "wrecked" ? "E:04" : "--:--";
 
   return (
     <svg width={w} height={Math.round(w * 68 / 136)} viewBox="0 0 136 68" style={{ imageRendering: "pixelated", display: "block", overflow: "visible" }}>
@@ -234,7 +305,7 @@ function MicrowaveSvg({ w, state, heatPct }: { w: number; state: MwState; heatPc
       {/* 턴테이블 */}
       <ellipse cx="50" cy="49" rx="28" ry="5" fill="#3a332c" stroke="#241c14" strokeWidth="1.5" />
       {/* 만두 */}
-      {(state === "heating" || state === "done") && (
+      {(state === "heating" || state === "done" || state === "burnt") && (
         <g>
           {state === "heating" && (
             <animateTransform attributeName="transform" type="rotate"
@@ -246,7 +317,7 @@ function MicrowaveSvg({ w, state, heatPct }: { w: number; state: MwState; heatPc
 
       {/* 문 — 완료 시 힌지 기준으로 벌컥 */}
       <g style={{
-        transform: state === "done" ? "rotate(-58deg)" : "none",
+        transform: state === "done" || state === "burnt" ? "rotate(-58deg)" : "none",
         transformOrigin: "9px 33px",
         transition: "transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1)",
       }}>
@@ -272,7 +343,7 @@ function MicrowaveSvg({ w, state, heatPct }: { w: number; state: MwState; heatPc
       <rect x="96" y="8" width="34" height="52" rx="2" fill="#b8b0a2" stroke="#2a1a0a" strokeWidth="2" />
       {/* 디스플레이 */}
       <rect x="100" y="12" width="26" height="13" rx="1" fill="#081008" stroke="#241c14" strokeWidth="1.5" />
-      <text x="113" y="21.5" textAnchor="middle" fontSize="7.5" fill={state === "done" ? "#ffcc44" : "#44ff88"} fontFamily="monospace">
+      <text x="113" y="21.5" textAnchor="middle" fontSize="7.5" fill={state === "done" ? "#ffcc44" : state === "burnt" ? "#ff5533" : state === "wrecked" ? "#665" : "#44ff88"} fontFamily="monospace">
         {display}
         {state === "done" && <animate attributeName="opacity" values="1;0.25;1" dur="0.7s" repeatCount="indefinite" />}
       </text>
