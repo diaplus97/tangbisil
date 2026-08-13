@@ -591,3 +591,14 @@
   100%      { opacity: 0; transform: translateY(-3px); }
 }
 .event-tag { animation: eventTag 4s ease-in-out both; }
+
+/* ═══════════════════════════════════════════════════════════
+   하소연 말풍선 — 뜨고, 머물고, 사라진다
+   음수 animation-delay 로 중간부터 재생할 수 있게 한 사이클로 묶어둔다
+   ═══════════════════════════════════════════════════════════ */
+@keyframes bubbleLife {
+  0%        { opacity: 0; transform: translateX(-50%) translateY(7px) scale(0.94); }
+  4%        { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1); }
+  78%       { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1); }
+  100%      { opacity: 0; transform: translateX(-50%) translateY(-9px) scale(0.97); }
+}

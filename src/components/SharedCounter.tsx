@@ -43,13 +43,35 @@ export default function SharedCounter() {
     return () => obs.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (containerWidth === 0 || displayCups.length === 0) return;
-    const CUP_W = 76;
-    const spacing = Math.min(CUP_W, (containerWidth - 32) / displayCups.length);
-    const total = spacing * displayCups.length;
-    const startX = (containerWidth - total) / 2 + spacing / 2;
-    setCupPositions(displayCups.map((_, i) => startX + i * spacing));
+  // 컵 위치는 재서 쓴다.
+  //
+  // 예전엔 "컵 하나에 76px" 이라고 가정하고 계산했는데, 실제 컵은 44px 간격이라
+  // 말풍선 꼬리가 엉뚱한 컵을 가리켰다. 컵 디자인이 바뀔 때마다 어긋나는 구조였다.
+  // flex 가 배치를 끝낸 뒤 DOM 에서 직접 중심을 읽으면 그런 일이 없다.
+  useLayoutEffect(() => {
+    const root = counterRef.current;
+    if (!root) return;
+
+    const measure = () => {
+      const base = root.getBoundingClientRect();
+      const next = displayCups.map((c) => {
+        const el = root.querySelector<HTMLElement>(`[data-cup="${CSS.escape(c.id)}"]`);
+        if (!el) return base.width / 2;
+        const r = el.getBoundingClientRect();
+        return r.left - base.left + r.width / 2;
+      });
+      setCupPositions((prev) =>
+        prev.length === next.length && prev.every((v, i) => Math.abs(v - next[i]) < 0.5)
+          ? prev
+          : next,
+      );
+    };
+
+    measure();
+    // 폰트가 늦게 붙거나 컵이 줄바꿈되면 위치가 바뀐다
+    const obs = new ResizeObserver(measure);
+    obs.observe(root);
+    return () => obs.disconnect();
   }, [displayCups, containerWidth]);
 
   useEffect(() => {
