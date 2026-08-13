@@ -532,11 +532,15 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
     // 테이블 존재 여부가 확인돼야만 "connected" 로 전환
     let tableReady = false;
 
+    // 초기 조회가 결론을 냈는지 (성공이든 실패든) — 타임아웃은 결론이 없을 때만.
+    // 이게 없으면 "Invalid path" 같은 구체적인 원인을 8초 뒤 타임아웃 문구가 덮어쓴다.
+    let settled = false;
+
     // 초기 조회가 영영 안 돌아오는 경우가 있다 (주소가 틀렸거나 네트워크가 막혔을 때
     // supabase-js 가 조용히 재시도만 하고 then 이 안 불린다). 그러면 화면은
     // "연결 중" 에서 멈춘 채 아무 말도 안 한다. 시간을 못 박아 원인을 띄운다.
     const connectTimer = setTimeout(() => {
-      if (cancelled || tableReady) return;
+      if (cancelled || settled) return;
       setLiveError(
         "서버가 응답하지 않습니다. Supabase 주소·키가 맞는지, 네트워크가 막혀 있지 않은지 확인하세요.",
       );
@@ -568,6 +572,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
     // 1. 초기 데이터 조회
     supabase.from("cups").select("*").then(({ data, error }) => {
       if (cancelled) return;
+      settled = true;
       if (error) {
         // cups 테이블이 없는 경우 → 설정 안내 후 오프라인으로 대체
         const isMissingTable =
