@@ -4,7 +4,7 @@ import { sound } from "@/lib/sound";
 
 /** 메시지 입력 + 최근 메시지 3개 */
 export default function ComposerBar() {
-  const { sendMessage, myCup, recentMessages } = useBreakRoom();
+  const { sendMessage, myCup, recentMessages, heldItem } = useBreakRoom();
   const [text, setText] = useState("");
 
   const send = (msg?: string) => {
@@ -48,7 +48,24 @@ export default function ComposerBar() {
       )}
 
       {/* 텍스트 입력 */}
-      <div style={{ display: "flex" }}>
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+        {/* 손에 든 물건 — 흡연실로 들고 갈 수 있다 */}
+        {heldItem && (
+          <div
+            title={`${heldItem.label} — 흡연실 아저씨한테 건넬 수 있어요`}
+            style={{
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "0 10px",
+              background: "hsl(38 50% 84%)",
+              borderRight: "2px solid hsl(30 25% 60%)",
+              fontFamily: "'DotGothic16', monospace", fontSize: 10,
+              color: "hsl(30 28% 30%)", whiteSpace: "nowrap",
+            }}
+          >
+            <span style={{ fontSize: 15, lineHeight: 1 }}>{heldItem.emoji}</span>
+            <span>들고 있음</span>
+          </div>
+        )}
         <input
           type="text"
           value={text}

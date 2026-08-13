@@ -6,6 +6,7 @@
  */
 import { useState, useRef, useEffect } from "react";
 import { useSmokingRoom, NPC_NAME } from "@/context/SmokingRoomContext";
+import { useBreakRoom } from "@/context/BreakRoomContext";
 import { CRISIS_RESOURCES } from "@/lib/npcPrompt";
 
 const INK = "hsl(150 10% 8%)";
@@ -32,6 +33,8 @@ export default function NpcDialogue({ heightPct }: { heightPct: number }) {
     messages, streaming, send, knowsName, metCount, turnsLeft, saving,
     requestForget, confirmForget, cancelForget, pendingForget,
   } = useSmokingRoom();
+  // 탕비실에서 들고 온 물건 — Provider 가 두 방을 다 감싸고 있다
+  const { heldItem, clearHeld } = useBreakRoom();
   const [draft, setDraft] = useState("");
   const [showInfo, setShowInfo] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -146,6 +149,43 @@ export default function NpcDialogue({ heightPct }: { heightPct: number }) {
           </div>
         ))}
       </div>
+
+      {/* ── 들고 온 물건 건네기 ── */}
+      {heldItem && !outOfTurns && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "6px 10px",
+          background: "hsl(155 12% 15%)",
+          borderTop: `2px solid ${INK}`,
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 16, lineHeight: 1 }}>{heldItem.emoji}</span>
+          <span style={{ fontSize: 9, color: "hsl(150 8% 58%)" }}>
+            {heldItem.label} 들고 있음
+          </span>
+          <button
+            onClick={() => {
+              if (streaming) return;
+              clearHeld();
+              send(`(${heldItem.label} 하나 건넸다)`);
+            }}
+            disabled={streaming}
+            style={{
+              marginLeft: "auto",
+              padding: "5px 10px",
+              background: streaming ? "hsl(155 6% 22%)" : "hsl(150 30% 28%)",
+              color: streaming ? "hsl(150 6% 45%)" : "hsl(140 40% 84%)",
+              border: `2px solid ${INK}`,
+              fontFamily: "'DotGothic16', monospace", fontSize: 9,
+              cursor: streaming ? "default" : "pointer",
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+            }}
+          >
+            건네주기
+          </button>
+        </div>
+      )}
 
       {/* ── 입력 ── */}
       <div style={{

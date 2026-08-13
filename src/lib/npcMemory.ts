@@ -24,8 +24,12 @@ const MAX_SUMMARIES = 5;
 /** 동시에 들고 있을 미결 과제 개수 */
 const MAX_OPEN_LOOPS = 5;
 
-/** 하루 담배 개비 수 = 대화량 상한의 물리적 표현 */
+/** 하루 기본 지급 개비 수 */
 export const PACK_SIZE = 20;
+/** 자판기에서 한 번에 사는 갑 크기 */
+export const BUY_PACK_SIZE = 10;
+/** 하루에 구매로 보충할 수 있는 최대 개비 수 */
+export const MAX_BOUGHT = 20;
 /** 하루에 NPC 와 주고받을 수 있는 최대 턴 수 (비용 상한) */
 export const DAILY_TURN_LIMIT = 40;
 
@@ -53,6 +57,8 @@ export type PackState = {
   smoked: number;
   /** 오늘 NPC 와 주고받은 턴 수 */
   turns: number;
+  /** 오늘 자판기에서 사서 보충한 개비 수 */
+  bought: number;
 };
 
 /** summarize 엔드포인트 응답 */
@@ -212,7 +218,7 @@ export function bumpMeeting(m: NpcMemory): NpcMemory {
 // ─── 담배 갑 (일일 사용 상한) ────────────────────────────────
 
 export function loadPack(): PackState {
-  const fresh: PackState = { date: todayKey(), smoked: 0, turns: 0 };
+  const fresh: PackState = { date: todayKey(), smoked: 0, turns: 0, bought: 0 };
   try {
     const raw = localStorage.getItem(KEY_PACK);
     if (!raw) return fresh;
@@ -222,6 +228,7 @@ export function loadPack(): PackState {
       date: todayKey(),
       smoked: typeof p.smoked === "number" ? p.smoked : 0,
       turns: typeof p.turns === "number" ? p.turns : 0,
+      bought: typeof p.bought === "number" ? p.bought : 0,
     };
   } catch {
     return fresh;
@@ -237,7 +244,27 @@ export function savePack(p: PackState): void {
 }
 
 export function cigarettesLeft(p: PackState): number {
-  return Math.max(0, PACK_SIZE - p.smoked);
+  return Math.max(0, PACK_SIZE + p.bought - p.smoked);
+}
+
+/** 오늘 더 살 수 있는가 (대화 턴 상한은 별개라 비용에는 영향이 없다) */
+export function canBuyCigarettes(p: PackState): boolean {
+  return p.bought < MAX_BOUGHT;
+}
+
+/**
+ * 자판기에서 한 갑 산다. 살 수 없으면 null.
+ * 흡연실과 탕비실을 잇는 유일한 물건이라 저장소를 공유한다.
+ */
+export function buyCigarettes(): PackState | null {
+  const p = loadPack();
+  if (!canBuyCigarettes(p)) return null;
+  const next: PackState = {
+    ...p,
+    bought: Math.min(MAX_BOUGHT, p.bought + BUY_PACK_SIZE),
+  };
+  savePack(next);
+  return next;
 }
 
 export function turnsLeft(p: PackState): number {

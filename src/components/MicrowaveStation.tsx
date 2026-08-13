@@ -13,7 +13,7 @@ type MwState = "idle" | "heating" | "done";
 const HEAT_MS = 8000;
 
 export default function MicrowaveStation({ compact }: { compact: boolean }) {
-  const { sendMessage, myCup } = useBreakRoom();
+  const { sendMessage, myCup, pickUp } = useBreakRoom();
   const locked = !myCup;
 
   const [mwState, setMwState]   = useState<MwState>("idle");
@@ -50,10 +50,11 @@ export default function MicrowaveStation({ compact }: { compact: boolean }) {
     if (mwState !== "done") return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     sendMessage("냉동만두 꺼냄 🥟 후후~ 식혀야지");
+    pickUp({ id: "mandu", emoji: "🥟", label: "만두" });
     sound.play("pop");
     setMwState("idle");
     setHeatPct(0);
-  }, [mwState, sendMessage]);
+  }, [mwState, sendMessage, pickUp]);
 
   const handleMicrowaveClick = () => {
     if (mwState === "done") { takeOut(); return; }
