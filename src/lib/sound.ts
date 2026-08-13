@@ -32,7 +32,10 @@ export type SoundName =
   | "knock"   // 유리 두드리는 소리
   | "peel"    // 사과 껍질 깎이는 소리
   | "snap"    // 껍질이 툭 끊김
-  | "fanfare"; // 한 번에 다 깎았을 때
+  | "fanfare"  // 한 번에 다 깎았을 때
+  | "bark"     // 강아지
+  | "slice"    // 과일 베기
+  | "splat";   // 과즙 터짐
 
 const STORAGE_KEY = "tangbirsil_sound_v1";
 
@@ -292,6 +295,21 @@ class SoundEngine {
         // 다 깎았다 — 짧게 올라가는 세 음
         [523, 659, 784, 1047].forEach((f, i) =>
           this.tone({ type: "triangle", from: f, to: f, dur: 0.16, gain: 0.07, delay: i * 0.09 }));
+        break;
+      case "bark":
+        // 멍 — 짧고 낮게 두 번, 두 번째가 약하다
+        this.tone({ type: "sawtooth", from: 420, to: 190, dur: 0.09, gain: 0.10 });
+        this.noiseBurst({ dur: 0.07, gain: 0.05, filter: "bandpass", freq: 900, q: 1.1 });
+        this.tone({ type: "sawtooth", from: 380, to: 170, dur: 0.07, gain: 0.06, delay: 0.17 });
+        break;
+      case "slice":
+        // 칼바람 — 높은 대역이 빠르게 스쳐 지나간다
+        this.noiseBurst({ dur: 0.11, gain: 0.055, filter: "bandpass", freq: 5200, freqTo: 1400, q: 1.9 });
+        break;
+      case "splat":
+        // 과즙 — 짧고 축축하게
+        this.tone({ type: "sine", from: 560, to: 120, dur: 0.13, gain: 0.09 });
+        this.noiseBurst({ dur: 0.16, gain: 0.05, filter: "lowpass", freq: 1300, freqTo: 400 });
         break;
       case "door":
         // 경첩 삐걱 + 닫히는 쿵

@@ -19,13 +19,19 @@ const BEST_KEY = "tangbirsil_peel_best";
 
 /* ── 난이도 ──────────────────────────────────────────────────
  * 물리를 그대로 떼서 "반응속도 N ms 인 사람" 으로 시뮬레이션을 돌려 맞췄다.
- * 처음 값(칼 58/s, 구간 15→9, 유예 0.2s)은 절벽이었다 —
- * 150ms 면 대부분 완주하는데 220ms 면 100% 즉사했다.
  *
- * 지금 값의 시뮬 결과 (순수 반응만 하는 모델이라 실제보단 박하게 나온다):
- *    80ms → 완주 100%    150ms → 완주 100%
- *   220ms → 완주  88%    300ms → 평균 47% (즉사 15%)
- *   380ms → 평균 22% (즉사 61%)
+ * 1차: 칼 58/s, 구간 15→9, 유예 0.2s — 절벽이었다.
+ *      150ms 면 대부분 완주하는데 220ms 면 100% 즉사.
+ * 2차: 완만하게 폈더니 이번엔 너무 후해졌다 (220ms 에도 88% 완주).
+ * 3차(지금): 시작은 너그럽고 끝이 가혹하게. 구간이 좁아지는 걸 뒤로 몰았다
+ *      (BAND_CURVE) — 초반엔 넓게 유지되다가 막판에 확 조인다.
+ *
+ * 지금 값의 시뮬 결과 (순수 반응만 하는 모델이라 실제보단 박하게 나온다.
+ *  사람은 사인파를 예측하므로 체감은 이보다 쉽다):
+ *    80ms → 완주 100%              150ms → 완주 60%
+ *   220ms → 완주   0% (평균 77%)   300ms → 평균 41% (즉사 22%)
+ *
+ * 즉 "끝까지 안 끊고 깎기"는 숙련자만. 보통은 깎은 사과는 얻되 완주는 못 한다.
  * ─────────────────────────────────────────────────────────── */
 
 /** 칼이 들어가고 빠지는 속도 (깊이 단위/초) */
@@ -36,10 +42,12 @@ const FULL_PEEL_SEC = 13;
 const GRACE_SEC = 0.28;
 /** 초록 구간 반폭 — 갈수록 좁아진다 */
 const BAND_START = 18;
-const BAND_END = 11;
+const BAND_END = 5;
+/** 좁아지는 곡선. 1보다 크면 초반엔 넓게 버티다 막판에 급격히 조인다 */
+const BAND_CURVE = 1.8;
 /** 칼이 처음 닿고 이 시간 동안은 구간을 넓게 열어준다 (시작하자마자 끊기는 걸 막는다) */
-const EASE_SEC = 2.0;
-const EASE_BONUS = 8;
+const EASE_SEC = 2.6;
+const EASE_BONUS = 11;
 
 type Phase = "ready" | "peeling" | "done";
 
@@ -138,8 +146,8 @@ export default function ApplePeelGame({ onClose }: { onClose: () => void }) {
       // 적당한 깊이는 계속 움직인다
       const { a, b } = phaseRef.current;
       const center = Math.max(20, Math.min(80,
-        50 + 22 * Math.sin(s.t * 0.75 + a) + 8 * Math.sin(s.t * 1.40 + b)));
-      let half = BAND_START + (BAND_END - BAND_START) * (s.progress / 100);
+        50 + 22 * Math.sin(s.t * 0.95 + a) + 8 * Math.sin(s.t * 1.75 + b)));
+      let half = BAND_START + (BAND_END - BAND_START) * Math.pow(s.progress / 100, BAND_CURVE);
       if (s.started && s.since < EASE_SEC) half += EASE_BONUS * (1 - s.since / EASE_SEC);
       const lo = center - half, hi = center + half;
 
