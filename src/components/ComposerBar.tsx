@@ -1,17 +1,22 @@
 import { useState } from "react";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
+import ApplePeelGame from "./ApplePeelGame";
+
+/** 칼로 깎을 수 있는 것 */
+const PEELABLE = new Set(["apple"]);
 
 function SmallBtn({ children, onClick, tone, disabled, title }: {
   children: React.ReactNode;
   onClick: () => void;
-  tone: "eat" | "give" | "cancel";
+  tone: "eat" | "give" | "cancel" | "peel";
   disabled?: boolean;
   title?: string;
 }) {
   const bg = disabled ? "hsl(38 15% 80%)"
     : tone === "eat" ? "hsl(28 60% 62%)"
     : tone === "give" ? "hsl(150 40% 46%)"
+    : tone === "peel" ? "hsl(205 45% 52%)"
     : "hsl(30 12% 70%)";
   return (
     <button
@@ -40,6 +45,7 @@ function SmallBtn({ children, onClick, tone, disabled, title }: {
 export default function ComposerBar() {
   const { sendMessage, myCup, recentMessages, heldItem, eatHeld, cups, giftMode, setGiftMode } = useBreakRoom();
   const [text, setText] = useState("");
+  const [peeling, setPeeling] = useState(false);
 
   const send = (msg?: string) => {
     const t = (msg ?? text).trim();
@@ -102,6 +108,11 @@ export default function ComposerBar() {
             ) : (
               <>
                 <SmallBtn onClick={eatHeld} tone="eat">먹기</SmallBtn>
+                {PEELABLE.has(heldItem.id) && (
+                  <SmallBtn onClick={() => setPeeling(true)} tone="peel" title="껍질 안 끊고 얼마나 길게?">
+                    깎기 🔪
+                  </SmallBtn>
+                )}
                 <SmallBtn
                   onClick={() => setGiftMode(true)}
                   tone="give"
@@ -149,6 +160,9 @@ export default function ComposerBar() {
           보내기
         </button>
       </div>
+
+      {/* 사과 깎기 — 결과물이 다시 손에 들린다 */}
+      {peeling && <ApplePeelGame onClose={() => setPeeling(false)} />}
     </div>
   );
 }
