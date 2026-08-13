@@ -5,7 +5,7 @@
  * 모바일에서는 컬럼 폭을 줄이고 컴팩트 컴포넌트로 대체.
  * 오브젝트(전자레인지/자판기/디저트 선반)는 각자 픽셀 SVG 컴포넌트.
  */
-import { useState } from "react";
+import { useState, useRef, useLayoutEffect } from "react";
 import CoffeeMachine from "./CoffeeMachine";
 import SharedCounter from "./SharedCounter";
 import WindowWeather from "./WindowWeather";
@@ -81,23 +81,134 @@ function RoomLayout({ compact, showHint, onEnterSmoking }: {
       {/* 벽 배경 */}
       <WallBackground compact={compact} />
 
-      {/* 3열 그리드 */}
-      <div style={{
-        flex: 1, minHeight: 0,
-        display: "grid",
-        gridTemplateColumns: `${leftW} 1fr ${rightW}`,
-        position: "relative", zIndex: 1,
-        overflow: "hidden",
-      }}>
-        <LeftZone compact={compact} />
-        <CenterZone compact={compact} showHint={showHint} onEnterSmoking={onEnterSmoking} />
-        <RightZone compact={compact} />
-      </div>
+      {/* 방 본체 — 폰은 2단 벽, 데스크탑은 3열 */}
+      {compact ? (
+        <WallBands showHint={showHint} onEnterSmoking={onEnterSmoking} />
+      ) : (
+        <div style={{
+          flex: 1, minHeight: 0,
+          display: "grid",
+          gridTemplateColumns: `${leftW} 1fr ${rightW}`,
+          position: "relative", zIndex: 1,
+          overflow: "hidden",
+        }}>
+          <LeftZone compact={compact} />
+          <CenterZone compact={compact} showHint={showHint} onEnterSmoking={onEnterSmoking} />
+          <RightZone compact={compact} />
+        </div>
+      )}
 
       {/* 공유 카운터 */}
       <div style={{ position: "relative", zIndex: 2 }}>
         <SharedCounter />
       </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WallBands — 폰 전용 2단 벽
+
+   3열로 욱여넣으면 각 열이 세로 공간을 따로 쓰기 때문에, 벽 한가운데가
+   180px 씩 텅 비고 나머지가 위아래로 몰린다. 그래서 폰에서는 열을 버리고
+   "벽에 붙는 것"과 "바닥에 서는 것" 두 단으로 나눈다.
+   ═══════════════════════════════════════════════════════════════ */
+/** 폰 벽을 이 크기로 한 번만 짜고, 실제 화면에 맞게 통째로 축소한다.
+ *  폰마다 세로 길이가 제각각인데 붙박이들은 고정 px 이라, 이렇게 안 하면
+ *  작은 폰에서 아래쪽(커피 버튼·문 아랫부분)이 카운터에 잘려 나간다. */
+const DESIGN_W = 430;
+const DESIGN_H = 560;
+
+function WallBands({ showHint, onEnterSmoking }: {
+  showHint: boolean; onEnterSmoking: () => void;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(1);
+
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const measure = () => {
+      const { width, height } = el.getBoundingClientRect();
+      if (!width || !height) return;
+      setFit(Math.min(1, width / DESIGN_W, height / DESIGN_H));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div ref={wrapRef} style={{
+      flex: 1, minHeight: 0,
+      display: "flex", justifyContent: "center",
+      position: "relative", zIndex: 1,
+      overflow: "hidden",
+    }}>
+    <div style={{
+      width: DESIGN_W, height: DESIGN_H, flexShrink: 0,
+      transform: `scale(${fit})`,
+      transformOrigin: "top center",
+      display: "flex", flexDirection: "column",
+      justifyContent: "space-between",
+      padding: "7px 7px 7px",
+      boxSizing: "border-box",
+    }}>
+      {/* ── 선반단 — 벽에 걸린 것들 ── */}
+      <div style={{
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        gap: 4,
+        flexShrink: 0,
+      }}>
+        <FruitBasket compact />
+        <MicrowaveStation compact inline />
+        <WindowWeather compact />
+      </div>
+
+      {/* ── 중간 벽 — 두 단 사이가 그냥 비면 그게 아까 그 공백이다.
+             폰에는 시계가 아예 없었으니 여기에 건다 ── */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 14,
+        flexShrink: 0,
+        padding: "4px 0",
+      }}>
+        <StatusClock compact />
+        {showHint && (
+          <div style={{
+            fontFamily: "'DotGothic16', monospace",
+            fontSize: 12, lineHeight: 1.9,
+            color: "hsl(28 58% 36%)",
+            pointerEvents: "none",
+          }}>
+            커피를 내려<br />자리를 잡으세요
+          </div>
+        )}
+      </div>
+
+      {/* ── 바닥단 — 바닥에 서 있는 것들 ── */}
+      <div style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "space-between",
+        gap: 4,
+        flexShrink: 0,
+      }}>
+        <PlantCorner compact />
+        <CoffeeMachine compact />
+        <SmokingDoor compact inline onEnter={onEnterSmoking} />
+        {/* 간식 선반은 자판기 위 벽에 — 둘이 한 덩어리로 읽힌다 */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <DessertShelf compact />
+          <VendingMachine compact />
+        </div>
+      </div>
+    </div>
     </div>
   );
 }

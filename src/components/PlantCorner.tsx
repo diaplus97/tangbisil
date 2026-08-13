@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { useBreakRoom, type PlantState } from "@/context/BreakRoomContext";
+import { useBreakRoom, type PlantState, WATER_PER_STAGE, MAX_PLANT_STAGE } from "@/context/BreakRoomContext";
 
-/** 화분 — 클릭하면 물주기, 상태에 따라 모양이 바뀜 */
+/** 화분 — 클릭하면 물주기, 상태에 따라 모양이 바뀜.
+ *  물을 5번 줄 때마다 한 단계씩 위로 뻗는다 (잭과 콩나무). */
 export default function PlantCorner({ compact = false }: { compact?: boolean }) {
-  const { plantState, canWater, waterPlant } = useBreakRoom();
+  const { plantState, canWater, waterPlant, plantStage, waterCount } = useBreakRoom();
   const [dripping, setDripping] = useState(false);
+  const toNext = WATER_PER_STAGE - (waterCount % WATER_PER_STAGE);
 
   const handleWater = () => {
     if (!canWater) return;
@@ -30,16 +32,20 @@ export default function PlantCorner({ compact = false }: { compact?: boolean }) 
     <div
       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: canWater ? "pointer" : "default" }}
       onClick={handleWater}
-      title={canWater ? "화분에 물 주기" : "방금 물 줬어요~"}
+      title={
+        !canWater ? "방금 물 줬어요~"
+        : plantStage >= MAX_PLANT_STAGE ? "다 자랐어요 🌳"
+        : `화분에 물 주기 — ${toNext}번 더 주면 자라요`
+      }
     >
       <div style={{ position: "relative" }}>
         {/* 물방울 애니메이션 */}
         {dripping && (
-          <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)" }}>
+          <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>
             <div className="drip" style={{ fontSize: 14 }}>💧</div>
           </div>
         )}
-        <PlantSvg state={plantState} />
+        <PlantSvg state={plantState} stage={plantStage} />
       </div>
 
       <div style={{
@@ -65,7 +71,10 @@ export default function PlantCorner({ compact = false }: { compact?: boolean }) 
   );
 }
 
-function PlantSvg({ state }: { state: PlantState }) {
+/** 단계별로 줄기가 이만큼 더 뻗는다 (viewBox 단위) */
+const STAGE_RISE = [0, 34, 74, 122, 178];
+
+function PlantSvg({ state, stage }: { state: PlantState; stage: number }) {
   const leafColors = {
     dry: ["#8B7355", "#7a6445"],
     okay: ["#5a8c3a", "#4a7c2a"],
@@ -74,8 +83,47 @@ function PlantSvg({ state }: { state: PlantState }) {
   const [c1, c2] = leafColors[state];
   const droop = state === "dry";
 
+  const rise = STAGE_RISE[Math.min(stage, STAGE_RISE.length - 1)];
+  const VB_H = 62 + rise;
+  // 자란 만큼 위쪽으로 viewBox 를 늘린다 — 화분은 늘 바닥에 붙어 있게
+  const vbTop = -rise;
+
   return (
-    <svg width="50" height="62" viewBox="0 0 50 62" style={{ imageRendering: "pixelated", display: "block" }}>
+    <svg
+      width="50" height={62 + rise}
+      viewBox={`0 ${vbTop} 50 ${VB_H}`}
+      style={{ imageRendering: "pixelated", display: "block", transition: "height 0.5s ease-out" }}
+    >
+      {/* ── 자란 줄기 — 지그재그로 타고 올라간다 ── */}
+      {rise > 0 && (
+        <>
+          <path
+            d={`M24.5,20 ${Array.from({ length: Math.ceil(rise / 22) }, (_, i) => {
+              const y0 = 20 - i * 22;
+              const dir = i % 2 === 0 ? 1 : -1;
+              return `Q${24.5 + dir * 9},${y0 - 11} 24.5,${y0 - 22}`;
+            }).join(" ")}`}
+            fill="none" stroke="#4a7c2a" strokeWidth="5" strokeLinecap="round"
+          />
+          {/* 덩굴 잎 */}
+          {Array.from({ length: Math.ceil(rise / 22) }, (_, i) => {
+            const y = 9 - i * 22;
+            const dir = i % 2 === 0 ? 1 : -1;
+            return (
+              <ellipse key={i} cx={24.5 + dir * 11} cy={y} rx="8" ry="5"
+                fill={i % 2 === 0 ? c1 : c2}
+                transform={`rotate(${dir * 22} ${24.5 + dir * 11} ${y})`} />
+            );
+          })}
+          {/* 꼭대기 — 다 자라면 천장을 뚫는다 */}
+          {stage >= MAX_PLANT_STAGE ? (
+            <text x="25" y={26 - rise} textAnchor="middle" fontSize="16">🌳</text>
+          ) : (
+            <text x="25" y={24 - rise} textAnchor="middle" fontSize="11">🌱</text>
+          )}
+        </>
+      )}
+
       {/* 잎 */}
       {droop ? (
         <>

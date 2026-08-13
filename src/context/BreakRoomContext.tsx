@@ -110,6 +110,9 @@ type BreakRoomContextValue = {
   plantState: PlantState;
   canWater: boolean;
   waterPlant: () => void;
+  /** 물 준 누적 횟수로 결정되는 성장 단계 (0 = 그냥 화분) */
+  plantStage: number;
+  waterCount: number;
   /** 출근 도장이 찍힌 날짜들 (YYYY-MM-DD) */
   stampDays: string[];
   /** 오늘 포함 연속 출근일 수 */
@@ -172,6 +175,10 @@ function rowToCup(row: Record<string, unknown>, myId: string): ActiveCup {
 
 const STORAGE_NICK = "tangbirsil_nick_v2";
 const STORAGE_PLANT = "tangbirsil_plant_watered";
+/** 물 준 누적 횟수 — 5번마다 한 단계씩 자란다 (잭과 콩나무) */
+const STORAGE_PLANT_FED = "tangbirsil_plant_fed";
+export const WATER_PER_STAGE = 5;
+export const MAX_PLANT_STAGE = 4;
 const STORAGE_SID = "tangbirsil_sid_v1";
 const STORAGE_STAMPS = "tangbirsil_stamps_v1";
 const STORAGE_REST = "tangbirsil_rest_v1";
@@ -282,6 +289,10 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
   });
   const [canWater, setCanWater] = useState(true);
   const plantState = getPlantState(lastWatered);
+  const [waterCount, setWaterCount] = useState<number>(() => {
+    try { return Number(localStorage.getItem(STORAGE_PLANT_FED) ?? 0) || 0; } catch { return 0; }
+  });
+  const plantStage = Math.min(MAX_PLANT_STAGE, Math.floor(waterCount / WATER_PER_STAGE));
 
   // 출근 도장 + 쉼 타이머
   const [stampDays, setStampDays] = useState<string[]>(loadStamps);
@@ -458,8 +469,24 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
     setCanWater(false);
     setTimeout(() => setCanWater(true), WATER_COOLDOWN_MS);
     sound.play("water");
-    if (myCupRef.current) sendMessage("화분에 물 줌 💧");
-  }, [canWater, sendMessage]);
+
+    // 5번마다 한 단계씩 자란다 — 단계가 오르는 순간엔 방에 알린다
+    const fed = waterCount + 1;
+    setWaterCount(fed);
+    try { localStorage.setItem(STORAGE_PLANT_FED, String(fed)); } catch { /* ignore */ }
+    const before = Math.min(MAX_PLANT_STAGE, Math.floor(waterCount / WATER_PER_STAGE));
+    const after = Math.min(MAX_PLANT_STAGE, Math.floor(fed / WATER_PER_STAGE));
+
+    if (myCupRef.current) {
+      if (after > before) {
+        sendMessage(
+          after >= MAX_PLANT_STAGE ? "화분이 천장을 뚫었다 🌳" : "화분이 쑥 자랐다 🌱",
+        );
+      } else {
+        sendMessage("화분에 물 줌 💧");
+      }
+    }
+  }, [canWater, sendMessage, waterCount]);
 
   // ─── 내 컵 자가 복구 ─────────────────────────────────────
   // 이번 세션에서 커피를 내렸는데 내 컵에 left_at 이 찍혔다면
@@ -631,7 +658,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
       cups, coldCups, myCup, brew, sendMessage,
       onlineCount, liveStatus,
       recentMessages,
-      plantState, canWater, waterPlant,
+      plantState, canWater, waterPlant, plantStage, waterCount,
       stampDays, streak: computeStreak(stampDays),
       restMinutes: Math.floor(restSeconds / 60),
       heldItem, pickUp, clearHeld,

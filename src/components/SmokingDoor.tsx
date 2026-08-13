@@ -12,11 +12,17 @@ const INK = "hsl(30 25% 16%)";
 interface SmokingDoorProps {
   compact: boolean;
   onEnter: () => void;
+  /** 밴드 레이아웃 안에서는 흐름에 맡긴다 (absolute 로 띄우지 않는다) */
+  inline?: boolean;
+  /** 문 너비 직접 지정 — 바닥단 높이를 문에 맞출 때 쓴다 */
+  width?: number;
 }
 
-export default function SmokingDoor({ compact, onEnter }: SmokingDoorProps) {
-  const W = compact ? 56 : 112;
-  const H = (W * 176) / 92;
+export default function SmokingDoor({ compact, onEnter, inline, width }: SmokingDoorProps) {
+  const W = width ?? (compact ? 64 : 112);
+  // 폰에서는 원래 비율(1:1.91)로 두면 문이 뭉툭하고 낮아서 '문'으로 안 읽힌다.
+  // 좁고 높게 세운다 — 실제 문도 그렇다.
+  const H = compact ? W * 2.35 : (W * 176) / 92;
 
   const handle = () => {
     sound.play("door");
@@ -29,9 +35,9 @@ export default function SmokingDoor({ compact, onEnter }: SmokingDoorProps) {
       title="복도 끝 흡연실"
       aria-label="흡연실로 이동"
       style={{
-        position: "absolute",
-        right: compact ? 2 : 12,
-        bottom: 0,
+        ...(inline
+          ? { position: "relative" }
+          : { position: "absolute", right: compact ? 2 : 12, bottom: 0 }),
         padding: 0,
         background: "none",
         border: "none",
