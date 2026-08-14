@@ -7,6 +7,7 @@
 import { useState, useCallback } from "react";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
+import { markFound } from "@/lib/discovery";
 
 const DESSERTS = [
   { id: "cookie", emoji: "🍪", label: "쿠키",  message: "쿠키 하나 집어감 🍪" },
@@ -47,6 +48,7 @@ export default function DessertShelf({ compact }: { compact: boolean }) {
     if (!inWindow) { setWindowStart(now); }
     setGrabCount(newCount);
 
+    markFound("dessert");
     sendMessage(item.message);
     pickUp({ id: item.id, emoji: item.emoji, label: item.label });
     sound.play("crunch");

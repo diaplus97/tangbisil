@@ -14,6 +14,7 @@ import { useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
+import { markFound } from "@/lib/discovery";
 import {
   listFridge, pruneFridge, isSpoiled, agoText, canStore, NOTES, MY_LIMIT,
   type FridgeItem,
@@ -52,7 +53,7 @@ export default function Fridge({ width = 84 }: { width?: number }) {
   return (
     <>
       <button
-        onClick={() => { if (locked) return; sound.play("door"); setOpen(true); }}
+        onClick={() => { if (locked) return; sound.play("door"); markFound("fridge"); setOpen(true); }}
         disabled={locked}
         title={locked ? "커피를 먼저 내려주세요" : "냉장고 — 누가 넣어둔 게 있을지도"}
         aria-label="냉장고 열기"

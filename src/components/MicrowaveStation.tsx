@@ -8,6 +8,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
+import { markFound } from "@/lib/discovery";
 import BlastFx from "./BlastFx";
 
 type MwState = "idle" | "heating" | "done" | "burnt" | "wrecked";
@@ -70,6 +71,7 @@ export default function MicrowaveStation({ compact, inline, scale: scaleProp }: 
     setSelected(null);
     setPopAnim(true);
     setTimeout(() => setPopAnim(false), 600);
+    markFound("microwave");
     setMwState("heating");
     setHeatPct(0);
     sound.play("hum");

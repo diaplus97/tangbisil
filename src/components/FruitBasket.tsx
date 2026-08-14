@@ -8,6 +8,7 @@
 import { useState, useCallback } from "react";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
+import { markFound } from "@/lib/discovery";
 
 const INK = "hsl(30 25% 18%)";
 
@@ -31,6 +32,7 @@ export default function FruitBasket({ compact }: { compact: boolean }) {
 
   const grab = useCallback((fruit: typeof FRUITS[0]) => {
     if (locked || Date.now() < cooldownEnd) return;
+    markFound("fruit");
     sendMessage(fruit.message);
     pickUp({ id: fruit.id, emoji: fruit.emoji, label: fruit.label });
     sound.play("crunch");

@@ -10,6 +10,9 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWeather } from "@/hooks/useWeather";
 import { useAirQuality } from "@/hooks/useAirQuality";
 import { useNews } from "@/hooks/useNews";
+import { useBreakRoom } from "@/context/BreakRoomContext";
+import { pickHint } from "@/lib/roomHints";
+import { listFridge } from "@/lib/fridge";
 
 const AMBIENT: string[] = [
   "잠깐의 여유, 탕비실에서 ☕",
@@ -36,7 +39,9 @@ function timePhrase(): string {
 
 type TickerItem =
   | { kind: "text"; text: string }
-  | { kind: "news"; text: string; url: string };
+  | { kind: "news"; text: string; url: string }
+  /** 방이 알아채고 흘리는 한 줄 — 아직 안 해본 것, 그것도 지금 사실인 것만 */
+  | { kind: "hint"; text: string };
 
 function buildItems(
   weather: ReturnType<typeof useWeather>,
@@ -80,7 +85,32 @@ export default function AmbientTicker() {
   const air = useAirQuality();  // isReal 여부만 사용 (실시간 표시 dot)
   const news = useNews();
 
-  const items = buildItems(weather, news);
+  const { myCup, plantState, heldItem, cups } = useBreakRoom();
+  const [fridgeCount, setFridgeCount] = useState<number | null>(null);
+
+  // 냉장고에 뭐가 있다고 말하려면 정말 있어야 한다. 없는데 가리키면 그냥 거짓말이다
+  useEffect(() => {
+    let dead = false;
+    const read = () => listFridge()
+      .then((rows) => { if (!dead) setFridgeCount(rows.length); })
+      .catch(() => { if (!dead) setFridgeCount(null); });
+    read();
+    const t = setInterval(read, 120_000);
+    return () => { dead = true; clearInterval(t); };
+  }, []);
+
+  const hint = pickHint({
+    seated: !!myCup,
+    fridgeCount,
+    plantDry: plantState === "dry",
+    heldId: heldItem?.id ?? null,
+    others: Math.max(0, cups.length - (myCup ? 1 : 0)),
+  });
+
+  // 안내는 딱 하나만, 맨 앞에. 처음 온 사람이 첫 화면에서 보게 된다
+  const items = hint
+    ? [{ kind: "hint", text: hint } as TickerItem, ...buildItems(weather, news)]
+    : buildItems(weather, news);
   const [idx, setIdx] = useState(0);
   const [visible, setVisible] = useState(true);
   const idxRef = useRef(0);
@@ -113,6 +143,7 @@ export default function AmbientTicker() {
   if (!current) return null;
 
   const isNews = current.kind === "news";
+  const isHint = current.kind === "hint";
 
   return (
     <div style={{
@@ -134,7 +165,7 @@ export default function AmbientTicker() {
         fontFamily: "'DotGothic16', monospace", fontSize: 8,
         color: "hsl(30 25% 48%)", whiteSpace: "nowrap", pointerEvents: "none",
       }}>
-        {isNews ? "◈ 뉴스" : "◈ 탕비실"}
+        {isNews ? "◈ 뉴스" : isHint ? "◈ 여기" : "◈ 탕비실"}
       </div>
 
       {/* 시계 + 실시간 표시 — 여기 두면 벽에서 시계 한 줄을 통째로 뺄 수 있다.
@@ -154,15 +185,17 @@ export default function AmbientTicker() {
       </div>
 
       <div
+        data-ticker={isHint ? "hint" : isNews ? "news" : "text"}
         onClick={isNews ? () => window.open((current as Extract<TickerItem, { kind: "news" }>).url, "_blank", "noopener,noreferrer") : undefined}
         style={{
           fontFamily: "'DotGothic16', monospace",
-          fontSize: 9,
-          color: isNews ? "hsl(200 62% 78%)" : "hsl(38 55% 80%)",
+          // 안내는 한 톤 크고 밝게 — 이 줄 하나가 전부라 안 읽히면 의미가 없다
+          fontSize: isHint ? 11 : 9,
+          color: isNews ? "hsl(200 62% 78%)" : isHint ? "hsl(45 85% 78%)" : "hsl(38 55% 80%)",
           opacity: visible ? 1 : 0,
           transition: "opacity 0.48s ease",
           letterSpacing: "0.03em",
-          maxWidth: "60%",
+          maxWidth: isHint ? "68%" : "60%",
           textAlign: "center",
           overflow: "hidden",
           textOverflow: "ellipsis",
