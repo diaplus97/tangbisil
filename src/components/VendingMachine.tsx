@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { useBreakRoom } from "@/context/BreakRoomContext";
 import { sound } from "@/lib/sound";
+import { markFound } from "@/lib/discovery";
 import { buyCigarettes, loadPack, canBuyCigarettes, BUY_PACK_SIZE } from "@/lib/npcMemory";
 
 const VEND_ITEMS = [
@@ -32,6 +33,7 @@ export default function VendingMachine({ compact }: { compact: boolean }) {
   const insertCoin = () => {
     if (locked || state !== "idle") return;
     setState("ready");
+    markFound("vending");
     sound.play("coin");
     setTimeout(() => setState((s) => s === "ready" ? "idle" : s), 8000);
   };

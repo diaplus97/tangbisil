@@ -6,6 +6,7 @@
  * 뭐가 있는지 말로 설명하지 않아도 알게 된다.
  */
 import { sound } from "@/lib/sound";
+import { markFound } from "@/lib/discovery";
 
 const INK = "hsl(30 25% 16%)";
 
@@ -25,6 +26,7 @@ export default function SmokingDoor({ compact, onEnter, inline, width }: Smoking
   const H = compact ? W * 2.35 : (W * 176) / 92;
 
   const handle = () => {
+    markFound("smoking");
     sound.play("door");
     onEnter();
   };
