@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useBreakRoom, type PlantState, WATER_PER_STAGE, MAX_PLANT_STAGE } from "@/context/BreakRoomContext";
 
 /** 화분 — 클릭하면 물주기, 상태에 따라 모양이 바뀜.
- *  물을 5번 줄 때마다 한 단계씩 위로 뻗는다 (잭과 콩나무). */
+ *  물을 5번 줄 때마다 한 단계씩 위로 뻗는다 (잭과 콩나무).
+ *  다 자라면(20번) 꼭대기에 황금알이 맺힌다 — 따서 들고 다닐 수 있다. */
 export default function PlantCorner({ compact = false }: { compact?: boolean }) {
-  const { plantState, canWater, waterPlant, plantStage, waterCount } = useBreakRoom();
+  const { plantState, canWater, waterPlant, plantStage, waterCount, eggReady, pickEgg } = useBreakRoom();
   const [dripping, setDripping] = useState(false);
   const toNext = WATER_PER_STAGE - (waterCount % WATER_PER_STAGE);
+  const grown = plantStage >= MAX_PLANT_STAGE;
 
   const handleWater = () => {
     if (!canWater) return;
@@ -34,7 +36,7 @@ export default function PlantCorner({ compact = false }: { compact?: boolean }) 
       onClick={handleWater}
       title={
         !canWater ? "방금 물 줬어요~"
-        : plantStage >= MAX_PLANT_STAGE ? "다 자랐어요 🌳"
+        : grown ? "다 자랐어요 🌳"
         : `화분에 물 주기 — ${toNext}번 더 주면 자라요`
       }
     >
@@ -45,7 +47,24 @@ export default function PlantCorner({ compact = false }: { compact?: boolean }) 
             <div className="drip" style={{ fontSize: 14 }}>💧</div>
           </div>
         )}
-        <PlantSvg state={plantState} stage={plantStage} />
+        <PlantSvg state={plantState} stage={plantStage} eggReady={eggReady} />
+
+        {/* 꼭대기의 황금알 — 20번 물 준 사람만 딸 수 있다.
+            물주기 영역과 겹치면 안 되니 따로 버튼으로 띄운다 */}
+        {eggReady && (
+          <button
+            onClick={(e) => { e.stopPropagation(); pickEgg(); }}
+            title="콩나무 꼭대기의 황금알 따기 🥚"
+            aria-label="황금알 따기"
+            style={{
+              position: "absolute", top: -7, left: "50%", transform: "translateX(-50%)",
+              width: 46, height: 46, padding: 0,
+              background: "none", border: "none", cursor: "pointer",
+              touchAction: "manipulation", WebkitTapHighlightColor: "transparent",
+              zIndex: 3,
+            }}
+          />
+        )}
       </div>
 
       <div style={{
@@ -74,7 +93,7 @@ export default function PlantCorner({ compact = false }: { compact?: boolean }) 
 /** 단계별로 줄기가 이만큼 더 뻗는다 (viewBox 단위) */
 const STAGE_RISE = [0, 34, 74, 122, 178];
 
-function PlantSvg({ state, stage }: { state: PlantState; stage: number }) {
+function PlantSvg({ state, stage, eggReady }: { state: PlantState; stage: number; eggReady: boolean }) {
   const leafColors = {
     dry: ["#8B7355", "#7a6445"],
     okay: ["#5a8c3a", "#4a7c2a"],
@@ -120,6 +139,20 @@ function PlantSvg({ state, stage }: { state: PlantState; stage: number }) {
             <text x="25" y={26 - rise} textAnchor="middle" fontSize="16">🌳</text>
           ) : (
             <text x="25" y={24 - rise} textAnchor="middle" fontSize="11">🌱</text>
+          )}
+
+          {/* 황금알 — 다 자란 콩나무에만, 그것도 한참에 하나씩 맺힌다.
+              반짝여야 눈에 띈다. 안 그러면 꼭대기까지 아무도 안 본다 */}
+          {eggReady && (
+            <g>
+              <circle cx="25" cy={9 - rise} r="9" fill="hsl(45 92% 62%)" opacity="0.3">
+                <animate attributeName="r" values="8;12;8" dur="1.8s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.34;0.08;0.34" dur="1.8s" repeatCount="indefinite" />
+              </circle>
+              {/* 이모지만 두면 잎사귀에 묻혀 꽃봉오리처럼 보인다 — 알 모양을 직접 그린다 */}
+              <ellipse cx="25" cy={9 - rise} rx="7" ry="9" fill="hsl(45 85% 62%)" stroke="hsl(35 55% 28%)" strokeWidth="2" />
+              <ellipse cx="22.5" cy={5.5 - rise} rx="2.2" ry="3" fill="hsl(48 95% 84%)" opacity="0.85" />
+            </g>
           )}
         </>
       )}

@@ -25,7 +25,12 @@ function isNightNow(): boolean {
  *  안 그러면 낮잠이 50초씩 이어져서 "곁에 온다" 는 보상이 화면에 안 나타난다. */
 function pickNext(state: CatState, bonded: boolean): CatState {
   const r = Math.random();
-  if (isNightNow()) return r < 0.7 ? "sleep" : r < 0.9 ? "sit" : "walk";
+  // 밤에도 정이 붙었으면 곁에 와서 잔다. 안 그러면 밤 손님은
+  // 정을 아무리 쌓아도 보상을 못 본다 (늦게까지 남는 사람이 오히려 단골인데)
+  if (isNightNow()) {
+    if (bonded) return r < 0.45 ? "sleep" : r < 0.65 ? "sit" : "walk";
+    return r < 0.7 ? "sleep" : r < 0.9 ? "sit" : "walk";
+  }
   if (bonded) {
     switch (state) {
       case "walk":  return r < 0.5 ? "sit" : r < 0.8 ? "wash" : "walk";
