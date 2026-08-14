@@ -108,8 +108,105 @@ $$;
 revoke all on function prune_fridge() from public;
 grant execute on function prune_fridge() to anon, authenticated;
 
+-- ─────────────────────────────────────────────────────────────
+-- 하소연 벽: 흡연실에 한 줄 남기고 가기
+--
+-- 냉장고가 "덕담" 이라면 이쪽은 그 반대편이다. 다만 성격이 정반대라
+-- 취급도 달라야 한다 — 부정적인 자유 텍스트가 며칠 남는 곳이다.
+--
+--   위기 신호   클라이언트에서 먼저 걸러 저장 자체를 막는다 (src/lib/vents.ts)
+--   길이        40자
+--   도배        한 사람당 살아있는 하소연 1개
+--   신고        3회 이상이면 화면에서 감춘다 (지우기는 함수로만)
+--
+-- delete 정책이 없는 건 cups·fridge 와 같은 이유다.
+-- ─────────────────────────────────────────────────────────────
+create table if not exists vents (
+  id         uuid primary key default gen_random_uuid(),
+  text       text not null,
+  nick       text not null,
+  color      text not null default '#888',
+  sid        text not null,
+  agrees     int  not null default 0,   -- "나도" 누른 수
+  reports    int  not null default 0,   -- 신고 수
+  created_at timestamptz not null default now()
+);
+
+create index if not exists vents_recent_idx on vents (created_at desc);
+
+alter table vents enable row level security;
+
+drop policy if exists "vents_select" on vents;
+drop policy if exists "vents_insert" on vents;
+drop policy if exists "vents_update" on vents;
+
+create policy "vents_select" on vents for select using (true);
+create policy "vents_insert" on vents for insert with check (true);
+create policy "vents_update" on vents for update using (true) with check (true);
+-- delete 정책 없음
+
+-- "나도" 와 신고는 증가만 할 수 있어야 한다.
+-- 클라이언트에서 읽고-더해서-쓰면 동시에 누를 때 하나가 사라지고,
+-- 무엇보다 아무 값이나 써넣을 수 있다.
+create or replace function agree_vent(vent_id uuid)
+returns void language sql security definer set search_path = public as $$
+  update vents set agrees = agrees + 1 where id = vent_id;
+$$;
+
+create or replace function report_vent(vent_id uuid)
+returns void language sql security definer set search_path = public as $$
+  update vents set reports = reports + 1 where id = vent_id;
+$$;
+
+-- 정리 — 신고 3회 이상은 하루 만에, 나머지는 일주일 뒤
+create or replace function prune_vents()
+returns void language sql security definer set search_path = public as $$
+  delete from vents
+   where (reports >= 3 and created_at < now() - interval '1 day')
+      or created_at < now() - interval '7 days';
+$$;
+
+revoke all on function agree_vent(uuid)  from public;
+revoke all on function report_vent(uuid) from public;
+revoke all on function prune_vents()     from public;
+grant execute on function agree_vent(uuid)  to anon, authenticated;
+grant execute on function report_vent(uuid) to anon, authenticated;
+grant execute on function prune_vents()     to anon, authenticated;
+
+-- ─────────────────────────────────────────────────────────────
 -- 실시간 동기화 활성화
--- (이미 추가돼 있으면 "already member" 오류가 나며, 무시해도 됩니다.
---  대시보드에서는 Database → Replication → supabase_realtime 에서 cups 체크)
-alter publication supabase_realtime add table cups;
-alter publication supabase_realtime add table fridge;
+--
+-- ⚠️ 예전엔 여기가 그냥 `alter publication ... add table cups;` 였고
+-- 주석에 "already member 오류는 무시해도 됩니다" 라고 적어뒀었다.
+-- 무시할 수가 없다 — SQL 편집기는 스크립트 전체를 한 트랜잭션으로 돌려서,
+-- 이 줄이 실패하면 위에서 만든 테이블까지 전부 롤백된다.
+-- 실제로 그것 때문에 fridge 테이블이 안 만들어졌다.
+--
+-- 그래서 이미 들어 있으면 건너뛴다. 이제 몇 번을 재실행해도 안전하다.
+-- ─────────────────────────────────────────────────────────────
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['cups', 'fridge'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+
+-- ─────────────────────────────────────────────────────────────
+-- 확인 — 실행 후 이 결과로 다 만들어졌는지 바로 볼 수 있다.
+-- 세 줄 모두 ok 여야 한다.
+-- ─────────────────────────────────────────────────────────────
+select t.name as "테이블",
+       case when c.oid is null then '없음 ❌' else 'ok' end as "상태"
+  from (values ('cups'), ('fridge'), ('vents')) as t(name)
+  left join pg_class c
+         on c.relname = t.name
+        and c.relnamespace = 'public'::regnamespace;
