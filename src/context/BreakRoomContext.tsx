@@ -30,6 +30,9 @@ import {
 } from "react";
 import { supabase, isDemoMode } from "@/lib/supabase";
 import { sound } from "@/lib/sound";
+import {
+  putInFridge, takeFromFridge, takenAs, canStore, type FridgeItem,
+} from "@/lib/fridge";
 
 // ─── 타입 ────────────────────────────────────────────────────
 
@@ -155,6 +158,10 @@ type BreakRoomContextValue = {
   pickEgg: () => void;
   /** 단 걸 먹은 뒤 도는 혈당 연출 (내 화면에서만) */
   sugarPhase: SugarPhase;
+  /** 손에 든 걸 냉장고에 넣어둔다 — 다음 사람이 꺼내 먹는다 */
+  storeInFridge: (note: string | null) => Promise<{ ok: boolean; reason?: string }>;
+  /** 냉장고에서 꺼내 손에 든다. 누가 먼저 꺼냈으면 false */
+  takeOutOfFridge: (item: FridgeItem) => Promise<boolean>;
   /** 출근 도장이 찍힌 날짜들 (YYYY-MM-DD) */
   stampDays: string[];
   /** 오늘 포함 연속 출근일 수 */
@@ -513,6 +520,48 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
     if (SUGARY.has(item.id)) startSugar();
   }, [startSugar]);
 
+  /* ── 냉장고 ────────────────────────────────────────────
+   * 지금 방에 아무도 없어도 뭔가 남기고 갈 수 있다.
+   * 넣고 꺼내는 건 서버가 하고, 여기서는 손과 방 메시지만 챙긴다. */
+
+  const storeInFridge = useCallback(async (note: string | null) => {
+    const item = heldItemRef.current;
+    if (!item) return { ok: false, reason: "손에 든 게 없어요" };
+    if (!canStore(item.id)) return { ok: false, reason: "이건 넣어둬도 아무도 안 먹어요" };
+    try {
+      const res = await putInFridge({
+        itemId: item.id, emoji: item.emoji, label: item.label, note,
+        nick: nicknameRef.current, color: colorFor(nicknameRef.current), sid: SESSION_ID,
+      });
+      if (!res.ok) return res;
+      setHeldItem(null);
+      setGiftMode(false);
+      sound.play("door");
+      sendMessageRef.current?.(`냉장고에 ${item.label} 넣어둠 🧊`);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : "냉장고가 안 열려요" };
+    }
+  }, []);
+
+  const takeOutOfFridge = useCallback(async (item: FridgeItem) => {
+    try {
+      const got = await takeFromFridge(item.id, nicknameRef.current);
+      if (!got) return false;   // 누가 먼저 꺼냈다
+      const taken = takenAs(item);
+      setHeldItem(taken);
+      sound.play("pop");
+      sendMessageRef.current?.(
+        taken.id === "spoiled"
+          ? `냉장고에서 ${item.label} 꺼냈는데… 상했다 🤢`
+          : `${item.fromNick.replace("Anonymous", "A")} 님이 넣어둔 ${item.label} 꺼냄 🧊`,
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   /** 콩나무 꼭대기의 황금알을 딴다 — 20번 물 준 사람만 볼 수 있는 보상 */
   const pickEgg = useCallback(() => {
     const now = Date.now();
@@ -791,7 +840,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
       onlineCount, liveStatus, liveError,
       recentMessages,
       plantState, canWater, waterPlant, plantStage, waterCount,
-      eggReady, pickEgg, sugarPhase,
+      eggReady, pickEgg, sugarPhase, storeInFridge, takeOutOfFridge,
       stampDays, streak: computeStreak(stampDays),
       restMinutes: Math.floor(restSeconds / 60),
       heldItem, pickUp, clearHeld,

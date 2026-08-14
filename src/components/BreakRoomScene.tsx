@@ -11,6 +11,7 @@ import SharedCounter from "./SharedCounter";
 import WindowWeather from "./WindowWeather";
 import StatusClock from "./StatusClock";
 import PlantCorner from "./PlantCorner";
+import Fridge from "./Fridge";
 import MicrowaveStation from "./MicrowaveStation";
 import DessertShelf from "./DessertShelf";
 import VendingMachine from "./VendingMachine";
@@ -163,7 +164,12 @@ function WallBands({ showHint, onEnterSmoking }: {
         gap: 4,
         flexShrink: 0,
       }}>
-        <FruitBasket compact />
+        {/* 과일 바구니 위 / 냉장고 아래 — 실제 탕비실도 이렇게 생겼고,
+            선반단 187 중 바구니가 78 밖에 안 써서 아래가 비어 있었다 */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <FruitBasket compact />
+          <Fridge width={84} />
+        </div>
         <MicrowaveStation compact inline scale={0.86} />
         <WindowWeather compact />
       </div>
@@ -252,9 +258,13 @@ function LeftZone({ compact }: { compact: boolean }) {
       {/* 디지털 시계 + 먼지 — 데스크탑만 */}
       {!compact && <StatusClock />}
 
-      {/* 과일 바구니 — 시계와 화분 사이의 빈 벽 */}
-      <div style={{ marginTop: compact ? 4 : 10, flexShrink: 0 }}>
+      {/* 과일 바구니 위 / 냉장고 아래 — 폰 레이아웃과 같은 조합 */}
+      <div style={{
+        marginTop: compact ? 4 : 10, flexShrink: 0,
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+      }}>
         <FruitBasket compact={compact} />
+        <Fridge width={compact ? 84 : 96} />
       </div>
 
       {/* 화분 — 하단 */}
