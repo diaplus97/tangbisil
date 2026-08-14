@@ -25,6 +25,8 @@ const P = {
 };
 const SLIP_SEC = 0.85, SLIP_PUSH = 118, MERCY_SEC = 1.1;
 const SUGAR_P = 0.16, LIVES = 3, LANES = 4;
+/** 껍질 판정 반폭 — 레인 간격(62)보다 넓어야 무적 자리가 안 생긴다 */
+const PEEL_HALF = +(process.env.PEEL_HALF ?? 34);
 
 function run(reactMs, rng) {
   const g = { t: 0, dist: 0, speed: P.SPEED_START, spawnAt: 0.6,
@@ -102,7 +104,8 @@ function run(reactMs, rng) {
     for (const o of objs) {
       o.y += g.speed * dt;
       if (o.hit) continue;
-      if (Math.abs(o.x - g.x) < CUP_R + 11 && Math.abs(o.y - CUP_Y) < CUP_R + 8) {
+      if (Math.abs(o.x - g.x) < (o.kind === "sugar" ? CUP_R + 11 : PEEL_HALF)
+          && Math.abs(o.y - CUP_Y) < CUP_R + 8) {
         if (o.kind === "sugar") { o.hit = true; g.sugar++; }
         else if (!mercy && !slip) {
           o.hit = true; g.lives--;
