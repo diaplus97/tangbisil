@@ -628,3 +628,12 @@
   100% { background: hsl(45 85% 82%); }
 }
 .held-bar { animation: heldFlash 0.85s ease-out; }
+
+/* 복도 레이싱 — 뭘 얻었는지 잠깐 크게 알린다 */
+@keyframes raceToast {
+  0%   { transform: translateX(-50%) translateY(6px) scale(0.8); opacity: 0; }
+  18%  { transform: translateX(-50%) translateY(0) scale(1.12); opacity: 1; }
+  70%  { transform: translateX(-50%) translateY(-6px) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-22px) scale(0.95); opacity: 0; }
+}
+.race-toast { animation: raceToast 1.5s ease-out forwards; }
