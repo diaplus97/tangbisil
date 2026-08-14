@@ -33,6 +33,7 @@ import { sound } from "@/lib/sound";
 import {
   putInFridge, takeFromFridge, takenAs, canStore, type FridgeItem,
 } from "@/lib/fridge";
+import { postVent, checkVent } from "@/lib/vents";
 
 // ─── 타입 ────────────────────────────────────────────────────
 
@@ -164,6 +165,8 @@ type BreakRoomContextValue = {
   storeInFridge: (note: string | null) => Promise<{ ok: boolean; reason?: string }>;
   /** 냉장고에서 꺼내 손에 든다. 누가 먼저 꺼냈으면 false */
   takeOutOfFridge: (item: FridgeItem) => Promise<boolean>;
+  /** 흡연실 벽에 한 줄 남긴다. 위기 신호면 저장하지 않고 crisis 로 알린다 */
+  writeVent: (text: string) => Promise<{ ok: boolean; reason?: string; crisis?: boolean }>;
   /** 출근 도장이 찍힌 날짜들 (YYYY-MM-DD) */
   stampDays: string[];
   /** 오늘 포함 연속 출근일 수 */
@@ -564,6 +567,27 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /** 흡연실 벽에 한 줄 남긴다.
+   *  힘든 얘기를 하러 온 사람에게 "저장했습니다" 하고 끝내면 안 된다 —
+   *  위기 신호는 저장 전에 걸러서 상담 연결로 넘긴다. */
+  const writeVent = useCallback(async (text: string) => {
+    const c = checkVent(text);
+    if (!c.ok) return { ok: false, reason: c.reason, crisis: c.crisis };
+    try {
+      const res = await postVent({
+        text: c.text,
+        nick: nicknameRef.current,
+        color: colorFor(nicknameRef.current),
+        sid: SESSION_ID,
+      });
+      if (!res.ok) return res;
+      sound.play("stub");
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : "벽에 못 붙였어요" };
+    }
+  }, []);
+
   /** 콩나무 꼭대기의 황금알을 딴다 — 20번 물 준 사람만 볼 수 있는 보상 */
   const pickEgg = useCallback(() => {
     const now = Date.now();
@@ -842,7 +866,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
       onlineCount, liveStatus, liveError,
       recentMessages,
       plantState, canWater, waterPlant, plantStage, waterCount,
-      eggReady, pickEgg, sugarPhase, storeInFridge, takeOutOfFridge,
+      eggReady, pickEgg, sugarPhase, storeInFridge, takeOutOfFridge, writeVent,
       stampDays, streak: computeStreak(stampDays),
       restMinutes: Math.floor(restSeconds / 60),
       heldItem, pickUp, clearHeld,

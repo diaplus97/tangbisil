@@ -8,6 +8,7 @@
 import { useSmokingRoom } from "@/context/SmokingRoomContext";
 import NpcDialogue from "./NpcDialogue";
 import { useClock } from "@/hooks/useClock";
+import VentWall from "./VentWall";
 
 const WALL = "hsl(155 7% 21%)";
 const WALL_DARK = "hsl(155 8% 15%)";
@@ -94,6 +95,10 @@ export default function SmokingRoom({ onExit }: SmokingRoomProps) {
             </div>
           ))}
         </div>
+
+        {/* ── 하소연 벽 — 남이 적고 간 것 + 나도 적기 ──
+             대화 중엔 안 띄운다. 아저씨와 얘기하는 중에 끼어들면 안 된다 */}
+        {!talking && <VentWall />}
 
         {/* ── 재떨이 ── */}
         <div style={{
