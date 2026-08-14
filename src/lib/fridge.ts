@@ -38,7 +38,7 @@ export const NOTES = [
 ] as const;
 
 /** 넣을 수 없는 것 — 상해서 이미 못 먹는 것들 */
-const NOT_STORABLE = new Set(["burnt-mandu", "burnt-sausage", "messy-orange", "spoiled"]);
+const NOT_STORABLE = new Set(["burnt-mandu", "burnt-sausage", "messy-orange", "spoiled", "banana-peel"]);
 
 export function canStore(itemId: string): boolean {
   return !NOT_STORABLE.has(itemId);

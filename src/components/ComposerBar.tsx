@@ -4,11 +4,14 @@ import { sound } from "@/lib/sound";
 import { createPortal } from "react-dom";
 import ApplePeelGame from "./ApplePeelGame";
 import OrangeNinjaGame from "./OrangeNinjaGame";
+import BananaRaceGame from "./BananaRaceGame";
 
 /** 칼로 깎을 수 있는 것 */
 const PEELABLE = new Set(["apple"]);
 /** 도마에 올릴 수 있는 것 */
 const SLICEABLE = new Set(["orange"]);
+/** 복도로 몰고 나갈 수 있는 것 */
+const RACEABLE = new Set(["banana"]);
 
 function SmallBtn({ children, onClick, tone, disabled, title }: {
   children: React.ReactNode;
@@ -51,6 +54,7 @@ export default function ComposerBar() {
   const [text, setText] = useState("");
   const [peeling, setPeeling] = useState(false);
   const [slicing, setSlicing] = useState(false);
+  const [racing, setRacing] = useState(false);
 
   const send = (msg?: string) => {
     const t = (msg ?? text).trim();
@@ -128,6 +132,11 @@ export default function ComposerBar() {
                     썰기 🔪
                   </SmallBtn>
                 )}
+                {RACEABLE.has(heldItem.id) && (
+                  <SmallBtn onClick={() => setRacing(true)} tone="peel" title="껍질 깔린 복도를 컵 몰고 달리기">
+                    달리기 🏁
+                  </SmallBtn>
+                )}
                 <SmallBtn
                   onClick={() => setGiftMode(true)}
                   tone="give"
@@ -181,6 +190,7 @@ export default function ComposerBar() {
           위치가 바뀌어도 안 깨지게 (방 안은 scale 이 걸려 fixed 가 갇힌다) */}
       {peeling && createPortal(<ApplePeelGame onClose={() => setPeeling(false)} />, document.body)}
       {slicing && createPortal(<OrangeNinjaGame onClose={() => setSlicing(false)} />, document.body)}
+      {racing && createPortal(<BananaRaceGame onClose={() => setRacing(false)} />, document.body)}
     </div>
   );
 }
