@@ -27,28 +27,42 @@ const VB_H = 420;
 const CUP_Y = VB_H - 58;
 const CUP_R = 17;
 
-/* ── 난이도 ────────────────────────────────────────────────
- * scripts/tune-race.mjs 로 굴려서 맞췄다. 두 번 갈아엎었다:
+/* ── 스테이지 ──────────────────────────────────────────────
+ * 처음엔 끝없이 달리는 구조였는데 "목표의식이 없다" 는 지적이 맞았다.
+ * 끝이 없으면 잘해도 못해도 그냥 죽을 때까지 달릴 뿐이다.
  *
- * 1) 껍질을 흩뿌렸더니 복도가 넓어 늘 빈 곳이 있었다 — 아무리 빨라도
- *    안 어려웠다 (평균 1200m). 그래서 4칸 중 몇 칸을 막는 "줄" 로 바꿨다.
- * 2) 속도를 계속 올리면 어느 순간 물리적으로 못 피하게 되는데, 그러면
- *    실력과 무관하게 다 같은 데서 죽는다. 상한을 낮춰 항상 풀 수 있게
- *    두고, 실수로만 죽게 했다 — 엔드리스 러너는 그래야 한다.
+ * 층마다 목표 거리를 두고 세 층을 올라간다. 목표치는 시뮬레이션
+ * (scripts/tune-race.mjs) 중앙값 아래로 잡았다 — 몇 번 해보면
+ * 닿되 임원층은 진짜 벽이어야 한다.
  *
- * 지금 값: 실수 잦은 사람 기준 중앙값 200m / 한 판 15초. 잘하면 상한 없음. */
-const SPEED_START = 165;   // px/s
-const SPEED_MAX = 400;     // 이 위로 올리면 완벽하게 해도 못 피한다
-const SPEED_RAMP = 10;     // 초당 증가
+ *   시뮬 중앙값   1층 190m / 2층 170m / 임원층 155m
+ *   목표          1층 150m / 2층 180m / 임원층 180m
+ *
+ * 임원층은 처음에 200m 로 뒀는데 자동 플레이가 512m 에서 멈췄다
+ * (완주에 530m 필요). 손에 닿지 않는 목표는 목표가 아니라 벽이라
+ * 180m 으로 내렸다 — 그래도 세 층을 다 지나야 하는 건 그대로다.
+ *
+ * 층을 깨면 목숨을 하나 돌려준다 (최대 3). 깨끗하게 지나온 만큼
+ * 다음 층이 편해지는 게 맞다. */
+export type Stage = {
+  name: string;
+  sub: string;
+  target: number;
+  speed0: number; ramp: number;
+  row0: number; rowMin: number; rowRamp: number;
+  block2: number; block3: number;
+};
 
-/** 줄 간격(초) — 이게 좁아지는 게 난이도의 절반 */
-const ROW_START = 0.86;
-const ROW_MIN = 0.38;
-const ROW_RAMP = 0.024;
+const STAGES: Stage[] = [
+  { name: "1층 복도",  sub: "탕비실 앞",  target: 150,
+    speed0: 165, ramp: 10, row0: 0.86, rowMin: 0.38, rowRamp: 0.024, block2: 8, block3: 20 },
+  { name: "2층 복도",  sub: "사무실 앞",  target: 180,
+    speed0: 215, ramp: 11, row0: 0.76, rowMin: 0.34, rowRamp: 0.030, block2: 4, block3: 13 },
+  { name: "임원층",    sub: "조용히…",    target: 180,
+    speed0: 255, ramp: 12, row0: 0.68, rowMin: 0.31, rowRamp: 0.034, block2: 2, block3: 7 },
+];
 
-/** 4칸 중 2칸 / 3칸을 막기 시작하는 시각(초). 3칸이 최대 — 길은 늘 있어야 한다 */
-const BLOCK2_AT = 8;
-const BLOCK3_AT = 20;
+const SPEED_MAX = 430;     // 이 위로 올리면 완벽하게 해도 못 피한다
 const LANES = 4;
 
 /** 미끄러지는 시간 — 이 동안은 조작이 안 먹고 옆으로 밀린다 */
@@ -68,12 +82,6 @@ const PEEL_HALF = 34;
 const CUP_SPEED = 260;     // 손가락을 따라가는 최고 속도 (px/s)
 const LANE_PAD = 26;       // 복도 벽에서 이만큼 안쪽까지만
 const PX_PER_M = 20;       // 이만큼 지나면 1m
-
-/** 이 거리를 넘으면 껍질까지 다 치운 걸로 친다.
- *  판정 버그를 잡고 나니 브라우저 자동 플레이가 평균 155m 로 내려왔다.
- *  몇 번 해보면 닿는 선으로 잡는다 — 매번 되면 보상이 아니고,
- *  아예 안 되면 그냥 벽이다. */
-const CLEAN_AT = 180;
 
 const MAX_OBJ = 24;
 
@@ -121,7 +129,8 @@ const CEO_SEC = 3.2;
 /** 김대리를 앞지르면 주는 보너스 (m) */
 const PEER_BONUS = 15;
 
-type Phase = "ready" | "play" | "over";
+/** ready = 시작 전 / play = 달리는 중 / clear = 층 통과 / over = 목숨 소진 / win = 완주 */
+type Phase = "ready" | "play" | "clear" | "over" | "win";
 
 /** 부장님 잔소리 — 이름을 넣어야 진짜 나한테 하는 소리로 들린다 */
 const NAG = (who: string) => [
@@ -187,11 +196,9 @@ const EV_BOX: Record<EvKind, [number, number]> = {
   cat:     [17, 14],
 };
 
-/** 기록에 따라 손에 남는 것 — 못 치웠으면 껍질이 내 손에 남는다 */
-function resultItem(meters: number) {
-  return meters >= CLEAN_AT
-    ? null                                                       // 깔끔하게 처리함
-    : { id: "banana-peel", emoji: "🍌", label: "바나나 껍질" };
+/** 손에 남는 것 — 임원층까지 올라갔으면 껍질도 다 치운 것이다 */
+function resultItem(won: boolean) {
+  return won ? null : { id: "banana-peel", emoji: "🍌", label: "바나나 껍질" };
 }
 
 export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
@@ -200,7 +207,11 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
   const shortNick = (myCup?.nickname ?? nickname).replace("Anonymous", "A");
 
   const [phase, setPhase] = useState<Phase>("ready");
+  const [stage, setStage] = useState(0);
+  /** 이번 층에서 달린 거리 */
   const [meters, setMeters] = useState(0);
+  /** 앞서 통과한 층들의 합 */
+  const [banked, setBanked] = useState(0);
   const [lives, setLives] = useState(LIVES);
   const [sugar, setSugar] = useState(0);
   const [bonus, setBonus] = useState(0);
@@ -224,12 +235,14 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
   const boardRef = useRef<HTMLDivElement>(null);
   const idRef = useRef(0);
 
+  const stageRef = useRef(0);
   const gRef = useRef({
-    t: 0, dist: 0, speed: SPEED_START, spawnAt: 0.5,
+    t: 0, dist: 0, speed: STAGES[0].speed0, spawnAt: 0.5,
     x: VB_W / 2, targetX: VB_W / 2, vx: 0,
     lives: LIVES, sugar: 0, slipUntil: 0, slipDir: 1, mercyUntil: 0,
     lastLane: -1,
     evAt: EV_FIRST, nagUntil: 0, paperUntil: 0, ceoUntil: 0, bonus: 0,
+    banked: 0,
   });
 
   const stop = useCallback(() => {
@@ -239,26 +252,53 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
 
   useEffect(() => stop, [stop]);
 
-  const finish = useCallback(() => {
+  /** 목숨을 다 잃었다 — 여기서 끝난다 */
+  const gameOver = useCallback(() => {
     stop();
     const g = gRef.current;
     phaseRef.current = "over";
     setPhase("over");
     sound.play("boom");
 
-    const m = Math.floor(g.dist);
-    const total = m + g.sugar * 12 + g.bonus;
+    const total = g.banked + Math.floor(g.dist) + g.sugar * 12 + g.bonus;
     if (total > best) {
       setBest(total);
       try { localStorage.setItem(BEST_KEY, String(total)); } catch { /* ignore */ }
     }
-    const item = resultItem(total);
-    if (item) pickUp(item);
+    pickUp(resultItem(false)!);
     sendMessage(
-      item ? `복도에서 바나나 밟고 미끄러짐 🍌 ${total}m`
-           : `복도 ${total}m 완주 🏁 껍질도 다 치웠다`,
+      `${STAGES[stageRef.current].name}에서 미끄러짐 🍌 ${total}m`,
     );
   }, [best, pickUp, sendMessage, stop]);
+
+  /** 이번 층 목표에 도달했다 */
+  const clearStage = useCallback(() => {
+    stop();
+    const g = gRef.current;
+    const S = STAGES[stageRef.current];
+    g.banked += S.target;
+    setBanked(g.banked);
+    // 이번 층 거리는 banked 로 옮겨졌다. 안 비우면 화면에서 두 번 세어진다
+    g.dist = 0;
+    setMeters(0);
+    // 깨끗하게 지나온 만큼 다음 층이 편해지는 게 맞다
+    g.lives = Math.min(LIVES, g.lives + 1);
+    setLives(g.lives);
+
+    const last = stageRef.current >= STAGES.length - 1;
+    phaseRef.current = last ? "win" : "clear";
+    setPhase(last ? "win" : "clear");
+    sound.play("fanfare");
+
+    if (last) {
+      const total = g.banked + g.sugar * 12 + g.bonus;
+      if (total > best) {
+        setBest(total);
+        try { localStorage.setItem(BEST_KEY, String(total)); } catch { /* ignore */ }
+      }
+      sendMessage(`복도 3층 완주 🏁 ${total}m — 껍질도 다 치웠다`);
+    }
+  }, [best, sendMessage, stop]);
 
   /* ── 조작 — 손가락이 컵을 가리지 않게 판 어디를 끌어도 따라온다 ── */
   const aim = useCallback((clientX: number) => {
@@ -282,18 +322,33 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
   }, [aim]);
 
   /* ── 루프 ─────────────────────────────────────────────── */
-  const start = useCallback(() => {
+  /** 층을 시작한다. from === 0 이면 처음부터, 아니면 이어서 */
+  const start = useCallback((from: number) => {
+    const prev = gRef.current;
+    const fresh = from === 0;
+    stageRef.current = from;
+    setStage(from);
     objsRef.current = [];
-    idRef.current = 0;
-    gRef.current = {
-      t: 0, dist: 0, speed: SPEED_START, spawnAt: 0.6,
-      x: VB_W / 2, targetX: VB_W / 2, vx: 0,
-      lives: LIVES, sugar: 0, slipUntil: 0, slipDir: 1, mercyUntil: 0,
-      lastLane: -1,
-      evAt: EV_FIRST, nagUntil: 0, paperUntil: 0, ceoUntil: 0, bonus: 0,
-    };
     evsRef.current = [];
-    setMeters(0); setLives(LIVES); setSugar(0); setBonus(0); setSlipping(false);
+    idRef.current = 0;
+    const S = STAGES[from];
+    gRef.current = {
+      t: 0, dist: 0, speed: S.speed0, spawnAt: 0.6,
+      x: VB_W / 2, targetX: VB_W / 2, vx: 0,
+      // 목숨·보너스·각설탕은 층을 넘어 이어진다. 처음부터면 초기화
+      lives: fresh ? LIVES : prev.lives,
+      sugar: fresh ? 0 : prev.sugar,
+      slipUntil: 0, slipDir: 1, mercyUntil: 0,
+      lastLane: -1,
+      evAt: EV_FIRST, nagUntil: 0, paperUntil: 0, ceoUntil: 0,
+      bonus: fresh ? 0 : prev.bonus,
+      banked: fresh ? 0 : prev.banked,
+    };
+    setMeters(0); setSlipping(false);
+    setLives(gRef.current.lives);
+    setSugar(gRef.current.sugar);
+    setBonus(gRef.current.bonus);
+    setBanked(gRef.current.banked);
     setObjs([]); setEvs([]); setCupX(VB_W / 2); setTilt(0);
     setPaper(false); setNagging(false);
     phaseRef.current = "play";
@@ -307,8 +362,11 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
       last = now;
       const g = gRef.current;
       g.t += dt;
-      g.speed = Math.min(SPEED_MAX, SPEED_START + g.t * SPEED_RAMP);
+      const S = STAGES[stageRef.current];
+      g.speed = Math.min(SPEED_MAX, S.speed0 + g.t * S.ramp);
       g.dist += (g.speed * dt) / PX_PER_M;
+      // 목표에 닿으면 이 층은 끝. 남은 껍질은 그냥 지나간다
+      if (g.dist >= S.target) { clearStage(); return; }
 
       /* 컵 이동 — 부장님한테 붙잡히면 아예 못 움직인다 */
       const nag = g.t < g.nagUntil;
@@ -335,8 +393,8 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
       const ceoWalk = g.t < g.ceoUntil;
       g.spawnAt -= dt;
       if (!ceoWalk && g.spawnAt <= 0 && objsRef.current.length < MAX_OBJ) {
-        g.spawnAt = Math.max(ROW_MIN, ROW_START - g.t * ROW_RAMP);
-        const block = g.t >= BLOCK3_AT ? 3 : g.t >= BLOCK2_AT ? 2 : 1;
+        g.spawnAt = Math.max(S.rowMin, S.row0 - g.t * S.rowRamp);
+        const block = g.t >= S.block3 ? 3 : g.t >= S.block2 ? 2 : 1;
         const lanes = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
         const laneW = (VB_W - LANE_PAD * 2) / LANES;
         const at = (i: number) => LANE_PAD + laneW * lanes[i] + laneW / 2;
@@ -414,7 +472,7 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
             g.mercyUntil = g.t + SLIP_SEC + MERCY_SEC;
             g.slipDir = g.x < VB_W / 2 ? 1 : -1;
             sound.play("purr");
-            if (g.lives <= 0) { finish(); return; }
+            if (g.lives <= 0) { gameOver(); return; }
           }
         }
       }
@@ -444,7 +502,7 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
             g.slipDir = g.x < VB_W / 2 ? 1 : -1;
             setSlipping(true);
             sound.play("splat");
-            if (g.lives <= 0) { finish(); return; }
+            if (g.lives <= 0) { gameOver(); return; }
           }
         }
       }
@@ -463,9 +521,11 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
       if (phaseRef.current === "play") rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
-  }, [finish, slipping]);
+  }, [gameOver, clearStage, slipping]);
 
-  const total = meters + sugar * 12 + bonus;
+  const total = banked + meters + sugar * 12 + bonus;
+  const S = STAGES[stage];
+  const pct = Math.min(1, meters / S.target);
 
   return (
     <div
@@ -489,7 +549,9 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
       }}>
         {/* 머리 */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ fontSize: 13, color: "hsl(30 30% 22%)" }}>🏁 복도 레이싱</span>
+          <span style={{ fontSize: 13, color: "hsl(30 30% 22%)" }}>
+            🏁 {S.name} <span style={{ fontSize: 10, color: "hsl(30 20% 45%)" }}>{S.sub}</span>
+          </span>
           <span style={{ fontSize: 10, color: "hsl(0 55% 40%)" }}>
             {"♥".repeat(Math.max(0, lives))}
             <span style={{ opacity: 0.25 }}>{"♥".repeat(LIVES - Math.max(0, lives))}</span>
@@ -510,12 +572,21 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* 복도 */}
+        <div style={{ display: "flex", alignItems: "stretch", gap: 5 }}>
+        {/* 목표 바 — 이번 층을 얼마나 남겼는지. 끝이 보여야 달릴 맛이 난다 */}
+        <GoalBar pct={phase === "clear" || phase === "win" ? 1 : pct}
+          target={S.target}
+          run={phase === "clear" || phase === "win" ? S.target : meters}
+          stage={stage}
+          cleared={stage + (phase === "clear" || phase === "win" ? 1 : 0)} />
+
         <div
           ref={boardRef}
           onPointerDown={onDown}
           onPointerMove={onMove}
           style={{
             position: "relative",
+            flex: 1, minWidth: 0,
             touchAction: "none",
             WebkitTapHighlightColor: "transparent",
             cursor: phase === "play" ? "none" : "default",
@@ -534,9 +605,9 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
               position: "absolute", inset: 0,
               display: "flex", flexDirection: "column",
               alignItems: "center", justifyContent: "center", gap: 10,
-              background: "rgba(28,20,12,0.72)", padding: 16, textAlign: "center",
+              background: "rgba(28,20,12,0.74)", padding: 16, textAlign: "center",
             }}>
-              {phase === "ready" ? (
+              {phase === "ready" && (
                 <>
                   <div style={{ fontSize: 15, color: "hsl(45 80% 82%)" }}>복도에 껍질이 깔렸다</div>
                   <div style={{ fontSize: 11, color: "hsl(38 30% 78%)", lineHeight: 1.8 }}>
@@ -545,37 +616,70 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
                     🍬 각설탕 12m · 김대리 앞지르면 15m
                   </div>
                   <div style={{
-                    fontSize: 10, color: "hsl(38 24% 66%)", lineHeight: 1.9,
+                    fontSize: 11, color: "hsl(45 70% 76%)", lineHeight: 1.9,
                     borderTop: "1px solid hsl(38 18% 45%)", paddingTop: 7, marginTop: 1,
                   }}>
-                    복도에서 누굴 마주칠지 모릅니다<br />
-                    부장님 · 차장님 · 김대리 · 사장님 · 누룽지 · 탕비
+                    {STAGES.map((st, i) => (
+                      <div key={st.name}>
+                        <b>{i + 1}층</b> {st.name} — {st.target}m
+                      </div>
+                    ))}
+                    <span style={{ fontSize: 10, color: "hsl(38 24% 66%)" }}>
+                      세 층을 다 지나면 완주
+                    </span>
                   </div>
                 </>
-              ) : (
+              )}
+
+              {phase === "clear" && (
+                <>
+                  <div style={{ fontSize: 17, color: "hsl(140 60% 78%)" }}>
+                    {STAGES[stage].name} 통과!
+                  </div>
+                  <div style={{ fontSize: 11, color: "hsl(38 30% 80%)", lineHeight: 1.9 }}>
+                    여기까지 {banked}m<br />
+                    <span style={{ color: "hsl(0 60% 76%)" }}>목숨 하나 회복 ♥ {lives}</span><br />
+                    다음은 <b>{STAGES[stage + 1]?.name}</b> — {STAGES[stage + 1]?.target}m
+                  </div>
+                </>
+              )}
+
+              {phase === "win" && (
+                <>
+                  <div style={{ fontSize: 19, color: "hsl(45 90% 76%)" }}>🏁 완주!</div>
+                  <div style={{ fontSize: 12, color: "hsl(38 30% 82%)", lineHeight: 1.9 }}>
+                    세 층을 다 지났습니다 — {total}m<br />
+                    껍질도 다 치웠어요
+                    {total >= best && <><br />최고 기록!</>}
+                  </div>
+                </>
+              )}
+
+              {phase === "over" && (
                 <>
                   <div style={{ fontSize: 17, color: "hsl(45 80% 82%)" }}>{total}m</div>
-                  <div style={{ fontSize: 11, color: "hsl(38 30% 78%)", lineHeight: 1.8 }}>
-                    {total >= CLEAN_AT
-                      ? "복도를 다 지났다 — 껍질도 치웠어요 🏁"
-                      : "바나나 껍질이 손에 남았어요 🍌"}
+                  <div style={{ fontSize: 11, color: "hsl(38 30% 78%)", lineHeight: 1.9 }}>
+                    <b>{STAGES[stage].name}</b>에서 멈췄어요<br />
+                    바나나 껍질이 손에 남았습니다 🍌
                     {total > 0 && total >= best && <><br />최고 기록!</>}
                   </div>
                 </>
               )}
+
               <button
-                onClick={start}
+                onClick={() => start(phase === "clear" ? stage + 1 : 0)}
                 style={{
                   marginTop: 2, padding: "11px 20px",
                   fontFamily: "'DotGothic16', monospace", fontSize: 14,
-                  background: "hsl(45 80% 55%)", color: "hsl(30 40% 18%)",
+                  background: phase === "clear" ? "hsl(140 45% 52%)" : "hsl(45 80% 55%)",
+                  color: phase === "clear" ? "hsl(140 40% 97%)" : "hsl(30 40% 18%)",
                   border: `3px solid ${INK}`, boxShadow: "3px 3px 0 rgba(0,0,0,0.4)",
                   cursor: "pointer", touchAction: "manipulation",
                 }}
               >
-                {phase === "ready" ? "출발" : "다시"}
+                {phase === "ready" ? "출발" : phase === "clear" ? "다음 층 →" : "처음부터"}
               </button>
-              {phase === "over" && (
+              {phase !== "ready" && phase !== "clear" && (
                 <button
                   onClick={onClose}
                   style={{
@@ -591,6 +695,72 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 목표 바 ────────────────────────────────────────────────
+ * 왼쪽에 세로로 세운다. 끝이 어딘지 안 보이면 목표의식이 안 생긴다 —
+ * 처음엔 끝없이 달리는 구조였는데 그게 제일 큰 문제였다. */
+function GoalBar({ pct, target, run, stage, cleared }: {
+  pct: number; target: number; run: number; stage: number; cleared: number;
+}) {
+  return (
+    <div style={{
+      width: 34, flexShrink: 0,
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+      fontFamily: "'DotGothic16', monospace",
+    }}>
+      {/* 목표 */}
+      <div style={{ fontSize: 9, color: "hsl(30 25% 34%)", lineHeight: 1.1, textAlign: "center" }}>
+        {target}m
+      </div>
+
+      {/* 통 */}
+      <div style={{
+        flex: 1, width: "100%", position: "relative",
+        background: "hsl(35 18% 78%)",
+        border: `3px solid ${INK}`,
+        overflow: "hidden",
+      }}>
+        {/* 채워지는 부분 — 아래에서 위로 */}
+        <div style={{
+          position: "absolute", left: 0, right: 0, bottom: 0,
+          height: `${pct * 100}%`,
+          background: pct >= 1
+            ? "hsl(140 50% 52%)"
+            : `linear-gradient(to top, hsl(28 65% 52%), hsl(45 82% 58%))`,
+          transition: "height 0.12s linear",
+        }} />
+        {/* 층 눈금 — 4등분 */}
+        {[0.25, 0.5, 0.75].map((v) => (
+          <div key={v} style={{
+            position: "absolute", left: 0, right: 0, bottom: `${v * 100}%`,
+            height: 1, background: "rgba(0,0,0,0.18)",
+          }} />
+        ))}
+        {/* 내 위치 표시 */}
+        <div style={{
+          position: "absolute", left: -1, right: -1,
+          bottom: `calc(${pct * 100}% - 2px)`,
+          height: 4, background: "hsl(30 25% 12%)",
+          transition: "bottom 0.12s linear",
+        }} />
+      </div>
+
+      {/* 지금 거리 */}
+      <div style={{ fontSize: 9, color: "hsl(28 55% 34%)", lineHeight: 1.1 }}>{run}</div>
+      {/* 층 표시 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        {STAGES.map((_, i) => (
+          <div key={i} style={{
+            width: 8, height: 8,
+            background: i < cleared ? "hsl(140 45% 48%)" : i === stage ? "hsl(45 82% 56%)" : "hsl(35 12% 70%)",
+            border: `2px solid ${INK}`,
+          }} />
+        ))}
       </div>
     </div>
   );
