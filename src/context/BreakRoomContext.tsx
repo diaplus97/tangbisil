@@ -85,6 +85,7 @@ const GIFT_FLAVOR: Record<string, string> = {
   "donut": "이거 좋아하는데",
   "royce": "초콜릿이라니",
   "golden-egg": "이걸 어디서 났어요?!",
+  "banana-peel": "…이걸 왜 저한테",
 };
 
 /* ── 혈당 ────────────────────────────────────────────────
@@ -101,6 +102,7 @@ export type SugarPhase = "rush" | "crash" | null;
 
 /** 먹었을 때 나가는 메시지 */
 function eatMessage(item: HeldItem): string {
+  if (item.id === "banana-peel") return "바나나 껍질을… 먹을 순 없고 그냥 버렸다 🍌";
   if (item.id === "golden-egg") return "황금알 먹음 🥚 …이걸 먹어도 되나";
   if (item.id === "burnt-mandu") return "탄 만두 먹음… 맛없어 🥟";
   if (item.id === "mandu") return "만두 먹음 🥟 후후";
