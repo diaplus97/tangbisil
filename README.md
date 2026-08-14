@@ -47,11 +47,45 @@ npm run dev        # http://localhost:5173
 
 1. [supabase.com](https://supabase.com)에서 프로젝트 생성
 2. **SQL Editor**에서 [`supabase/schema.sql`](./supabase/schema.sql) 전체 실행
+   — 실행이 끝나면 이 표가 나와야 합니다. 하나라도 `없음` 이면 아래 함정을 보세요.
+
+   | 테이블 | 상태 |
+   |---|---|
+   | cups | ok |
+   | fridge | ok |
+   | vents | ok |
+
 3. **Settings → API**의 Project URL과 anon key를 `.env`에 입력:
 
 ```
 VITE_SUPABASE_URL=https://xxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
+```
+
+### ⚠️ 함정 — `already member` 오류 하나가 테이블을 전부 지운다
+
+재실행할 때 이런 오류가 나면 **파일이 오래된 것**입니다.
+
+```
+ERROR: 42710: relation "cups" is already member of publication "supabase_realtime"
+```
+
+SQL Editor 는 스크립트 전체를 **한 트랜잭션**으로 돌립니다. 그래서 맨 끝의
+`alter publication ... add table cups` 한 줄이 실패하면, **그 위에서 만든
+테이블까지 전부 롤백**됩니다. 화면에는 오류 한 줄만 뜨는데 실제로는
+아무것도 안 만들어져 있습니다. 실제로 이것 때문에 냉장고가 며칠 안 돌았습니다.
+
+지금 `schema.sql` 은 이미 들어 있으면 건너뛰도록 고쳐져 있으니, 최신 파일을
+받아서 실행하세요:
+
+```
+https://raw.githubusercontent.com/diaplus97/tangbisil/main/supabase/schema.sql
+```
+
+어떤 테이블이 있는지 바로 확인하려면:
+
+```sql
+select tablename from pg_tables where schemaname = 'public';
 ```
 
 ### ⚠️ `VITE_` 변수는 빌드할 때 번들에 박힌다
