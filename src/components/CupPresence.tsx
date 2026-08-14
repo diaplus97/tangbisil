@@ -11,6 +11,8 @@ type CupPresenceProps = {
   isCold?: boolean;
   /** 건네줄 상대로 고를 수 있는 컵 */
   isGiftTarget?: boolean;
+  /** 단 걸 먹은 뒤 도는 혈당 상태 — 내 컵에만 붙는다 */
+  sugar?: "rush" | "crash" | null;
   onClick?: () => void;
 };
 
@@ -26,7 +28,7 @@ function coldAgoText(cup: ActiveCup): string {
 export default function CupPresence({
   cup, showSteam,
   isArmed = false, isJiggling = false, isHit = false,
-  canAttack = false, isCold = false, isGiftTarget = false, onClick,
+  canAttack = false, isCold = false, isGiftTarget = false, sugar = null, onClick,
 }: CupPresenceProps) {
   // 애니메이션 클래스 우선순위: hit > armed > jiggle
   let animClass = "";
@@ -64,6 +66,28 @@ export default function CupPresence({
         position: "relative",
       }}
     >
+      {/* 혈당 — 단 걸 먹으면 잠깐 쌩쌩하다가 가라앉는다.
+          내 화면에서만 도는 연출이라 남의 컵엔 안 붙는다 */}
+      {sugar && !isArmed && (
+        <div
+          title={sugar === "rush" ? "당 충전 완료 — 지금이 일할 때" : "혈당 급락 — 커피가 필요하다"}
+          style={{
+            position: "absolute", top: -21, left: "50%", transform: "translateX(-50%)",
+            fontFamily: "'DotGothic16', monospace", fontSize: 9, lineHeight: 1,
+            whiteSpace: "nowrap", padding: "2px 5px",
+            background: sugar === "rush" ? "hsl(45 90% 55%)" : "hsl(215 25% 45%)",
+            color: sugar === "rush" ? "hsl(30 40% 18%)" : "hsl(210 30% 92%)",
+            border: "2px solid hsl(30 25% 16%)",
+            pointerEvents: "none", zIndex: 5,
+            animation: sugar === "rush"
+              ? "sugarBuzz 0.45s ease-in-out infinite"
+              : "sugarSag 2.4s ease-in-out infinite",
+          }}
+        >
+          {sugar === "rush" ? "⚡ 당 충전" : "😵 혈당 급락"}
+        </div>
+      )}
+
       {/* 무장 시 "공격 대상 선택" 안내 */}
       {isArmed && (
         <div style={{

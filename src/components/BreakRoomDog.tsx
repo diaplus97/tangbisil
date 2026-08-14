@@ -31,9 +31,13 @@ function isNightNow(): boolean {
 }
 
 /** 고양이보다 활동적이다 — 앉아 있기보다 돌아다니고 킁킁댄다 */
-function pickNext(state: DogState): DogState {
+function pickNext(state: DogState, bonded: boolean): DogState {
   const r = Math.random();
-  if (isNightNow()) return r < 0.55 ? "sleep" : r < 0.8 ? "sit" : "walk";
+  // 밤에도 정이 붙었으면 곁으로 온다 (고양이와 같은 이유)
+  if (isNightNow()) {
+    if (bonded) return r < 0.35 ? "sleep" : r < 0.55 ? "sit" : "walk";
+    return r < 0.55 ? "sleep" : r < 0.8 ? "sit" : "walk";
+  }
   switch (state) {
     case "walk":  return r < 0.35 ? "sniff" : r < 0.55 ? "sit" : "walk";
     case "sit":   return r < 0.5 ? "walk" : r < 0.75 ? "sniff" : r < 0.9 ? "beg" : "sit";
@@ -97,7 +101,7 @@ export default function BreakRoomDog({ myCupPct }: { myCupPct: number | null }) 
     let timer: ReturnType<typeof setTimeout>;
     const step = () => {
       if (cancelled) return;
-      const next = pickNext(stateRef.current);
+      const next = pickNext(stateRef.current, bondLevel(bondRef.current) >= 2);
       stateRef.current = next;
       setState(next);
       if (next === "walk") {

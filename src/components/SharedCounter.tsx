@@ -17,7 +17,7 @@ const BATTLE_MSGS = (me: string, them: string): string[] => [
 
 /** 공용 카운터 — 더 크고 묵직하게 */
 export default function SharedCounter() {
-  const { cups, coldCups, myCup, sendMessage, giftMode, giveTo, heldItem, incomingGift, dismissGift } = useBreakRoom();
+  const { cups, coldCups, myCup, sendMessage, giftMode, giveTo, heldItem, incomingGift, dismissGift, sugarPhase } = useBreakRoom();
   const counterRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [cupPositions, setCupPositions] = useState<number[]>([]);
@@ -247,6 +247,7 @@ export default function SharedCounter() {
               canAttack={isArmed && !cup.isMe && !!myCup && !coldIds.has(cup.id)}
               isCold={coldIds.has(cup.id)}
               isGiftTarget={giftMode && !!heldItem && !cup.isMe && !coldIds.has(cup.id)}
+              sugar={cup.isMe && !coldIds.has(cup.id) ? sugarPhase : null}
               onClick={() => handleCupClick(cup, i)}
             />
           ))}

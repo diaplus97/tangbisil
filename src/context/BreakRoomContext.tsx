@@ -81,10 +81,24 @@ const GIFT_FLAVOR: Record<string, string> = {
   "cookie": "잘 먹을게요",
   "donut": "이거 좋아하는데",
   "royce": "초콜릿이라니",
+  "golden-egg": "이걸 어디서 났어요?!",
 };
+
+/* ── 혈당 ────────────────────────────────────────────────
+ * 단 걸 먹으면 잠깐 쌩쌩하다가 가라앉는다. 사무실에서 다들 아는 그 순서다.
+ * 남에게 보내지 않는다 — 내 화면에서만 도는 연출이다. */
+
+/** 먹으면 혈당이 튀는 것들 */
+const SUGARY = new Set(["donut", "royce", "candy", "cookie", "juice", "drink"]);
+export const RUSH_MS = 20_000;
+export const CRASH_MS = 16_000;
+
+/** 지금 내 상태 — 당 충전 / 급락 / 평소 */
+export type SugarPhase = "rush" | "crash" | null;
 
 /** 먹었을 때 나가는 메시지 */
 function eatMessage(item: HeldItem): string {
+  if (item.id === "golden-egg") return "황금알 먹음 🥚 …이걸 먹어도 되나";
   if (item.id === "burnt-mandu") return "탄 만두 먹음… 맛없어 🥟";
   if (item.id === "mandu") return "만두 먹음 🥟 후후";
   if (item.id === "peeled-apple") return "깎은 사과 먹음 🍎 역시 깎아 먹어야";
@@ -135,6 +149,12 @@ type BreakRoomContextValue = {
   /** 물 준 누적 횟수로 결정되는 성장 단계 (0 = 그냥 화분) */
   plantStage: number;
   waterCount: number;
+  /** 다 자란 콩나무 꼭대기에 황금알이 열려 있는가 */
+  eggReady: boolean;
+  /** 꼭대기의 황금알을 딴다 */
+  pickEgg: () => void;
+  /** 단 걸 먹은 뒤 도는 혈당 연출 (내 화면에서만) */
+  sugarPhase: SugarPhase;
   /** 출근 도장이 찍힌 날짜들 (YYYY-MM-DD) */
   stampDays: string[];
   /** 오늘 포함 연속 출근일 수 */
@@ -201,6 +221,9 @@ const STORAGE_PLANT = "tangbirsil_plant_watered";
 const STORAGE_PLANT_FED = "tangbirsil_plant_fed";
 export const WATER_PER_STAGE = 5;
 export const MAX_PLANT_STAGE = 4;
+/** 황금알을 마지막으로 딴 시각 — 다 자란 콩나무는 한참 뒤 다시 맺는다 */
+const STORAGE_EGG = "tangbirsil_plant_egg";
+export const EGG_REGROW_MS = 4 * 60_000;
 const STORAGE_SID = "tangbirsil_sid_v1";
 const STORAGE_STAMPS = "tangbirsil_stamps_v1";
 const STORAGE_REST = "tangbirsil_rest_v1";
@@ -316,6 +339,27 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
     try { return Number(localStorage.getItem(STORAGE_PLANT_FED) ?? 0) || 0; } catch { return 0; }
   });
   const plantStage = Math.min(MAX_PLANT_STAGE, Math.floor(waterCount / WATER_PER_STAGE));
+
+  // 다 자란 콩나무는 황금알을 맺는다 — 20번 물 준 값이다.
+  // 딴 뒤 EGG_REGROW_MS 만큼 기다려야 다시 열린다.
+  const [eggPickedAt, setEggPickedAt] = useState<number | null>(() => {
+    try { const v = localStorage.getItem(STORAGE_EGG); return v ? Number(v) : null; } catch { return null; }
+  });
+  const [eggTick, setEggTick] = useState(0);
+  const eggReady =
+    plantStage >= MAX_PLANT_STAGE &&
+    (eggPickedAt === null || Date.now() - eggPickedAt >= EGG_REGROW_MS);
+  useEffect(() => {
+    if (plantStage < MAX_PLANT_STAGE || eggReady) return;
+    // 다시 열릴 때를 화면에 알려야 한다 (안 그러면 새로고침해야 보인다)
+    const left = EGG_REGROW_MS - (Date.now() - (eggPickedAt ?? 0));
+    const t = setTimeout(() => setEggTick((n) => n + 1), Math.max(1000, left));
+    return () => clearTimeout(t);
+  }, [plantStage, eggReady, eggPickedAt, eggTick]);
+
+  // 혈당 — 단 걸 먹으면 잠깐 쌩쌩하다가 가라앉는다
+  const [sugarPhase, setSugarPhase] = useState<SugarPhase>(null);
+  const sugarTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // 출근 도장 + 쉼 타이머
   const [stampDays, setStampDays] = useState<string[]>(loadStamps);
@@ -441,6 +485,23 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
 
   const clearHeld = useCallback(() => { setHeldItem(null); setGiftMode(false); }, []);
 
+  /** 단 걸 먹었을 때 — 20초 쌩쌩하다가 16초 가라앉는다 */
+  const startSugar = useCallback(() => {
+    sugarTimers.current.forEach(clearTimeout);
+    sugarTimers.current = [];
+    setSugarPhase("rush");
+    sugarTimers.current.push(
+      setTimeout(() => {
+        setSugarPhase("crash");
+        sendMessageRef.current?.("혈당 떨어진다… 😵");
+      }, RUSH_MS),
+      setTimeout(() => setSugarPhase(null), RUSH_MS + CRASH_MS),
+    );
+  }, []);
+
+  // 방을 떠날 때 타이머가 남지 않게
+  useEffect(() => () => sugarTimers.current.forEach(clearTimeout), []);
+
   /** 내가 먹는다 — 네트워크 불필요 */
   const eatHeld = useCallback(() => {
     const item = heldItemRef.current;
@@ -449,6 +510,17 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
     setGiftMode(false);
     sendMessageRef.current?.(eatMessage(item));
     sound.play("crunch");
+    if (SUGARY.has(item.id)) startSugar();
+  }, [startSugar]);
+
+  /** 콩나무 꼭대기의 황금알을 딴다 — 20번 물 준 사람만 볼 수 있는 보상 */
+  const pickEgg = useCallback(() => {
+    const now = Date.now();
+    setEggPickedAt(now);
+    try { localStorage.setItem(STORAGE_EGG, String(now)); } catch { /* ignore */ }
+    setHeldItem({ id: "golden-egg", emoji: "🥚", label: "황금알" });
+    sound.play("pop");
+    if (myCupRef.current) sendMessageRef.current?.("콩나무에서 황금알 땄다 🥚");
   }, []);
 
   /** 옆 사람한테 건넨다 — broadcast 로 순간 전달 (DB 에 남기지 않는다) */
@@ -719,6 +791,7 @@ export function BreakRoomProvider({ children }: { children: ReactNode }) {
       onlineCount, liveStatus, liveError,
       recentMessages,
       plantState, canWater, waterPlant, plantStage, waterCount,
+      eggReady, pickEgg, sugarPhase,
       stampDays, streak: computeStreak(stampDays),
       restMinutes: Math.floor(restSeconds / 60),
       heldItem, pickUp, clearHeld,

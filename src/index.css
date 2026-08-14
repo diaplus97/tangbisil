@@ -313,6 +313,18 @@
   100% { transform: translateY(10px); opacity: 0; }
 }
 
+/* 혈당 — 당 충전은 파르르 떨리고, 급락은 축 처진다.
+   translateX(-50%) 를 유지해야 배지가 컵 중앙에 붙어 있다 */
+@keyframes sugarBuzz {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(-1.5deg); }
+  50%      { transform: translateX(-50%) translateY(-1.5px) rotate(1.5deg); }
+}
+
+@keyframes sugarSag {
+  0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.9; }
+  50%      { transform: translateX(-50%) translateY(2.5px); opacity: 0.62; }
+}
+
 .drip {
   animation: drip 1.2s ease-in forwards;
 }
