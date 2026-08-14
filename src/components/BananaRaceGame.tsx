@@ -79,7 +79,17 @@ const SUGAR_P = 0.16;
  *  레인 간격(62)보다 넓어야 한다 — 좁으면 두 레인 정확히 가운데에 서서
  *  아무것도 안 맞는 무적 자리가 생긴다. 실제로 그렇게 1680m 를 갔다. */
 const PEEL_HALF = 34;
-const CUP_SPEED = 260;     // 손가락을 따라가는 최고 속도 (px/s)
+/** 손가락을 따라가는 최고 속도 (px/s).
+ *
+ *  260 이었을 때 3~400m 부터 "속도가 안 나와서 애초에 피할 수가 없다" 는
+ *  제보가 왔는데, 재보니 정말 그랬다. 3칸(186px) 건너는 데 0.72초인데
+ *  최고 속도(430)에서 껍질이 보이고 닿기까지가 0.91초 —
+ *  반응 시간 0.25초를 빼면 마이너스다. 완벽하게 해도 못 피한다.
+ *  (처음 계산할 때 반응 시간을 0 으로 놓은 게 실수였다.)
+ *
+ *  400 이면 건너는 데 0.47초, 최고 속도에서도 +0.2초가 남는다.
+ *  scripts/tune-race.mjs 옆의 계산은 이 여유를 늘 양수로 유지해야 한다. */
+const CUP_SPEED = 400;
 const LANE_PAD = 26;       // 복도 벽에서 이만큼 안쪽까지만
 const PX_PER_M = 20;       // 이만큼 지나면 1m
 
@@ -126,8 +136,15 @@ const NAG_SEC = 1.0;
 const PAPER_SEC = 2.2;
 /** 사장님이 지나가는 동안 껍질이 멈춘다 */
 const CEO_SEC = 3.2;
-/** 김대리를 앞지르면 주는 보너스 (m) */
-const PEER_BONUS = 15;
+/** 김대리를 앞지르면 주는 보너스 (m).
+ *  15 였을 땐 "재밌긴 한데 뭔지 잘 모르겠다" 는 반응이었다.
+ *  지나가는 속도가 빨라서 알아채기 전에 사라졌다. */
+const PEER_BONUS = 25;
+
+/** 탕비를 잡으면 이만큼 무적 (마리오 별).
+ *  원래는 피해야 하는 장애물이었는데, 잡으러 가고 싶은 것으로 뒤집었다 —
+ *  안전한 줄에서 벗어나야 잡히니까 그 자체로 위험 대 보상이 된다. */
+const STAR_SEC = 5;
 
 /** ready = 시작 전 / play = 달리는 중 / clear = 층 통과 / over = 목숨 소진 / win = 완주 */
 type Phase = "ready" | "play" | "clear" | "over" | "win";
@@ -167,11 +184,13 @@ function makeEv(id: number, t: number, speed: number, nick: string): Ev {
       vx: -side * 158, vy: 0, say: MGR_SAY[Math.floor(Math.random() * MGR_SAY.length)] };
   }
   if (r < 0.62) {
+    // 탕비는 바닥과 같이 흐른다 — 잡으려면 그 줄로 가야 한다
     return { ...base, kind: "cat", x: laneX, y: -34, vx: 0, vy: speed };
   }
   if (r < 0.80) {
+    // 0.9 였을 땐 1.5초 만에 스쳐 지나가서 앞질렀는지도 몰랐다
     return { ...base, kind: "peer", x: laneX, y: -46,
-      vx: 0, vy: speed * 0.9, say: PEER_SAY[Math.floor(Math.random() * PEER_SAY.length)] };
+      vx: 0, vy: speed * 0.55, say: PEER_SAY[Math.floor(Math.random() * PEER_SAY.length)] };
   }
   // 부장님 — 3칸을 막고 천천히 내려온다 (컵이 따라잡는 구조)
   const lanes = [0, 1, 2, 3].sort(() => Math.random() - 0.5).slice(0, 3).sort();
@@ -193,7 +212,7 @@ const EV_BOX: Record<EvKind, [number, number]> = {
   peer:    [0, 0],    // 같이 뛰는 사이라 안 부딪힌다
   ceo:     [0, 0],
   dog:     [0, 0],    // 껍질만 물고 간다
-  cat:     [17, 14],
+  cat:     [24, 20],  // 잡으면 무적 — 넉넉하게 잡히게
 };
 
 /** 손에 남는 것 — 임원층까지 올라갔으면 껍질도 다 치운 것이다 */
@@ -227,6 +246,8 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
   const [tilt, setTilt] = useState(0);
   const [paper, setPaper] = useState(false);
   const [nagging, setNagging] = useState(false);
+  const [star, setStar] = useState(0);          // 남은 무적 시간(초)
+  const [toast, setToast] = useState<{ key: number; text: string } | null>(null);
 
   const phaseRef = useRef<Phase>("ready");
   const rafRef = useRef<number | null>(null);
@@ -242,7 +263,7 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
     lives: LIVES, sugar: 0, slipUntil: 0, slipDir: 1, mercyUntil: 0,
     lastLane: -1,
     evAt: EV_FIRST, nagUntil: 0, paperUntil: 0, ceoUntil: 0, bonus: 0,
-    banked: 0,
+    banked: 0, starUntil: 0,
   });
 
   const stop = useCallback(() => {
@@ -343,6 +364,7 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
       evAt: EV_FIRST, nagUntil: 0, paperUntil: 0, ceoUntil: 0,
       bonus: fresh ? 0 : prev.bonus,
       banked: fresh ? 0 : prev.banked,
+      starUntil: 0,
     };
     setMeters(0); setSlipping(false);
     setLives(gRef.current.lives);
@@ -350,7 +372,7 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
     setBonus(gRef.current.bonus);
     setBanked(gRef.current.banked);
     setObjs([]); setEvs([]); setCupX(VB_W / 2); setTilt(0);
-    setPaper(false); setNagging(false);
+    setPaper(false); setNagging(false); setStar(0); setToast(null);
     phaseRef.current = "play";
     setPhase("play");
     sound.play("brew");
@@ -395,20 +417,37 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
       if (!ceoWalk && g.spawnAt <= 0 && objsRef.current.length < MAX_OBJ) {
         g.spawnAt = Math.max(S.rowMin, S.row0 - g.t * S.rowRamp);
         const block = g.t >= S.block3 ? 3 : g.t >= S.block2 ? 2 : 1;
-        const lanes = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
         const laneW = (VB_W - LANE_PAD * 2) / LANES;
-        const at = (i: number) => LANE_PAD + laneW * lanes[i] + laneW / 2;
-        for (let i = 0; i < block; i++) {
+
+        // 다음 빈 칸은 손이 닿는 데까지만 떨어진다.
+        //
+        // 이걸 안 두면 줄 간격이 좁아졌을 때 "이전 줄 0번 칸 → 다음 줄 3번 칸"
+        // 같은 게 나오는데, 3칸(186px)을 건너려면 0.47초가 필요한데 줄은
+        // 0.31초 만에 온다. 완벽하게 해도 못 지나는 구간이 생긴다.
+        const jump = Math.max(1, Math.min(LANES - 1,
+          Math.floor((g.spawnAt * CUP_SPEED) / laneW)));
+        const lo = Math.max(0, g.lastLane - jump);
+        const hi = Math.min(LANES - 1, g.lastLane + jump);
+        const gap = g.lastLane < 0
+          ? Math.floor(Math.random() * LANES)
+          : lo + Math.floor(Math.random() * (hi - lo + 1));
+        g.lastLane = gap;
+
+        // 빈 칸을 뺀 나머지 중에서 막을 칸을 고른다
+        const others = [0, 1, 2, 3].filter((l) => l !== gap).sort(() => Math.random() - 0.5);
+        const blocked = others.slice(0, Math.min(block, LANES - 1));
+        const at = (l: number) => LANE_PAD + laneW * l + laneW / 2;
+        for (const l of blocked) {
           objsRef.current.push({
             id: idRef.current++, kind: "peel",
-            x: at(i), y: -30, spin: Math.random() * 360, hit: false,
+            x: at(l), y: -30, spin: Math.random() * 360, hit: false,
           });
         }
-        // 남은 칸 하나에 각설탕 — 빈 곳으로 유도하는 미끼도 된다
-        if (Math.random() < SUGAR_P && block < LANES) {
+        // 각설탕은 빈 칸에 — 그리로 오라는 표시가 된다
+        if (Math.random() < SUGAR_P) {
           objsRef.current.push({
             id: idRef.current++, kind: "sugar",
-            x: at(block), y: -30, spin: 0, hit: false,
+            x: at(gap), y: -30, spin: 0, hit: false,
           });
         }
       }
@@ -453,6 +492,8 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
             ev.done = true;
             g.bonus += PEER_BONUS;
             setBonus(g.bonus);
+            ev.say = "어?! 같이 가!";
+            setToast({ key: g.t, text: `추월! +${PEER_BONUS}m` });
             sound.play("ding");
           }
           continue;
@@ -465,14 +506,12 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
             g.nagUntil = g.t + NAG_SEC;
             g.mercyUntil = g.t + NAG_SEC + 0.35;
             sound.play("knock");
-          } else if (ev.kind === "cat" && !mercyNow(g) && !slip) {
-            g.lives -= 1;
-            setLives(g.lives);
-            g.slipUntil = g.t + SLIP_SEC;
-            g.mercyUntil = g.t + SLIP_SEC + MERCY_SEC;
-            g.slipDir = g.x < VB_W / 2 ? 1 : -1;
+          } else if (ev.kind === "cat") {
+            // 마리오의 별. 잡으러 안전한 줄에서 벗어나는 게 값이다
+            g.starUntil = g.t + STAR_SEC;
+            g.mercyUntil = Math.max(g.mercyUntil, g.starUntil);
+            setToast({ key: g.t, text: `탕비 잡았다! ${STAR_SEC}초 무적` });
             sound.play("purr");
-            if (g.lives <= 0) { gameOver(); return; }
           }
         }
       }
@@ -481,6 +520,7 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
 
       /* 장애물 이동 + 충돌 */
       const mercy = g.t < g.mercyUntil;
+      const starOn = g.t < g.starUntil;
       for (const o of objsRef.current) {
         o.y += g.speed * dt;
         if (o.hit) continue;
@@ -488,6 +528,12 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
         const dy = o.y - CUP_Y;
         if (Math.abs(dx) < (o.kind === "sugar" ? CUP_R + 11 : PEEL_HALF)
             && Math.abs(dy) < CUP_R + 8) {
+          if (starOn && o.kind === "peel") {
+            // 무적 중엔 밟는 게 아니라 치우고 간다
+            o.hit = true;
+            sound.play("blip");
+            continue;
+          }
           if (o.kind === "sugar") {
             o.hit = true;
             g.sugar += 1;
@@ -514,6 +560,7 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
       setEvs([...evsRef.current]);
       setPaper(g.t < g.paperUntil);
       setNagging(nag);
+      setStar(Math.max(0, g.starUntil - g.t));
       setCupX(g.x);
       setMeters(Math.floor(g.dist));
       setTilt(slip ? (g.t * 900) % 360 : nag ? Math.sin(g.t * 22) * 7 : Math.max(-16, Math.min(16, -g.vx * 0.055)));
@@ -597,8 +644,39 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
             objs={objs} evs={evs} cupX={cupX} tilt={tilt}
             cupColor={cupColor} nick={shortNick}
             dist={meters} slipping={slipping}
-            nagging={nagging} paper={paper} t={meters / 8}
+            nagging={nagging} paper={paper} t={meters / 8} star={star}
           />
+
+          {/* 방금 뭘 얻었는지 — 안 알려주면 뭐가 좋은 건지 모른다 */}
+          {toast && phase === "play" && (
+            <div
+              key={toast.key}
+              className="race-toast"
+              style={{
+                position: "absolute", left: "50%", top: "28%",
+                transform: "translateX(-50%)",
+                fontFamily: "'DotGothic16', monospace", fontSize: 15,
+                color: "hsl(45 95% 74%)", whiteSpace: "nowrap",
+                textShadow: "0 2px 0 hsl(30 40% 14%), 0 0 12px hsl(45 90% 50% / 0.7)",
+                pointerEvents: "none", zIndex: 5,
+              }}
+            >
+              {toast.text}
+            </div>
+          )}
+
+          {/* 무적 남은 시간 */}
+          {star > 0 && phase === "play" && (
+            <div style={{
+              position: "absolute", left: "50%", top: 6, transform: "translateX(-50%)",
+              fontFamily: "'DotGothic16', monospace", fontSize: 11,
+              color: "hsl(45 95% 76%)", whiteSpace: "nowrap",
+              background: "hsl(30 35% 16% / 0.72)", padding: "2px 8px",
+              pointerEvents: "none", zIndex: 5,
+            }}>
+              ✦ 무적 {star.toFixed(1)}s
+            </div>
+          )}
 
           {phase !== "play" && (
             <div style={{
@@ -613,7 +691,8 @@ export default function BananaRaceGame({ onClose }: { onClose: () => void }) {
                   <div style={{ fontSize: 11, color: "hsl(38 30% 78%)", lineHeight: 1.8 }}>
                     화면을 <b>좌우로 끌어</b> 컵을 몹니다<br />
                     🍌 밟으면 미끄러져요 (3번이면 끝)<br />
-                    🍬 각설탕 12m · 김대리 앞지르면 15m
+                    🍬 각설탕 12m · 김대리 앞지르면 25m<br />
+                    🐈 <b style={{ color: "hsl(45 90% 74%)" }}>탕비를 잡으면 5초 무적</b>
                   </div>
                   <div style={{
                     fontSize: 11, color: "hsl(45 70% 76%)", lineHeight: 1.9,
@@ -897,10 +976,10 @@ function Ceo({ say, flip }: { say?: string; flip?: boolean }) {
 
 /* ─── 복도 그림 ──────────────────────────────────────────── */
 
-function Corridor({ objs, evs, cupX, tilt, cupColor, nick, dist, slipping, nagging, paper, t }: {
+function Corridor({ objs, evs, cupX, tilt, cupColor, nick, dist, slipping, nagging, paper, t, star }: {
   objs: Obj[]; evs: Ev[]; cupX: number; tilt: number;
   cupColor: string; nick: string; dist: number;
-  slipping: boolean; nagging: boolean; paper: boolean; t: number;
+  slipping: boolean; nagging: boolean; paper: boolean; t: number; star: number;
 }) {
   // 바닥 타일이 흘러가야 달리는 느낌이 난다
   const scroll = (dist * PX_PER_M) % 40;
@@ -958,9 +1037,20 @@ function Corridor({ objs, evs, cupX, tilt, cupColor, nick, dist, slipping, naggi
           )}
           {e.kind === "cat" && (
             <>
+              {/* 피하는 게 아니라 잡으러 가는 것 — 반짝여야 그렇게 읽힌다 */}
+              <circle cx="0" cy="0" r="20" fill="hsl(45 95% 62%)" opacity="0.35">
+                <animate attributeName="r" values="17;25;17" dur="0.9s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.42;0.12;0.42" dur="0.9s" repeatCount="indefinite" />
+              </circle>
+              {[0, 1, 2, 3].map((k) => (
+                <text key={k} x={Math.cos(k * 1.57) * 20} y={Math.sin(k * 1.57) * 20 + 3}
+                  textAnchor="middle" fontSize="9" fill="hsl(45 95% 68%)">
+                  ✦
+                  <animate attributeName="opacity" values="1;0.2;1" dur="0.7s"
+                    begin={`${k * 0.17}s`} repeatCount="indefinite" />
+                </text>
+              ))}
               <text x="0" y="8" textAnchor="middle" fontSize="24">🐈</text>
-              <text x="15" y="-6" fontSize="9" fontFamily="'DotGothic16', monospace"
-                fill="hsl(30 25% 30%)">야옹</text>
             </>
           )}
         </g>
@@ -990,7 +1080,25 @@ function Corridor({ objs, evs, cupX, tilt, cupColor, nick, dist, slipping, naggi
         {nagging && (
           <text x="0" y="-24" textAnchor="middle" fontSize="15">😰</text>
         )}
-        <rect x="-14" y="-15" width="28" height="30" rx="2" fill={cupColor} stroke={INK} strokeWidth="3" />
+        {star > 0 && (
+          <>
+            <circle cx="0" cy="0" r="27" fill="none" strokeWidth="3.5" opacity="0.9"
+              stroke={`hsl(${(t * 520) % 360} 92% 62%)`}>
+              <animate attributeName="r" values="23;30;23" dur="0.45s" repeatCount="indefinite" />
+            </circle>
+            {[0, 1, 2, 3, 4].map((k) => (
+              <text key={k}
+                x={Math.cos(t * 5 + k * 1.257) * 26}
+                y={Math.sin(t * 5 + k * 1.257) * 26 + 3}
+                textAnchor="middle" fontSize="10" fill={`hsl(${(t * 520 + k * 70) % 360} 92% 70%)`}>
+                ✦
+              </text>
+            ))}
+          </>
+        )}
+        <rect x="-14" y="-15" width="28" height="30" rx="2"
+          fill={star > 0 ? `hsl(${(t * 520) % 360} 78% 58%)` : cupColor}
+          stroke={INK} strokeWidth="3" />
         <rect x="-14" y="-15" width="28" height="7" fill="rgba(255,255,255,0.32)" />
         {/* 손잡이 */}
         <path d="M14,-6 q9,0 9,8 q0,8 -9,8" fill="none" stroke={INK} strokeWidth="3" />

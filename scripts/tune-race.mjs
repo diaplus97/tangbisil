@@ -20,7 +20,7 @@ const P = {
   ROW_RAMP:    +(process.env.ROW_RAMP ?? 0.020),
   BLOCK2_AT:   +(process.env.BLOCK2_AT ?? 9),      // 4칸 중 2칸 막기 시작
   BLOCK3_AT:   +(process.env.BLOCK3_AT ?? 26),     // 3칸 막기 시작
-  CUP_SPEED:   +(process.env.CUP_SPEED ?? 235),
+  CUP_SPEED:   +(process.env.CUP_SPEED ?? 400),
   PX_PER_M:    +(process.env.PX_PER_M ?? 14),
 };
 const SLIP_SEC = 0.85, SLIP_PUSH = 118, MERCY_SEC = 1.1;
@@ -87,16 +87,18 @@ function run(reactMs, rng) {
     if (g.spawnAt <= 0) {
       g.spawnAt = Math.max(P.ROW_MIN, P.ROW_START - g.t * P.ROW_RAMP);
       const block = g.t >= P.BLOCK3_AT ? 3 : g.t >= P.BLOCK2_AT ? 2 : 1;
-      const lanes = [0,1,2,3].sort(() => rng() - 0.5);
       const laneW = (VB_W - LANE_PAD * 2) / LANES;
-      for (let i = 0; i < block; i++) {
-        objs.push({ id: id++, kind: "peel",
-          x: LANE_PAD + laneW * lanes[i] + laneW / 2, y: -30, hit: false });
+      // 다음 빈 칸은 손이 닿는 데까지만 (게임과 같은 규칙)
+      const jump = Math.max(1, Math.min(LANES - 1, Math.floor((g.spawnAt * P.CUP_SPEED) / laneW)));
+      const lo = Math.max(0, g.lastLane - jump), hi = Math.min(LANES - 1, g.lastLane + jump);
+      const gap = g.lastLane < 0 ? Math.floor(rng() * LANES) : lo + Math.floor(rng() * (hi - lo + 1));
+      g.lastLane = gap;
+      const others = [0,1,2,3].filter(l => l !== gap).sort(() => rng() - 0.5);
+      for (const l of others.slice(0, Math.min(block, LANES - 1))) {
+        objs.push({ id: id++, kind: "peel", x: LANE_PAD + laneW * l + laneW / 2, y: -30, hit: false });
       }
-      // 남은 칸 하나에 각설탕
-      if (rng() < SUGAR_P && block < LANES) {
-        objs.push({ id: id++, kind: "sugar",
-          x: LANE_PAD + laneW * lanes[block] + laneW / 2, y: -30, hit: false });
+      if (rng() < SUGAR_P) {
+        objs.push({ id: id++, kind: "sugar", x: LANE_PAD + laneW * gap + laneW / 2, y: -30, hit: false });
       }
     }
 
