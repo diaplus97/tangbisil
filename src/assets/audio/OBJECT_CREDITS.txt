@@ -25,3 +25,8 @@ https://cdn.freesound.org/previews/573/573696_12956274-hq.mp3
 
 Candy wrapper: existing rustle-a/b/c and foil-touch CC0 recordings; shorter 0.15s grains at 1.22 playback rate and lower gain distinguish the small wrapper from lemon pie.
 Cup contact: existing cup-down.wav. Source/edit information is in CREDITS.txt.
+
+Runtime playback update, 2026-11-06 (source files and licenses unchanged):
+Coffee cycle uses the existing 4.5s recording. Visual flow/fill runs from 0.45s to 4.05s; resumed playback seeks to elapsed cycle time. Cancel/exit/mute stops the cycle.
+Cup placement contact is scheduled at 260ms and pickup contact at 120ms of a 360ms lift. Normal next actions (placement to brewing, pickup to walking/sitting) preserve the pending contact; cancellation, room travel, disconnection and mute clear it. Both servers encode ordinary movement as rest plus a timed route.
+Timing/source counts were checked in browser instrumentation; actual audio listening remains unverified.

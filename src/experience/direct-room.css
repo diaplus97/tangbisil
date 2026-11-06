@@ -61,6 +61,17 @@
 .object-options>summary{font-size:16px;padding:10px}
 .snack-world-hint{max-width:min(280px,calc(100% - 24px));position:absolute;z-index:8;border:2px solid #77916b;box-shadow:0 3px 16px #2b443826}
 .shared-world-hint{position:absolute;z-index:8;max-width:calc(100% - 24px)}
+.discovery-cue,.destination-cue{position:absolute;z-index:8;max-width:min(280px,calc(100% - 24px));border-color:#8c9e7e}
+.discovery-cue:disabled{opacity:1;color:#49604c}
+.world-action:focus-visible,.room-assist button:focus-visible,.object-options>summary:focus-visible{outline:3px solid #476c5c;outline-offset:4px}
+.target-beacon{position:absolute;z-index:7;width:24px;height:24px;border:2px solid #fff9dd;border-radius:50%;box-shadow:0 0 0 6px #b7c99445,0 0 18px #f9f1c86b;transform:translate(-50%,-50%);pointer-events:none;visibility:hidden}
+.object-context.at-station{flex-wrap:wrap}
+.arrival-note{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);white-space:nowrap;font-size:15px;color:#314a40;background:#f9f6ec;padding:5px 10px;border-radius:9px;pointer-events:none}
+.brew-feedback{display:grid;gap:8px;width:220px;max-width:calc(100vw - 40px);padding:10px;border-radius:14px;background:#f9f6ec;color:#314a40;font-size:16px;text-align:center;box-shadow:0 3px 18px #2b443826;pointer-events:auto}
+.brew-feedback progress{appearance:none;width:100%;height:5px;border:0;border-radius:5px;background:#dce2d3;overflow:hidden}
+.brew-feedback progress::-webkit-progress-bar{background:#dce2d3}.brew-feedback progress::-webkit-progress-value{background:#80936b}
+.wrapper-progress{position:absolute;bottom:2px;left:15%;width:70%;height:4px;border-radius:3px;background:#e4e1cb;overflow:hidden;pointer-events:none}
+.wrapper-progress>span{display:block;height:100%;background:#7d9272;border-radius:3px}
 .snack-world-hint::after{content:'';position:absolute;bottom:-9px;left:var(--pointer-x,50%);width:14px;height:14px;transform:rotate(45deg);background:#f9f6ec;border-right:2px solid #77916b;border-bottom:2px solid #77916b}
 .direct-hint{font-size:18px;line-height:1.5;background:#f9f6ec;color:#314a40;max-width:calc(100% - 260px)}
 .room-assist.at-object{left:14px;right:auto}

@@ -13,16 +13,20 @@ import {createExploreCamera} from './three/exploreCamera';
 import {createFirstPersonCamera,type Eye} from './three/firstPersonCamera';
 import {useInputMethod} from './useInputMethod';
 import {directAction} from './directActions';
+import {coffeePhase} from '../../shared/coffee.mjs';
 import {heldName} from '../../shared/rest.mjs';
 import ExploreDestinations from './ExploreDestinations';
 import type {Snapshot} from './types';
 
-type Props={onUse:(target:string)=>Promise<unknown>;contextContent?:ReactNode;landscapeId:LandscapeId;tvOpen:boolean;windowContent?:ReactNode;onTv?:()=>void;onTravel:(to:Area)=>Promise<unknown>;onToolsMount:(element:HTMLDivElement|null)=>void;onApproach:(station:StationId)=>Promise<unknown>;seaMotion:boolean;waves:boolean;onWaves:()=>void;state:Snapshot|null;debug:boolean;movementMode:boolean;foodInHand:boolean;onFinishMove:()=>void;sampleAvailable:boolean;sampleLabel:string;onShelf:()=>void;onPlate:()=>void;onDrink:()=>void;disabled:boolean;onFallback:()=>void;onMove:(x:number,z:number)=>Promise<unknown>;onSit:(seat:number)=>Promise<unknown>;onStand:()=>Promise<unknown>};
+type Props={onExplore:()=>void;onUse:(target:string)=>Promise<unknown>;contextContent?:ReactNode;landscapeId:LandscapeId;tvOpen:boolean;windowContent?:ReactNode;onTv?:()=>void;onTravel:(to:Area)=>Promise<unknown>;onToolsMount:(element:HTMLDivElement|null)=>void;onApproach:(station:StationId)=>Promise<unknown>;seaMotion:boolean;waves:boolean;onWaves:()=>void;state:Snapshot|null;debug:boolean;movementMode:boolean;foodInHand:boolean;onFinishMove:()=>void;sampleAvailable:boolean;sampleLabel:string;onShelf:()=>void;onPlate:()=>void;onDrink:()=>void;disabled:boolean;onFallback:()=>void;onMove:(x:number,z:number)=>Promise<unknown>;onSit:(seat:number)=>Promise<unknown>;onStand:()=>Promise<unknown>};
 type Study='diorama'|'inside'|'table'|'lounge'|'map'|'third';
 type Framing=Study|'seated'|'walking'|'activity';
 const frames:Record<Study,string>={inside:'입구 시점',table:'테이블 시점',lounge:'창가 자리',diorama:'전체 배치',map:'개발용 평면',third:'이전 3인칭'};
-export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowContent,onTv,onTravel,onToolsMount,onApproach,seaMotion,waves,onWaves,state,debug,movementMode,foodInHand,onFinishMove,sampleAvailable,sampleLabel,onShelf,onPlate,onDrink,disabled,onFallback,onMove,onSit,onStand}:Props){
+export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpen,windowContent,onTv,onTravel,onToolsMount,onApproach,seaMotion,waves,onWaves,state,debug,movementMode,foodInHand,onFinishMove,sampleAvailable,sampleLabel,onShelf,onPlate,onDrink,disabled,onFallback,onMove,onSit,onStand}:Props){
   const input=useInputMethod();
+  const [intro,setIntro]=useState(false),[discovery,setDiscovery]=useState<StationId|null>(null),[arrival,setArrival]=useState(false);
+  const cueFocus=useRef(false),beacon=useRef<HTMLSpanElement>(null),brewProgress=useRef<HTMLProgressElement>(null);
+  const cueState=useRef({input,intro,hovered:null as string|null,discovery});
   useEffect(()=>onToolsMount(null),[onToolsMount]);
   const area=state?.room.area??'pantry',map=getSpace(area),seats=map.seats,stations=map.stations as typeof pantryStations;
   const portal=map.portal;
@@ -36,15 +40,22 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
   function dismissHint(){setShowHint(false);try{sessionStorage.setItem('pantry:direct-hint','1');}catch{}}
   const [target,setTarget]=useState<number|null>(null),[objectTarget,setObjectTarget]=useState<StationId|null>(null);
   const requesting=useRef(false),origin=useRef<number|null>(null);
+  const usingObject=useRef(false),usedAt=useRef(-Infinity);
+  async function useNearObject(id:string){if(disabled||usingObject.current||performance.now()-usedAt.current<380)return;usingObject.current=true;try{return await onUse(id);}finally{usedAt.current=performance.now();usingObject.current=false;}}
   const me=state?.room.members.find(m=>m.id===state.self.id),seat=me?.seat??0;
   const moving=Boolean(me?.travel||me?.motion&&me.motion.id!==arrived&&state&&me.motion.endsAt>state.serverTime);
+  cueState.current={input,intro,hovered,discovery};
+  useEffect(()=>{if(!state?.self.id)return;const key='pantry:first-action:'+state.self.id;try{if(sessionStorage.getItem(key))return;}catch{}setIntro(true);const timer=setTimeout(()=>{setIntro(false);try{sessionStorage.setItem(key,'1');}catch{}},6500);return()=>clearTimeout(timer);},[state?.self.id]);
+  useEffect(()=>{setArrival(Boolean(me?.station&&!moving));if(!me?.station||moving)return;const timer=setTimeout(()=>setArrival(false),1800);return()=>clearTimeout(timer);},[me?.station,moving]);
+  useEffect(()=>{if(!walkHint)return;const timer=setTimeout(()=>setWalkHint(''),3600);return()=>clearTimeout(timer);},[walkHint]);
   const framing:Framing=debug?study:moving||me&&me.seat==null&&!me.station?'walking':me?.station?'activity':'seated';
   const framingRef=useRef(framing),foodRef=useRef(foodInHand),seaMotionRef=useRef(seaMotion);
   latest.current=state;framingRef.current=framing;foodRef.current=foodInHand||tvOpen;seaMotionRef.current=seaMotion;
   const cameraUpdate=useRef<((f:Framing)=>void)|null>(null),lookAtSea=useRef<(()=>void)|null>(null);
   const originOwner=state?.room.members.find(m=>m.seat===origin.current&&m.id!==state.self.id);
   function rememberSeat(){if(!moving&&me?.seat!=null)origin.current=me.seat;}
-  async function stand(){rememberSeat();return onStand();}
+  async function stand(){rememberSeat();const brewing=state?.self.pantry.coffee.stage==='brewing';const result=await onStand();if(result){setTarget(null);setObjectTarget(null);setWalkHint(brewing?'추출을 멈추고 컵을 챙겼어요.':'');}return result;}
+  async function returnToRest(){const index=origin.current!=null&&!originOwner?origin.current:seats.findIndex((_,i)=>!state?.room.members.some(m=>m.seat===i));if(index>=0){await chooseSeat(index);if(originOwner)setWalkHint('원래 자리에 동료가 있어 가까운 빈 자리로 가요.');}}
   async function chooseSeat(index:number){
     if(disabled||requesting.current)return;
     rememberSeat();requesting.current=true;
@@ -52,14 +63,14 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
   }
   async function chooseObject(id:StationId){
     if(disabled||requesting.current)return;
-    if(!moving&&me?.station===id){await onUse(id);return;}
+    if(!moving&&me?.station===id){await useNearObject(id);return;}
     rememberSeat();requesting.current=true;
     try{if(await onApproach(id)){setObjectTarget(id);setTarget(null);setWalkHint('');onFinishMove();}}finally{requesting.current=false;}
   }
   async function choosePortal(){if(disabled||requesting.current)return;requesting.current=true;try{if(await onTravel(portal.to)){setTarget(null);setObjectTarget(null);onFinishMove();}}finally{requesting.current=false;}}
   async function walkTo(x:number,z:number){if(disabled||requesting.current)return;rememberSeat();dismissHint();if(await onMove(x,z)){setTarget(null);setObjectTarget(null);setWalkHint('');onFinishMove();}}
-  const actions=useRef({onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse,onStand:stand,tvOpen,disabled,debug});
-  actions.current={onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse,onStand:stand,tvOpen,disabled,debug};
+  const actions=useRef({onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse:useNearObject,onStand:stand,tvOpen,disabled,debug});
+  actions.current={onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse:useNearObject,onStand:stand,tvOpen,disabled,debug};
   useEffect(()=>{
     if(!me?.motion||!state)return;
     const timer=setTimeout(()=>setArrived(me.motion!.id),Math.max(0,me.motion.endsAt-state.serverTime)+40);return()=>clearTimeout(timer);
@@ -80,6 +91,9 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
     const studio=new RoomEnvironment(),pmrem=new T.PMREMGenerator(renderer),reflection=pmrem.fromScene(studio,.04);
     room.scene.environment=reflection.texture;room.scene.environmentIntensity=.35;studio.dispose();pmrem.dispose();
     let camera:T.OrthographicCamera|T.PerspectiveCamera,first:ReturnType<typeof createFirstPersonCamera>|null=null,third:ReturnType<typeof createExploreCamera>|null=null;
+    const raycaster=new T.Raycaster(),floor=new T.Plane(new T.Vector3(0,1,0),.025);
+    function visibleObject(o:T.Object3D):boolean{return o.visible&&(!o.parent||visibleObject(o.parent));}
+    function firstSurface(){return raycaster.intersectObjects(room.scene.children,true).find(h=>{if(!visibleObject(h.object)||!(h.object instanceof T.Mesh))return false;const material=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex??0]:h.object.material;return material?.visible&&(!material.transparent||material.opacity>=.9);});}
     renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
     let labelTime=0,shadowTime=0,shadowState:Snapshot|null=null;
     let previousFraming:Framing|undefined,previousMotion:string|undefined,previousSeat:number|null|undefined,previousOwner:string|undefined,raf=0,last=0,visible=true;
@@ -87,7 +101,7 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
     const isPersonal=(f:Framing)=>f==='seated'||f==='walking'||f==='activity';
     function eyeFor(f:Framing):Eye{
       const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id),p=m?room.pose(m.id):null;
-      if(f==='activity'&&m?.station){const station=stations[m.station],fridge=m.station==='fridge',closeTea=m.station==='tea'&&matchMedia('(max-width:650px)').matches;return{x:station.x-Math.sin(station.yaw)*(fridge?2.45:m.station==='tea'?(closeTea?.9:1.3):1.65),y:m.station==='tea'?1.95:1.75,z:station.z-Math.cos(station.yaw)*(fridge?2.45:m.station==='tea'?(closeTea?.9:1.3):1.65),yaw:station.yaw,pitch:m.station==='sand'?-.3:fridge?-.24:m.station==='stone'?-.42:m.station==='tea'?(closeTea?-.48:-.36):m.station==='plant'?-.28:-.15};}
+      if(f==='activity'&&m?.station){const station=stations[m.station],fridge=m.station==='fridge',closeTea=m.station==='tea'&&matchMedia('(max-width:650px)').matches;return{x:station.x-Math.sin(station.yaw)*(fridge?2.45:m.station==='coffee'?1.45:m.station==='tea'?(closeTea?.9:1.3):1.65),y:m.station==='coffee'?2.02:m.station==='tea'?1.95:1.75,z:station.z-Math.cos(station.yaw)*(fridge?2.45:m.station==='coffee'?1.45:m.station==='tea'?(closeTea?.9:1.3):1.65),yaw:station.yaw,pitch:m.station==='coffee'?-.31:m.station==='sand'?-.3:fridge?-.24:m.station==='stone'?-.42:m.station==='tea'?(closeTea?-.48:-.36):m.station==='plant'?-.28:-.15};}
       if(f==='walking'&&p)return{x:p.x,y:T.MathUtils.lerp(1.78,area==='healing'?(m?.seat!=null&&m.seat<4?1.27:1.48):1.623,p.sit),z:p.z,yaw:p.yaw,pitch:-.06};
       const seat=m?.seat??0,seated=seatedView(seat,area);
       return{...seated,yaw:area==='healing'?Math.PI:seated.yaw,pitch:matchMedia('(max-width:650px)').matches?-.23:-.12};
@@ -95,28 +109,57 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
     function positionLabels(){
       const points:Record<string,T.Vector3>={...anchors},width=container.current!.clientWidth,height=container.current!.clientHeight;
       const snack=room.snackPosition();if(snack)points['my-snack']=snack;
+      const member=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),currentCue=cueState.current;
+      const stationId=member?.station,travelling=Boolean(member?.motion&&member.motion.endsAt>room.now());
+      let next:StationId|null=null;
+      if(stationId&&travelling)next=stationId;
+      else if(!stationId&&!currentCue.intro){
+        const hover=currentCue.hovered?.startsWith('station-')?currentCue.hovered.slice(8) as StationId:null;
+        if(cueFocus.current&&currentCue.discovery)next=currentCue.discovery;
+        else if(hover&&stations[hover])next=hover;
+        else if(currentCue.input!=='mouse'&&!(snack&&Math.abs(snack.clone().project(camera).x)<.9&&snack.clone().project(camera).y>-.65&&snack.clone().project(camera).z<1)){
+          let best=.95;
+          for(const [id,s]of Object.entries(stations)){
+            if(latest.current?.room.members.some(m=>m.id!==latest.current?.self.id&&m.station===id))continue;
+            const point=new T.Vector3(s.x,s.y,s.z),p=point.clone().project(camera),distance=point.distanceTo(camera.position);
+            const score=Math.abs(p.x)+Math.abs(p.y)*.45+distance*.025;
+            if(p.z>-1&&p.z<1&&Math.abs(p.x)<.8&&p.y<.64&&p.y>-.65&&distance<11&&score<best){const rect=canvas.current!.getBoundingClientRect(),hit=hitAt(rect.left+(p.x+1)*width/2,rect.top+(1-p.y)*height/2);if(hit?.object.userData.station===id){best=score;next=id as StationId;}}
+          }
+        }
+      }
+      if(next!==currentCue.discovery){cueState.current.discovery=next;setDiscovery(next);}
+      if(next){const s=stations[next];points.discovery=new T.Vector3(s.x,s.y+.12,s.z);}
+      if(travelling&&!stationId&&member?.seat!=null){const [x,z]=seats[member.seat];points.destination=new T.Vector3(x,1.35,z);}
       for(const m of latest.current?.room.members??[]){const point=room.labelPosition(m.id);if(point)points[m.id]=point;}
       const occupied:{x:number;y:number;w:number;h:number}[]=[];
       const root=container.current!.getBoundingClientRect(),toolbarRects=[...container.current!.querySelectorAll<HTMLElement>('.scene-toolbar>*,.direct-hint,.room-assist,.object-context')].filter(e=>getComputedStyle(e).visibility!=='hidden').map(e=>{const a=e.getBoundingClientRect();return{x:a.left-root.left,y:a.top-root.top,w:a.width,h:a.height};}).filter(a=>a.w>0&&a.h>0);
       const m=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),station=m?.station&&stations[m.station];
-      if(context.current&&station){const point=new T.Vector3(station.x,station.y,station.z).project(camera);const cw=context.current.offsetWidth;context.current.style.setProperty('--context-x',Math.max(12,Math.min(width-cw-12,(point.x+1)*width/2-cw/2))+'px');context.current.style.setProperty('--context-y',Math.max(80,Math.min(height-125,(1-point.y)*height/2+55))+'px');context.current.style.visibility=point.z>-1&&point.z<1&&Math.abs(point.x)<1.15&&Math.abs(point.y)<1.15?'visible':'hidden';}else if(context.current)context.current.style.visibility='visible';
+      if(context.current&&station){const point=new T.Vector3(station.x,station.y,station.z).project(camera);const cw=context.current.offsetWidth,ch=context.current.offsetHeight;context.current.style.setProperty('--context-x',Math.max(12,Math.min(width-cw-12,(point.x+1)*width/2-cw/2))+'px');context.current.style.setProperty('--context-y',Math.max(88,Math.min(height-ch-76,(1-point.y)*height/2+55))+'px');context.current.style.visibility=point.z>-1&&point.z<1&&Math.abs(point.x)<1.15&&Math.abs(point.y)<1.15?'visible':'hidden';}else if(context.current)context.current.style.visibility='visible';
       const right=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,0),entries=[...labels.current].filter(([id])=>points[id]).sort(([a],[b])=>camera.position.distanceToSquared(points[a])-camera.position.distanceToSquared(points[b]));
       const bodies:{x:number;y:number;w:number;h:number;distance:number}[]=[];
       for(const [id,el]of entries){
         const point=points[id],p=point.clone().project(camera),w=el.offsetWidth,h=el.offsetHeight,distance=camera.position.distanceToSquared(point);
-        const rawX=(p.x+1)*width/2-w/2,rawY=(1-p.y)*height/2-h-8,x=id==='my-snack'?Math.max(10,Math.min(width-w-10,rawX)):rawX,y=rawY,rect={x,y,w,h};
+        const rawX=(p.x+1)*width/2-w/2,rawY=(1-p.y)*height/2-h-8,x=['my-snack','discovery','destination'].includes(id)?Math.max(10,Math.min(width-w-10,rawX)):rawX,y=rawY,rect={x,y,w,h};
         const intersects=(a:{x:number;y:number;w:number;h:number})=>x<a.x+a.w+8&&x+w>a.x-8&&y<a.y+a.h+6&&y+h>a.y-6;
         const overlap=occupied.some(intersects)||bodies.some(b=>b.distance<distance*.88&&intersects(b));
         const toolbar=toolbarRects.some(intersects);
-        const show=p.z> -1&&p.z<1&&(id!=='my-snack'||Math.abs(p.x)<1)&&x>=10&&x+w<=width-10&&y>=110&&y+h<=height-12&&!overlap&&!toolbar;
+        const cueHit=id==='discovery'&&!travelling?hitAt(root.left+(p.x+1)*width/2,root.top+(1-p.y)*height/2):null;
+        const show=p.z> -1&&p.z<1&&(id!=='my-snack'||Math.abs(p.x)<1)&&(id!=='discovery'||travelling||cueHit?.object.userData.station===next)&&x>=10&&x+w<=width-10&&y>=110&&y+h<=height-12&&!overlap&&!toolbar;
         if(id==='my-snack')el.style.setProperty('--pointer-x',Math.max(16,Math.min(w-28,(p.x+1)*width/2-x-7))+'px');
         el.style.visibility=show?'visible':'hidden';el.style.left=x+'px';el.style.top=y+'px';
         if(show)occupied.push(rect);
-        if(p.z>-1&&p.z<1&&id!=='my-snack'&&id!=='plate'){
+        if(p.z>-1&&p.z<1&&!['my-snack','plate','discovery','destination'].includes(id)){
           const edge=point.clone().addScaledVector(right,.34).project(camera),bottom=point.clone().add(new T.Vector3(0,-1.2,0)).project(camera),half=Math.abs(edge.x-p.x)*width/2;
           bodies.push({x:(p.x+1)*width/2-half,y,w:half*2,h:Math.max(h,(p.y-bottom.y)*height/2+h),distance});
         }
       }
+      const marked=next?'discovery':stationId?'station':'my-snack',s=stationId&&stations[stationId];
+      const point=marked==='station'&&s?new T.Vector3(s.x,s.y,s.z):points[marked];
+      const coffee=latest.current?.self.pantry.coffee;
+      if(point&&marked==='station'&&stationId==='coffee')point.set(stations.coffee.x+.38,coffee?.stage==='placed'?1.99:1.54,stations.coffee.z);
+      const canUse=marked!=='station'||latest.current&&stationId&&Boolean(directAction(latest.current,stationId));
+      if(beacon.current){const p=point?.clone().project(camera),label=marked==='station'?context.current:labels.current.get(marked);beacon.current.style.visibility=canUse&&p&&p.z>-1&&p.z<1&&Math.abs(p.x)<.95&&Math.abs(p.y)<.8&&label?.style.visibility==='visible'?'visible':'hidden';if(p){beacon.current.style.left=(p.x+1)*width/2+'px';beacon.current.style.top=(1-p.y)*height/2+'px';}beacon.current.dataset.target=marked==='discovery'?next!:marked;}
+      if(brewProgress.current){const coffee=latest.current?.self.pantry.coffee;brewProgress.current.value=coffeePhase(coffee?.stage,coffee?.readyAt??0,room.now()).progress;}
     }
     function resize(){
       const {width,height}=container.current!.getBoundingClientRect();if(!width||!height||!camera)return;
@@ -153,11 +196,10 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
       resize();
     }
     cameraUpdate.current=setCamera;lookAtSea.current=()=>{first?.aim(Math.PI,-.02);if(reduced)first?.update(1,true);};setCamera(framingRef.current);
-    const element=canvas.current!,raycaster=new T.Raycaster(),floor=new T.Plane(new T.Vector3(0,1,0),.025);
+    const element=canvas.current!;
     let down:{x:number;y:number;lastX:number;lastY:number;id:number;dragged:boolean}|null=null;
     let lastWalk=0;
-    const visibleObject=(o:T.Object3D):boolean=>o.visible&&(!o.parent||visibleObject(o.parent));
-    function hitAt(x:number,y:number){const rect=element.getBoundingClientRect();raycaster.setFromCamera(new T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),camera);const hits=raycaster.intersectObjects([...room.interactionTargets(),...room.portalTargets,...room.objectTargets.filter(o=>!(o.userData.station==='fridge'&&latest.current?.room.members.find(m=>m.id===latest.current?.self.id)?.station==='fridge')),...room.seatTargets],true);for(const hit of hits){if(!visibleObject(hit.object))continue;let o:T.Object3D|null=hit.object;while(o&&!o.userData.action&&!o.userData.station&&!o.userData.portal&&o.userData.seat==null)o=o.parent;if(o)return{...hit,object:o};}return undefined;}
+    function hitAt(x:number,y:number){const rect=canvas.current!.getBoundingClientRect();raycaster.setFromCamera(new T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),camera);const hits=raycaster.intersectObjects([...room.interactionTargets(),...room.portalTargets,...room.objectTargets.filter(o=>!(o.userData.station==='fridge'&&latest.current?.room.members.find(m=>m.id===latest.current?.self.id)?.station==='fridge')),...room.seatTargets],true);const surface=firstSurface();for(const hit of hits){if(!visibleObject(hit.object))continue;if(surface&&surface.distance<hit.distance-.045)continue;let o:T.Object3D|null=hit.object;while(o&&!o.userData.action&&!o.userData.station&&!o.userData.portal&&o.userData.seat==null)o=o.parent;if(o)return{...hit,object:o};}return undefined;}
     const pointerDown=(e:PointerEvent)=>{if(e.button!==0||!e.isPrimary)return;element.focus({preventScroll:true});down={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,id:e.pointerId,dragged:false};element.setPointerCapture(e.pointerId);};
     const pointerCancel=()=>{down=null;element.style.cursor='';};
     const pointerMove=(e:PointerEvent)=>{
@@ -169,7 +211,8 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
       }
       if(e.pointerType==='touch')return;
       const hit=hitAt(e.clientX,e.clientY),data=hit?.object.userData;
-      setHovered(data?.action?'action-'+data.action:data?.portal?'portal':data?.station?'station-'+data.station:data?.seat!=null?'seat-'+data.seat:null);element.style.cursor=hit?'pointer':'grab';
+      const self=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),approach=data?.station&&(self?.station!==data.station||self&&room.pose(self.id)?.moving);
+      setHovered(approach?'station-'+data.station:data?.action?'action-'+data.action:data?.portal?'portal':data?.station?'station-'+data.station:data?.seat!=null?'seat-'+data.seat:null);element.style.cursor=hit?'pointer':'grab';
     };
     const pointerUp=(e:PointerEvent)=>{
       const start=down;down=null;element.style.cursor='grab';
@@ -186,11 +229,11 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
       // Only an un-dragged tap on a reachable floor point starts walking.
       const p=raycaster.ray.intersectPlane(floor,new T.Vector3());
       if(p&&raycaster.ray.direction.y<-.025&&isWalkable(p,area)){
-        const surface=raycaster.intersectObjects(room.scene.children,true).find(h=>{if(!visibleObject(h.object)||!(h.object instanceof T.Mesh))return false;const material=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex??0]:h.object.material;return material?.visible;});
+        const surface=firstSurface();
         if(surface&&Math.abs(surface.point.y+.025)<.06)void actions.current.onMove(p.x,p.z);
       }
     };
-    const pointerLeave=()=>{if(!down){setHovered(null);element.style.cursor='';}};
+    const pointerLeave=(e:PointerEvent)=>{if(!down){if(!(e.relatedTarget instanceof Element&&e.relatedTarget.closest('.discovery-cue,.object-context')))setHovered(null);element.style.cursor='';}};
     const keyDown=(e:KeyboardEvent)=>{
       if(!first||e.ctrlKey||e.metaKey||e.altKey)return;
       const delta:Record<string,[number,number]>={ArrowLeft:[.12,0],ArrowRight:[-.12,0],ArrowUp:[0,.08],ArrowDown:[0,-.08]};
@@ -198,7 +241,7 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
       const step:Record<string,[number,number]>={w:[0,1],s:[0,-1],a:[-1,0],d:[1,0]};
       if(step[e.key.toLowerCase()]&&!e.repeat&&!actions.current.disabled&&performance.now()-lastWalk>350){e.preventDefault();const current=latest.current,self=current?.self.id,pose=self?room.pose(self):null;if(pose){const [side,forward]=step[e.key.toLowerCase()],yaw=first.angles.yaw;for(const length of[1.8,1,.45]){const x=pose.x+(Math.sin(yaw)*forward-Math.cos(yaw)*side)*length,z=pose.z+(Math.cos(yaw)*forward+Math.sin(yaw)*side)*length;if(isWalkable({x,z},area)){lastWalk=performance.now();void actions.current.onMove(x,z);break;}}}return;}
       if(e.key==='Home'){e.preventDefault();first.aim(Math.PI,-.02);return;}
-      if(delta[e.key]){e.preventDefault();first.turn(...delta[e.key]);}
+      if(delta[e.key]){e.preventDefault();setHovered(null);first.turn(...delta[e.key]);}
     };
     element.addEventListener('pointerdown',pointerDown);element.addEventListener('pointermove',pointerMove);element.addEventListener('pointerup',pointerUp);element.addEventListener('pointercancel',pointerCancel);element.addEventListener('lostpointercapture',pointerCancel);element.addEventListener('pointerleave',pointerLeave);element.addEventListener('keydown',keyDown);
     const observer=new ResizeObserver(resize);observer.observe(container.current!);
@@ -211,7 +254,7 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
         if(third&&f==='third'&&pose)third.follow(pose,dt,reduced);
         room.firstPerson(isPersonal(f)?self??null:null,foodRef.current);room.tick(time,current,reduced);
         room.reveal(camera,f==='third'&&pose&&pose.sit<.5?pose:null,reduced);
-        room.foreground(camera,current,isPersonal(f)&&f!=='walking'&&!foodRef.current,null);
+        room.foreground(camera,current,isPersonal(f)&&f!=='walking'&&!foodRef.current,null,reduced);
         Object.assign(container.current!.dataset,{cameraX:camera.position.x.toFixed(4),cameraY:camera.position.y.toFixed(4),cameraZ:camera.position.z.toFixed(4),cameraFov:camera instanceof T.PerspectiveCamera?String(camera.fov):'ortho',cameraYaw:first?.angles.yaw.toFixed(4)??'',cameraPitch:first?.angles.pitch.toFixed(4)??'',actorX:pose?.x.toFixed(3)??'',actorZ:pose?.z.toFixed(3)??''});
         const now=room.now(),animated=current?.room.members.some(m=>m.motion&&m.motion.endsAt>now||now-m.actionAt<4500||m.pantry.coffee.stage==='brewing'||Boolean(m.pantry.rest.tea?.pourAt));
         if(shadowState!==current||animated&&time-shadowTime>100){renderer.shadowMap.needsUpdate=true;shadowState=current;shadowTime=time;}
@@ -238,19 +281,23 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
       {!ready&&!error&&<div className="three-message">창가의 빛을 들이는 중…</div>}
       {error?<div className="three-message" role="alert"><p>{error}</p><button className="primary" disabled={disabled} onClick={area==='healing'?()=>void choosePortal():onFallback}>{area==='healing'?'탕비실로 돌아가기':'도트로 이어가기'}</button></div>:<>
         {debug&&<><button ref={ref('shelf')} className="hotspot three-hotspot" onClick={onShelf} disabled={disabled}>오늘의 레몬파이</button><button ref={ref('drink')} className="hotspot three-hotspot" onClick={onDrink} disabled={disabled}>한 잔</button></>}
-        {!debug&&state&&!tvOpen&&!foodInHand&&!moving&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-snack')} className="world-action snack-world-hint" disabled={disabled} onClick={onShelf}>{heldName(state.self.pantry)?heldName(state.self.pantry)+' 내려놓고 간식 집기':state.self.serving&&state.self.serving.state!=='empty'?'간식 집기':'간식을 눌러보세요'}</button>}
-        {!debug&&sampleAvailable&&!tvOpen&&!foodInHand&&!moving&&area==='pantry'&&<button ref={ref('plate')} className="world-action shared-world-hint" disabled={disabled} aria-label={sampleLabel} onClick={onPlate}>한 조각 맛보기</button>}
+        {!debug&&state&&!tvOpen&&!foodInHand&&!moving&&!discovery&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-snack')} className="world-action snack-world-hint" disabled={disabled} onClick={()=>{setIntro(false);onShelf();}}>{heldName(state.self.pantry)?heldName(state.self.pantry)+' 내려놓고 간식 집기':intro?'간식을 눌러보세요':'간식 집기'}</button>}
+        {!debug&&!tvOpen&&!foodInHand&&discovery&&<button ref={ref('discovery')} className="world-action discovery-cue" onFocus={()=>{cueFocus.current=true;}} onBlur={()=>{cueFocus.current=false;}} disabled={disabled||moving||state?.room.members.some(m=>m.id!==state.self.id&&m.station===discovery)} onClick={()=>void chooseObject(discovery)}>{stations[discovery].name}{moving?' · 이동 중':' 가기'}</button>}
+        {!debug&&!tvOpen&&!foodInHand&&moving&&me?.seat!=null&&!me.station&&<span ref={ref('destination')} className="world-status destination-cue" role="status">자리로 가는 중</span>}
+        {!debug&&!tvOpen&&!foodInHand&&<span ref={beacon} className="target-beacon" aria-hidden="true"/>}
+        {!debug&&sampleAvailable&&!intro&&!discovery&&!tvOpen&&!foodInHand&&!moving&&area==='pantry'&&<button ref={ref('plate')} className="world-action shared-world-hint" disabled={disabled} aria-label={sampleLabel} onClick={onPlate}>한 조각 맛보기</button>}
         {state?.room.members.filter(m=>debug||m.id!==state.self.id).map(m=><div ref={ref(m.id)} key={m.id} className={`visitor-name three-name ${!m.connected?'reconnecting':''}`}><span className="presence-dot"/>{m.name}</div>)}
       </>}
       {onTv&&!tvOpen&&<button className="tv-entry" disabled={disabled||moving||me?.seat==null} onClick={onTv}>TV 함께 보기</button>}
       {!debug&&!tvOpen&&!foodInHand&&state&&!moving&&<div ref={context} className={'object-context'+(me?.station?' at-station':' held-context')} aria-label="가까이 있는 물건">
-        {me?.station&&directAction(state,me.station)&&<button className="world-action" disabled={disabled} onClick={()=>void onUse(me.station!)}>{directAction(state,me.station)!.label}</button>}
-        {me?.station==='coffee'&&state.self.pantry.coffee.stage==='brewing'&&<span className="world-status" role="status">커피 내리는 중…</span>}
-        {!me?.station&&heldName(state.self.pantry)&&directAction(state,'held')&&<button className="world-action" disabled={disabled} onClick={()=>void onUse('held')}>{directAction(state,'held')!.label}</button>}
+        {me?.station&&directAction(state,me.station)&&<button className="world-action" disabled={disabled} onClick={()=>void useNearObject(me.station!)}>{directAction(state,me.station)!.label}</button>}
+        {arrival&&me?.station&&<span className="arrival-note" role="status">도착했어요</span>}
+        {me?.station==='coffee'&&state.self.pantry.coffee.stage==='brewing'&&<div className="brew-feedback"><span role="status">커피가 차오르고 있어요</span><progress ref={brewProgress} max={1} value={0} aria-label="커피 추출"/><button className="world-action" disabled={disabled} onClick={()=>void stand()}>추출 멈추기</button></div>}
+        {!me?.station&&heldName(state.self.pantry)&&directAction(state,'held')&&<button className="world-action" disabled={disabled} onClick={()=>void useNearObject('held')}>{directAction(state,'held')!.label}</button>}
         {(me?.station||heldName(state.self.pantry)||state.self.pantry.rest.stone||state.self.pantry.rest.tea||state.self.pantry.rest.sand||state.self.pantry.rest.vase||state.self.pantry.candy&&state.self.pantry.candy.state!=='eaten'||state.self.pantry.bottle&&state.self.pantry.bottle.sips<3)&&<details className="object-options" onKeyDown={e=>{if(e.key==='Escape'){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();e.stopPropagation();}}} onToggle={e=>{if(e.currentTarget.open)dismissHint();}}><summary aria-label="이 물건의 다른 행동">{me?.station||heldName(state.self.pantry)?'더보기':'내 물건'}</summary><div className="object-options-panel">{contextContent}</div></details>}
       </div>}
-      {!debug&&!tvOpen&&!foodInHand&&<div className={'room-assist'+(me?.station?' at-object':'')}><button className="look-window" onClick={()=>lookAtSea.current?.()} aria-label="창밖 풍경 보기">풍경 보기</button>{moving&&<button disabled={disabled} onClick={()=>void stand()}>멈추기</button>}{!moving&&me?.station&&<button disabled={disabled} onClick={()=>{const index=origin.current!=null&&!originOwner?origin.current:seats.findIndex((_,i)=>!state?.room.members.some(m=>m.seat===i));if(index>=0)void chooseSeat(index);else void stand();}}>돌아가기</button>}{!moving&&me?.seat!=null&&<button disabled={disabled} onClick={()=>void stand()}>일어나기</button>}</div>}
-      {!debug&&!tvOpen&&!foodInHand&&(showFloorHint||walkHint||hovered&&hovered!=='action-snack')&&<div className="direct-hint" role="status">{walkHint||hovered&&hoverText||'바닥을 누르면 걸어가요'}{showFloorHint&&!hovered&&<button aria-label="조작 안내 닫기" onClick={dismissHint}>×</button>}</div>}
+      {!debug&&!tvOpen&&!foodInHand&&<div className={'room-assist'+(me?.station?' at-object':'')}>{!moving&&<button className="look-window" onClick={()=>lookAtSea.current?.()} aria-label="창밖 풍경 보기">풍경 보기</button>}{moving&&<><button disabled={disabled} onClick={()=>void stand()}>멈추기</button><button disabled={disabled} onClick={onExplore}>다른 곳</button></>}{(me?.station||origin.current!=null&&(moving||me?.seat==null))&&<button disabled={disabled} onClick={()=>void returnToRest()}>돌아가기</button>}{!moving&&me?.seat!=null&&<button disabled={disabled} onClick={()=>void stand()}>일어나기</button>}</div>}
+      {!debug&&!tvOpen&&!foodInHand&&(showFloorHint||walkHint||hovered&&!hovered.startsWith('station-')&&hovered!=='action-snack')&&<div className="direct-hint" role="status">{walkHint||hovered&&hoverText||'바닥을 누르면 걸어가요'}{showFloorHint&&!hovered&&<button aria-label="조작 안내 닫기" onClick={dismissHint}>×</button>}</div>}
       {windowContent}
       {debug&&<div className="camera-switch" role="group" aria-label="개발용 시점">{(Object.keys(frames) as Study[]).map(f=><button key={f} aria-pressed={study===f} onClick={()=>setStudy(f)}>{frames[f]}</button>)}</div>}
       {debug&&<button className="light-switch" onClick={()=>setWarm(v=>!v)}>조명 비교</button>}

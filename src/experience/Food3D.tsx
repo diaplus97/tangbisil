@@ -59,7 +59,7 @@ export default function Food3D(props:Props){
     function sync(){
       const p=latest.current,newKey=`${p.bites}/${p.empty}/${p.sample}`;
       // Give the lifted wrapper headroom, then return smoothly as it settles open.
-      const lift=Math.sin(Math.PI*p.progress);camera.position.y=3.5+.18*lift;camera.lookAt(0,.25+.18*lift,0);
+      const lift=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Math.sin(Math.PI*p.progress);camera.position.y=3.5+.18*lift;camera.lookAt(0,.25+.18*lift,0);
       camera.zoom=1/(1+.12*lift);camera.updateProjectionMatrix();
       if(newKey!==foodKey){
         if(food)kit.release(food);

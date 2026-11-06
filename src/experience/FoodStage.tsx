@@ -7,7 +7,8 @@ const Food3D=lazy(()=>import('./Food3D'));
 type Props={serving:Serving;busy:boolean;appearance?:'pixel'|'3d';onProgress:(progress:number)=>Promise<unknown>;onOpen:()=>Promise<unknown>;onBite:()=>Promise<unknown>};
 export function FoodStage({serving,busy,appearance='pixel',onProgress,onOpen,onBite}:Props){
   const initial=serving.state==='sealed'?(serving.open_progress||0):1;
-  const canvas=useRef<HTMLCanvasElement>(null),drag=useRef<{x:number;id:number;progress:number}|null>(null);
+  const canvas=useRef<HTMLCanvasElement>(null),drag=useRef<{x:number;y:number;id:number;progress:number;moved:boolean}|null>(null);
+  const live=useRef(true),biting=useRef(false),lastBite=useRef(-Infinity);
   const anim=useRef(0),progressRef=useRef(initial),submitted=useRef(initial),opening=useRef(false),animating=useRef(false);
   const latest=useRef({onProgress,serving});latest.current={onProgress,serving};
   const lastMotion=useRef(performance.now()),tap=useRef<{x:number;y:number;id:number;moved:boolean}|null>(null);
@@ -29,49 +30,54 @@ export function FoodStage({serving,busy,appearance='pixel',onProgress,onOpen,onB
     submitted.current=p;const result=await latest.current.onProgress(p);
     if(!result)submitted.current=latest.current.serving.open_progress||0;
   }
-  useEffect(()=>()=>{cancelAnimationFrame(anim.current);stopWrapperSound();void saveProgress();},[]);
+  function cancelGesture(){tap.current=null;drag.current=null;cancelAnimationFrame(anim.current);animating.current=false;setDragging(false);setUnwrapping(false);stopWrapperSound();void saveProgress();}
+  useEffect(()=>{live.current=true;const hidden=()=>{if(document.hidden)cancelGesture();};document.addEventListener('visibilitychange',hidden);window.addEventListener('blur',cancelGesture);return()=>{live.current=false;document.removeEventListener('visibilitychange',hidden);window.removeEventListener('blur',cancelGesture);cancelAnimationFrame(anim.current);stopWrapperSound();void saveProgress();};},[]);
   async function finish(){
     if(opening.current||busy){setUnwrapping(false);return;}
-    opening.current=true;setUnwrapping(true);setProgress(1);progressRef.current=1;stopWrapperSound();playSound('open');
-    const result=await onOpen();if(!result){const p=latest.current.serving.open_progress||0;setProgress(p);progressRef.current=p;}
-    opening.current=false;setUnwrapping(false);
+    opening.current=true;setUnwrapping(true);stopWrapperSound();
+    const result=await onOpen();if(live.current){const p=result?1:latest.current.serving.open_progress||0;setProgress(p);progressRef.current=p;if(result)playSound('open');setUnwrapping(false);}
+    opening.current=false;
   }
   function accessibleOpen(){
     if(opening.current||animating.current||busy||drag.current)return;
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches){void finish();return;}
     animating.current=true;setUnwrapping(true);const start=performance.now(),from=progressRef.current;
-    function move(now:number){const p=from+(1-from)*Math.min(1,(now-start)/650);wrapperMotion((1-from)/.65,p);setProgress(p);progressRef.current=p;if(p<1)anim.current=requestAnimationFrame(move);else{animating.current=false;void finish();}}
+    function move(now:number){const p=from+(.984-from)*Math.min(1,(now-start)/650);wrapperMotion(Math.max(0,.984-from)/.65,p);setProgress(p);progressRef.current=p;if(now-start<650)anim.current=requestAnimationFrame(move);else{animating.current=false;void finish();}}
     anim.current=requestAnimationFrame(move);
   }
   function pointerDown(e:PointerEvent<HTMLDivElement>){
     if(e.isPrimary&&e.button===0&&serving.state==='open'&&!busy){tap.current={x:e.clientX,y:e.clientY,id:e.pointerId,moved:false};e.currentTarget.setPointerCapture(e.pointerId);return;}
     if(!e.isPrimary||e.button!==0||drag.current||serving.state!=='sealed'||busy||opening.current||animating.current)return;
-    e.currentTarget.setPointerCapture(e.pointerId);drag.current={x:e.clientX,id:e.pointerId,progress:progressRef.current};lastMotion.current=performance.now();setDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);drag.current={x:e.clientX,y:e.clientY,id:e.pointerId,progress:progressRef.current,moved:false};lastMotion.current=performance.now();setDragging(true);
   }
   function pointerMove(e:PointerEvent<HTMLDivElement>){
     if(tap.current&&Math.hypot(e.clientX-tap.current.x,e.clientY-tap.current.y)>6)tap.current.moved=true;
     if(!drag.current||e.pointerId!==drag.current.id||busy)return;
+    if(Math.hypot(e.clientX-drag.current.x,e.clientY-drag.current.y)>6)drag.current.moved=true;
     const width=e.currentTarget.getBoundingClientRect().width,p=Math.max(progressRef.current,Math.min(1,drag.current.progress+(e.clientX-drag.current.x)/(width*.28)));
     const now=performance.now(),speed=Math.abs(p-progressRef.current)/Math.max(.016,(now-lastMotion.current)/1000);lastMotion.current=now;wrapperMotion(speed,p);
     progressRef.current=p;setProgress(p);
   }
   function pointerUp(e:PointerEvent<HTMLDivElement>){
-    if(tap.current?.id===e.pointerId){const touch=tap.current;tap.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);if(!touch.moved&&serving.state==='open'&&!busy)void onBite();return;}
+    if(tap.current?.id===e.pointerId){const touch=tap.current;tap.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);if(!touch.moved&&serving.state==='open'&&!busy)void bite();return;}
     if(!drag.current||e.pointerId!==drag.current.id)return;
-    drag.current=null;setDragging(false);stopWrapperSound();
+    const moved=drag.current.moved;drag.current=null;setDragging(false);stopWrapperSound();
     if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
-    if(progressRef.current>=.985)void finish();else void saveProgress();
+    if(progressRef.current>=.985)void finish();else if(!moved)accessibleOpen();else void saveProgress();
   }
+  async function bite(){const now=performance.now();if(biting.current||busy||now-lastBite.current<380)return;lastBite.current=now;biting.current=true;try{await onBite();}finally{biting.current=false;}}
   return <div className="food-interaction">
     <div className={`food-stage ${dragging?'dragging':''} ${serving.state}`} data-testid="food-stage" data-serving-id={serving.id} data-bites={serving.bites} data-state={serving.state} data-progress={progress.toFixed(3)}
       onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp}
-      onPointerCancel={()=>{tap.current=null;if(!drag.current)return;drag.current=null;setDragging(false);stopWrapperSound();void saveProgress();}}>
+      onPointerCancel={cancelGesture} onLostPointerCapture={()=>{if(drag.current||tap.current)cancelGesture();}}>
       {pixel?<canvas ref={canvas} width="320" height="200" aria-label={label}/>:<Suspense fallback={<div className="food-three-loading">접시를 놓는 중…</div>}><Food3D progress={progress} bites={serving.bites} empty={serving.state==='empty'} sample={serving.portions===1} crunch={crunch} label={label} onUnavailable={()=>setFallback(true)}/></Suspense>}
       {serving.state==='sealed'&&<div className="drag-hint" aria-hidden="true">{progress>.01?(dragging?'사각사각, 원하는 만큼.':'뜯던 곳에서 이어 당겨요.'):'포장을 잡고 오른쪽으로'} <span>⟶</span></div>}
+      {serving.state==='sealed'&&<div className="wrapper-progress" role="progressbar" aria-label="포장 열림" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress*100)}><span style={{width:progress*100+'%'}}/></div>}
       {serving.state==='empty'&&<span className="plate-note">잘 먹었습니다.</span>}
     </div>
     <div className="food-action-row">
       {serving.state==='sealed'?<><span className="interaction-note">{progress>.01?'뜯던 곳에서 이어서 열어요.':'오른쪽으로 당기거나 버튼을 눌러요.'}</span><button className="primary" onClick={accessibleOpen} disabled={busy||unwrapping}>{unwrapping?'포장을 여는 중…':progress>.01?'이어서 포장 열기':'포장 열기'} <span aria-hidden="true">↗</span></button></>:
-        serving.state==='open'?<><span className="interaction-note">{serving.portions===1?'누군가 나눠준, 작은 한 조각.':serving.bites===0?'바삭한 겉면, 부드러운 크림.':serving.bites===1?'사이사이 레몬잼이 보여요.':'접시에 조금 남아 있어요.'}</span><button className="primary" disabled={busy} onClick={()=>void onBite()}>{busy?'접시에 남기는 중…':'한입 먹기'} <span>↗</span></button></>:
+        serving.state==='open'?<><span className="interaction-note">{serving.portions===1?'누군가 나눠준, 작은 한 조각.':serving.bites===0?'바삭한 겉면, 부드러운 크림.':serving.bites===1?'사이사이 레몬잼이 보여요.':'접시에 조금 남아 있어요.'}</span><button className="primary" disabled={busy} onClick={()=>void bite()}>{busy?'접시에 남기는 중…':'한입 먹기'} <span>↗</span></button></>:
         <span className="interaction-note">맛본 기억은 앨범에 남아 있어요.</span>}
     </div>
   </div>;

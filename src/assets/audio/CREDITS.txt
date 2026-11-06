@@ -51,3 +51,9 @@ Eating Biscuit — WasabiWielder
 https://freesound.org/people/WasabiWielder/sounds/334210/
 Public preview: https://cdn.freesound.org/previews/334/334210_4290188-hq.mp3
 Cut 0.72s + 0.46s; mono 44.1kHz PCM16; highpass 170Hz; lowpass 5000Hz; soft peak compression; post-filter; 12ms/45ms fades; peak -16dBFS.
+
+Runtime playback update, 2026-11-06 (source files and licenses unchanged):
+- Pickup uses 0.18s of foil-touch.wav, starting at 0.1s.
+- Wrapper drag uses 0.18s rustle grains, at most one start per 100ms and two active grains. Drag speed controls bounded gain and playback rate (0.92-1.13); release/cancel fades for 40ms and stops at 45ms. Inactivity clears grains after 90ms.
+- wrapper-open.wav plays once after successful opening. Bite recording remains opt-in and off by default.
+- Browser timing and source counts were instrumented. Headphone listening and subjective comfort have not been evaluated.

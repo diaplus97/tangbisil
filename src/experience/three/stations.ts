@@ -2,6 +2,7 @@ import * as T from 'three';
 import {Workshop,mug,label,consolidate} from './assets';
 import {stations,type StationId} from '../../../shared/space.mjs';
 import type {Snapshot} from '../types';
+import {coffeePhase,CUP_PLACE_MS,CUP_LIFT_MS} from '../../../shared/coffee.mjs';
 
 export function candyModel(kit:Workshop,parent:T.Object3D,progress=0,eaten=false){
   const g=new T.Group();parent.add(g);
@@ -83,6 +84,9 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   kit.box(hinge,.055,.66,.075,1.025,1.29,.11,'#94a89e',.02);
   label(kit,hinge,'COLD & SLOW',.54,.068,.54,1.99,.067,'#6f8778',cream,70);
   const doorPieces=new T.Group();for(const c of [...hinge.children])doorPieces.add(c);hinge.add(doorPieces);consolidate(doorPieces,kit);
+  // The real handle extends beyond the broad door proxy. Include the visible
+  // door meshes so the occlusion test accepts their own front surface.
+  doorPieces.userData={action:'fridge-door',station:'fridge'};
   // Static batch excludes the articulated door and the bottle being picked.
   fridge.remove(hinge,pickupBottle);fixed.remove(fridge);consolidate(fridge,kit);consolidate(fixed,kit);scene.add(fridge);fridge.add(hinge,pickupBottle);
   const lamp=new T.PointLight('#f1fff1',0,2.6,2);lamp.position.set(0,2.04,.2);fridge.add(lamp);
@@ -107,13 +111,15 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
     bottleHit.visible=open;
     pickupBottle.visible=!state?.room.members.some(m=>m.id===f?.owner&&m.pantry?.bottle&&m.pantry.bottle.sips<3);
     const owner=state?.room.members.find(m=>m.station==='coffee'&&m.pantry?.coffee.stage!=='carried'),coffee=owner?.pantry.coffee;
-    cup.visible=Boolean(coffee);const brewing=coffee?.stage==='brewing'&&coffee.readyAt>now,filled=coffee?.stage==='ready'||Boolean(coffee?.readyAt&&coffee.readyAt<=now);
-    const progress=filled?1:brewing?T.MathUtils.clamp(1-(coffee!.readyAt-now)/4500,0,1):0;
+    cup.visible=Boolean(coffee);const {progress,pouring,finished}=coffeePhase(coffee?.stage,coffee?.readyAt??0,now);
+    const place=owner?.action==='coffee-place'&&!reduced?1-T.MathUtils.smoothstep(now-owner.actionAt,0,CUP_PLACE_MS):0;
+    cup.position.y=.045+place*.12;cup.rotation.z=-place*.1;
     liquid.position.y=.055+progress*.144;liquid.visible=progress>0;
-    stream.visible=brewing;stream.scale.x=1+Math.sin(time*.03)*.08;
-    steam.visible=Boolean(brewing||filled);steam.children.forEach((p,i)=>{const t=((reduced?500:time)/2100+i/6)%1;p.position.set(Math.sin(i+t*4)*.035,.27+t*.48,.36);p.scale.set(1+t,2+t,1+t);});
+    const bottom=.045+liquid.position.y*.85;
+    stream.visible=pouring;stream.position.y=(.37+bottom)/2;stream.scale.y=(.37-bottom)/.19;stream.scale.x=reduced?1:1+Math.sin(time*.03)*.06;
+    steam.visible=progress>.08||finished;steamMaterial.opacity=.08+progress*.08;steam.children.forEach((p,i)=>{const t=((reduced?500:time)/2100+i/6)%1;p.position.set(Math.sin(i+t*4)*.035,.27+t*.35,.36);p.scale.set(1+t,2+t,1+t);});
   }
-  function foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null){
+  function foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null,reduced=false,now=Date.now()){
     const p=state?.self.pantry,candy=p?.candy,bottle=p?.bottle;
     const me=state?.room.members.find(m=>m.id===state.self.id),cup=me?.station==='coffee'&&me.action==='coffee-take'&&p?.coffee.stage==='carried';
     const isCandy=me?.station!=='coffee'&&Boolean(candy?.held&&candy.state!=='eaten'),isBottle=me?.station!=='coffee'&&!isCandy&&Boolean(bottle?.held&&bottle.sips<3);
@@ -121,7 +127,8 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
     held(isCandy?'candy':isBottle?'bottle':'cup',pull??candy?.progress??0,false,bottle?.sips??0,state?.self.drink??'coffee');
     hands.traverse(o=>{if(o instanceof T.Mesh)o.castShadow=false;});
     const bottom=camera instanceof T.PerspectiveCamera?-Math.tan(T.MathUtils.degToRad(camera.fov/2))*.66*.74:-.18;
-    hands.position.set(isCandy?0:.22,bottom,-.66).applyQuaternion(camera.quaternion).add(camera.position);hands.quaternion.copy(camera.quaternion);hands.scale.setScalar(.72);
+    const lift=cup&&!reduced?1-T.MathUtils.smoothstep(now-me!.actionAt,0,CUP_LIFT_MS):0;
+    hands.position.set(isCandy?0:.22,bottom-lift*.18,-.66-lift*.08).applyQuaternion(camera.quaternion).add(camera.position);hands.quaternion.copy(camera.quaternion);hands.scale.setScalar(.72);
   }
-  return{hits,interactionTargets:[hands,doorHit,bottleHit],tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
+  return{hits,interactionTargets:[hands,doorPieces,doorHit,bottleHit],tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
 }

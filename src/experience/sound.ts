@@ -10,6 +10,7 @@ import seaUrl from '../assets/environments/sea-waves.wav';
 import coffeeMachine from '../assets/audio/coffee-machine.wav';
 import fridgeOpen from '../assets/audio/fridge-open.wav';
 import spray from '../assets/audio/plant-spray.wav';
+import {COFFEE_BREW_MS} from '../../shared/coffee.mjs';
 import fridgeClose from '../assets/audio/fridge-close.wav';
 
 import sandA from '../assets/audio/sand-a.wav';
@@ -53,7 +54,7 @@ export async function setSeaSound(on:boolean){
 export function setSoundVolume(value:number){volume=Math.max(0,Math.min(1,value));if(context&&master){master.gain.cancelAndHoldAtTime(context.currentTime);master.gain.linearRampToValueAtTime(enabled?volume:0,context.currentTime+.04);}}
 export function setBiteSound(on:boolean){mouth=on;}
 export function setOtherSounds(on:boolean){others=on;if(!on)for(const v of voices)if(v.remote)v.stop();}
-export function setActionSounds(on:boolean){actions=on;if(!on)stopRoomSounds();}
+export function setActionSounds(on:boolean){actions=on;if(!on){stopRoomSounds();document.dispatchEvent(new Event('pantry-audio-muted'));}else document.dispatchEvent(new Event('pantry-audio-ready'));}
 export function stopRoomSounds(){stopSandSound();stopWrapperSound();for(const voice of voices)voice.stop();}
 export async function enableSound(on:boolean){
   enabled=on;const ticket=++generation;
@@ -63,7 +64,7 @@ export async function enableSound(on:boolean){
       context=new AudioContext();master=context.createGain();master.gain.value=volume;
       limiter=context.createDynamicsCompressor();limiter.threshold.value=-18;limiter.knee.value=9;limiter.ratio.value=4;limiter.attack.value=.005;limiter.release.value=.16;
       limiter.connect(master).connect(context.destination);
-      document.addEventListener('visibilitychange',()=>{if(document.hidden){stopSandSound();stopWrapperSound();for(const v of voices)v.stop();void context?.suspend();}else if(enabled)void context?.resume();});
+      document.addEventListener('visibilitychange',()=>{if(document.hidden){stopSandSound();stopWrapperSound();for(const v of voices)v.stop();document.dispatchEvent(new Event('pantry-audio-muted'));void context?.suspend();}else if(enabled)void context?.resume().then(()=>document.dispatchEvent(new Event('pantry-audio-ready')));});
     }
     master!.gain.setTargetAtTime(volume,context.currentTime,.025);if(!document.hidden)await context.resume();
     loading??=Promise.allSettled(Object.entries(urls).map(async([key,url])=>{
@@ -98,20 +99,21 @@ export function playSound(kind:SoundKind,options:{remote?:boolean;distance?:numb
   const clip:Clip=kind==='teabag'?'touch':kind==='paper'?'touch':kind==='putdown'?'cup':kind==='candy'?'rustleB':kind;
   const strength=kind==='sandStone'?1:kind==='teabag'?.25:kind==='spray'?.65:kind==='putdown'?.7:kind==='bite'?.75:.95;
   const gain=strength*(options.remote?.22/(1+(options.distance??0)*.4):1);
-  play(clip,{gain:kind==='candy'?gain*.6:gain,remote:options.remote,pan:options.pan,rate:(kind==='putdown'?.9:kind==='candy'?1.22:1)+(Math.random()-.5)*.05,...(kind==='candy'?{duration:.18,offset:.35}:{})});
+  play(clip,{gain:kind==='candy'?gain*.6:gain,remote:options.remote,pan:options.pan,rate:(kind==='putdown'?.9:kind==='candy'?1.22:1)+(Math.random()-.5)*.05,...(kind==='candy'?{duration:.18,offset:.35}:kind==='paper'?{duration:.18,offset:.1}:{})});
 }
 export function playMachine(offset:number,options:{remote:boolean;distance:number;pan:number}){
-  return play('coffeeMachine',{offset:Math.max(0,offset),duration:Math.max(.01,4.5-offset),gain:options.remote?.18/(1+options.distance*.3):.8,remote:options.remote,pan:options.pan});
+  return play('coffeeMachine',{offset:Math.max(0,offset),duration:Math.max(.01,COFFEE_BREW_MS/1000-offset),gain:options.remote?.18/(1+options.distance*.3):.8,remote:options.remote,pan:options.pan});
 }
 export function playTeaPour(offset:number,seconds:number,options:{remote:boolean;distance:number;pan:number}){const rate=2.15/3;return play('pour',{offset:Math.max(0,offset*rate),duration:Math.max(.01,seconds*rate),rate,gain:options.remote?.17/(1+options.distance*.4):.65,remote:options.remote,pan:options.pan});}
 export function candyWrapperMotion(){const now=performance.now();if(now-lastGrain<120)return;lastGrain=now;play('rustleA',{rustle:true,duration:.15,offset:.2,gain:.5,rate:1.22});}
 export function wrapperMotion(speed:number,progress:number){
-  if(!enabled||speed<.015)return;
+  if(!enabled||speed<.015){stopWrapperSound();return;}
   clearTimeout(dragTimer);dragTimer=setTimeout(stopWrapperSound,90);
   const now=performance.now();if(now-lastGrain<100)return;lastGrain=now;
   const key=(['rustleA','rustleB','rustleC'] as const)[variant++%3],buffer=buffers.get(key);if(!buffer)return;
   const offset=((progress*.81+variant*.27)%1)*Math.max(0,buffer.duration-.26);
-  play(key,{rustle:true,duration:.24,offset,gain:Math.min(.9,.22+Math.sqrt(speed)*.3),rate:Math.min(1.15,.92+speed*.045)});
+  const grains=[...voices].filter(v=>v.rustle);while(grains.length>=2)grains.shift()?.stop();
+  play(key,{rustle:true,duration:.18,offset,gain:Math.min(.78,.15+Math.sqrt(speed)*.27),rate:Math.min(1.13,.92+speed*.045)});
 }
 export function stopWrapperSound(){clearTimeout(dragTimer);for(const v of voices)if(v.rustle)v.stop();lastGrain=-Infinity;}
 let sandVariant=0,lastSand=-Infinity,sandTimer:ReturnType<typeof setTimeout>|undefined;

@@ -2,6 +2,7 @@ import {emptyRest,sampleTea} from '../shared/rest.mjs';
 import {freeHand,restAction} from './rest-activities.mjs';
 import {randomUUID} from 'node:crypto';
 import {sampleMotion,getSpace,distance} from '../shared/space.mjs';
+import {COFFEE_BREW_MS} from '../shared/coffee.mjs';
 
 // Personal objects survive reconnects and are never a shared stock counter.
 export function createActivities(db,GameError){
@@ -64,7 +65,7 @@ export function createActivities(db,GameError){
         freeHand(p,input,'coffee',GameError);p.coffee={stage:'placed',readyAt:0,roomId:room.id};db.prepare("UPDATE users SET drink='water' WHERE id=?").run(id);
       }else if(type==='coffee-brew'){
         near(member,'coffee',now);if(p.coffee.stage!=='placed'||p.coffee.roomId!==room.id)throw new GameError('내 컵을 먼저 놓아 주세요.');
-        p.coffee.stage='brewing';p.coffee.readyAt=now+4500;
+        p.coffee.stage='brewing';p.coffee.readyAt=now+COFFEE_BREW_MS;
       }else if(type==='coffee-take'){
         near(member,'coffee',now);if(!['placed','ready'].includes(p.coffee.stage)||p.coffee.roomId!==room.id)throw new GameError('커피가 다 내려지면 컵을 가져갈 수 있어요.');
         db.prepare('UPDATE users SET drink=? WHERE id=?').run(p.coffee.stage==='ready'?'coffee':'water',id);p.coffee={stage:'carried',readyAt:0,roomId:null};
