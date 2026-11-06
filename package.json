@@ -13,6 +13,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "check:runtime": "node scripts/check-runtime.mjs",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "verify:online": "node scripts/verify-online.mjs"
   },

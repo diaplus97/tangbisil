@@ -1,0 +1,22 @@
+# Only build inputs enter the context; data, secrets, source references and QA stay local.
+**
+!Dockerfile
+!.dockerignore
+!package.json
+!package-lock.json
+!index.html
+!vite.config.ts
+!tsconfig.json
+!src/
+!src/**
+!shared/
+!shared/**
+!server/
+!server/**
+!public/
+!public/**
+**/.env*
+**/*.sqlite*
+**/*.db*
+**/*.log
+**/node_modules/
