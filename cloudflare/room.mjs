@@ -162,7 +162,7 @@ export class PantryRoom extends DurableObject {
         else if(['move','sit','stand','approach','travel'].includes(input.type)){
           const previous=m.station;result=moveVisitor(this.r,m,input);
           if(!result.replay){if(previous!==m.station){this.store.activities.leave(m.id,this.r,previous);m.readyAt=0;}m.contact=null;m.action='rest';m.actionAt=Date.now();m.arriveAt=(m.travel?.enterAt??m.motion?.endsAt??Date.now())+15;this.queueUser(m);}
-        }else if(/^(candy-|coffee-|fridge-|bottle-|plant-|stone-|tea-|sand-|vase-|items-)/.test(input.type)){
+        }else if(/^(cup-|candy-|coffee-|fridge-|bottle-|plant-|stone-|tea-|sand-|vase-|items-)/.test(input.type)){
           result=this.store.activities.act(m.id,this.r,m,input);
           if(!result.replay){
             if(input.type!=='sand-edit')m.contact=null;else if(input.gesture===true)m.contact={gestureId:input.requestId,kind:input.operation==='stone'?'stone':'rake',until:Date.now()+320};

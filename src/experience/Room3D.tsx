@@ -9,11 +9,13 @@ import type {SeaPlaybackStatus} from './three/seaPlayback';
 import type {LandscapeStatus} from './three/environment';
 import {windowViews} from './three/windowView';
 import {tableCenter} from './three/layout';
+import {createFollowCamera} from './three/followCamera';
 import {createExploreCamera} from './three/exploreCamera';
 import {createFirstPersonCamera,type Eye} from './three/firstPersonCamera';
 import {useInputMethod} from './useInputMethod';
 import {directAction} from './directActions';
 import {coffeePhase} from '../../shared/coffee.mjs';
+import {tableDrink} from '../../shared/table-drink.mjs';
 import {heldName} from '../../shared/rest.mjs';
 import ExploreDestinations from './ExploreDestinations';
 import type {Snapshot} from './types';
@@ -40,9 +42,11 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
   function dismissHint(){setShowHint(false);try{sessionStorage.setItem('pantry:direct-hint','1');}catch{}}
   const [target,setTarget]=useState<number|null>(null),[objectTarget,setObjectTarget]=useState<StationId|null>(null);
   const requesting=useRef(false),origin=useRef<number|null>(null);
-  const usingObject=useRef(false),usedAt=useRef(-Infinity);
-  async function useNearObject(id:string){if(disabled||usingObject.current||performance.now()-usedAt.current<380)return;usingObject.current=true;try{return await onUse(id);}finally{usedAt.current=performance.now();usingObject.current=false;}}
+  const usingObject=useRef(false),usedAt=useRef(-Infinity),usedTarget=useRef('');
+  async function useNearObject(id:string){if(disabled&&id!=='cup'||usingObject.current||usedTarget.current===id&&performance.now()-usedAt.current<380)return;usingObject.current=true;try{return await onUse(id);}finally{usedAt.current=performance.now();usedTarget.current=id;usingObject.current=false;}}
   const me=state?.room.members.find(m=>m.id===state.self.id),seat=me?.seat??0;
+  const tabledDrink=me?.seat!=null&&state&&(tableDrink(state.self.pantry)==='tea'&&heldName(state.self.pantry)==='찻잔'||tableDrink(state.self.pantry)==='bottle'&&heldName(state.self.pantry)==='음료 병');
+  useEffect(()=>{if(['tea-hold','bottle-hold'].includes(me?.action??''))container.current?.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>{d.open=false;});},[me?.actionAt]);
   const moving=Boolean(me?.travel||me?.motion&&me.motion.id!==arrived&&state&&me.motion.endsAt>state.serverTime);
   cueState.current={input,intro,hovered,discovery};
   useEffect(()=>{if(!state?.self.id)return;const key='pantry:first-action:'+state.self.id;try{if(sessionStorage.getItem(key))return;}catch{}setIntro(true);const timer=setTimeout(()=>{setIntro(false);try{sessionStorage.setItem(key,'1');}catch{}},6500);return()=>clearTimeout(timer);},[state?.self.id]);
@@ -50,7 +54,7 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
   useEffect(()=>{if(!walkHint)return;const timer=setTimeout(()=>setWalkHint(''),3600);return()=>clearTimeout(timer);},[walkHint]);
   const framing:Framing=debug?study:moving||me&&me.seat==null&&!me.station?'walking':me?.station?'activity':'seated';
   const framingRef=useRef(framing),foodRef=useRef(foodInHand),seaMotionRef=useRef(seaMotion);
-  latest.current=state;framingRef.current=framing;foodRef.current=foodInHand||tvOpen;seaMotionRef.current=seaMotion;
+  latest.current=state;framingRef.current=framing;foodRef.current=tvOpen;seaMotionRef.current=seaMotion;
   const cameraUpdate=useRef<((f:Framing)=>void)|null>(null),lookAtSea=useRef<(()=>void)|null>(null);
   const originOwner=state?.room.members.find(m=>m.seat===origin.current&&m.id!==state.self.id);
   function rememberSeat(){if(!moving&&me?.seat!=null)origin.current=me.seat;}
@@ -90,10 +94,11 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
     const room=createRoomScene(setLandscape,seaVideo.current!,setPlayback,area,windowViews[landscapeId]);world.current=room;room.sync(latest.current);room.seaMotion(seaMotionRef.current);room.lighting(landscapeId==='fire');
     const studio=new RoomEnvironment(),pmrem=new T.PMREMGenerator(renderer),reflection=pmrem.fromScene(studio,.04);
     room.scene.environment=reflection.texture;room.scene.environmentIntensity=.35;studio.dispose();pmrem.dispose();
+    let follower:ReturnType<typeof createFollowCamera>|null=null;
     let camera:T.OrthographicCamera|T.PerspectiveCamera,first:ReturnType<typeof createFirstPersonCamera>|null=null,third:ReturnType<typeof createExploreCamera>|null=null;
     const raycaster=new T.Raycaster(),floor=new T.Plane(new T.Vector3(0,1,0),.025);
     function visibleObject(o:T.Object3D):boolean{return o.visible&&(!o.parent||visibleObject(o.parent));}
-    function firstSurface(){return raycaster.intersectObjects(room.scene.children,true).find(h=>{if(!visibleObject(h.object)||!(h.object instanceof T.Mesh))return false;const material=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex??0]:h.object.material;return material?.visible&&(!material.transparent||material.opacity>=.9);});}
+    function firstSurface(){return raycaster.intersectObjects(room.scene.children,true).find(h=>{if(!visibleObject(h.object)||!(h.object instanceof T.Mesh))return false;const material=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex??0]:h.object.material;return material?.visible&&(h.object.userData.blocksSelection||!material.transparent||material.opacity>=.9);});}
     renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
     let labelTime=0,shadowTime=0,shadowState:Snapshot|null=null;
     let previousFraming:Framing|undefined,previousMotion:string|undefined,previousSeat:number|null|undefined,previousOwner:string|undefined,raf=0,last=0,visible=true;
@@ -108,7 +113,7 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
     }
     function positionLabels(){
       const points:Record<string,T.Vector3>={...anchors},width=container.current!.clientWidth,height=container.current!.clientHeight;
-      const snack=room.snackPosition();if(snack)points['my-snack']=snack;
+      const snack=room.snackPosition();if(snack)points['my-snack']=snack;const cup=room.cupPosition();if(cup)points['my-cup']=cup;
       const member=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),currentCue=cueState.current;
       const stationId=member?.station,travelling=Boolean(member?.motion&&member.motion.endsAt>room.now());
       let next:StationId|null=null;
@@ -134,12 +139,16 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
       const occupied:{x:number;y:number;w:number;h:number}[]=[];
       const root=container.current!.getBoundingClientRect(),toolbarRects=[...container.current!.querySelectorAll<HTMLElement>('.scene-toolbar>*,.direct-hint,.room-assist,.object-context')].filter(e=>getComputedStyle(e).visibility!=='hidden').map(e=>{const a=e.getBoundingClientRect();return{x:a.left-root.left,y:a.top-root.top,w:a.width,h:a.height};}).filter(a=>a.w>0&&a.h>0);
       const m=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),station=m?.station&&stations[m.station];
-      if(context.current&&station){const point=new T.Vector3(station.x,station.y,station.z).project(camera);const cw=context.current.offsetWidth,ch=context.current.offsetHeight;context.current.style.setProperty('--context-x',Math.max(12,Math.min(width-cw-12,(point.x+1)*width/2-cw/2))+'px');context.current.style.setProperty('--context-y',Math.max(88,Math.min(height-ch-76,(1-point.y)*height/2+55))+'px');context.current.style.visibility=point.z>-1&&point.z<1&&Math.abs(point.x)<1.15&&Math.abs(point.y)<1.15?'visible':'hidden';}else if(context.current)context.current.style.visibility='visible';
+      if(context.current&&station){let point=new T.Vector3(station.x,station.y,station.z).project(camera);
+        for(const [front,side,up]of [[0,0,0],[.3,0,.2],[.3,.3,.2],[.3,-.3,.2],[.2,0,.45]]){const candidate=new T.Vector3(station.x-Math.sin(station.yaw)*front+Math.cos(station.yaw)*side,station.y+up,station.z-Math.cos(station.yaw)*front-Math.sin(station.yaw)*side).project(camera);if(hitAt(root.left+(candidate.x+1)*width/2,root.top+(1-candidate.y)*height/2)?.object.userData.station===m?.station){point=candidate;break;}}
+        const cw=context.current.offsetWidth,ch=context.current.offsetHeight;context.current.style.setProperty('--context-x',Math.max(12,Math.min(width-cw-12,(point.x+1)*width/2-cw/2))+'px');context.current.style.setProperty('--context-y',Math.max(88,Math.min(height-ch-76,(1-point.y)*height/2+55))+'px');const visibleTarget=hitAt(root.left+(point.x+1)*width/2,root.top+(1-point.y)*height/2)?.object.userData;context.current.style.visibility=point.z>-1&&point.z<1&&Math.abs(point.x)<1.15&&Math.abs(point.y)<1.15&&visibleTarget?.station===m?.station?'visible':'hidden';}else if(context.current)context.current.style.visibility='visible';
       const right=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,0),entries=[...labels.current].filter(([id])=>points[id]).sort(([a],[b])=>camera.position.distanceToSquared(points[a])-camera.position.distanceToSquared(points[b]));
       const bodies:{x:number;y:number;w:number;h:number;distance:number}[]=[];
       for(const [id,el]of entries){
         const point=points[id],p=point.clone().project(camera),w=el.offsetWidth,h=el.offsetHeight,distance=camera.position.distanceToSquared(point);
-        const rawX=(p.x+1)*width/2-w/2,rawY=(1-p.y)*height/2-h-8,x=['my-snack','discovery','destination'].includes(id)?Math.max(10,Math.min(width-w-10,rawX)):rawX,y=rawY,rect={x,y,w,h};
+        let tableX:number|undefined;
+        if((id==='my-snack'||id==='my-cup')&&points['my-snack']&&points['my-cup']&&labels.current.has('my-snack')&&labels.current.has('my-cup')){const a=points['my-snack'].clone().project(camera),b=points['my-cup'].clone().project(camera),sw=labels.current.get('my-snack')!.offsetWidth,cw=labels.current.get('my-cup')!.offsetWidth,total=sw+cw+16,left=Math.max(10,Math.min(width-total-10,((a.x+b.x)/2+1)*width/2-total/2)),snackLeft=a.x<b.x;tableX=left+((id==='my-snack')===snackLeft?0:(snackLeft?sw:cw)+16);}
+        const rawX=tableX??(p.x+1)*width/2-w/2,rawY=(1-p.y)*height/2-h-8,x=['my-snack','my-cup','discovery','destination'].includes(id)?Math.max(10,Math.min(width-w-10,rawX)):rawX,y=rawY,rect={x,y,w,h};
         const intersects=(a:{x:number;y:number;w:number;h:number})=>x<a.x+a.w+8&&x+w>a.x-8&&y<a.y+a.h+6&&y+h>a.y-6;
         const overlap=occupied.some(intersects)||bodies.some(b=>b.distance<distance*.88&&intersects(b));
         const toolbar=toolbarRects.some(intersects);
@@ -148,7 +157,7 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
         if(id==='my-snack')el.style.setProperty('--pointer-x',Math.max(16,Math.min(w-28,(p.x+1)*width/2-x-7))+'px');
         el.style.visibility=show?'visible':'hidden';el.style.left=x+'px';el.style.top=y+'px';
         if(show)occupied.push(rect);
-        if(p.z>-1&&p.z<1&&!['my-snack','plate','discovery','destination'].includes(id)){
+        if(p.z>-1&&p.z<1&&!['my-snack','my-cup','plate','discovery','destination'].includes(id)){
           const edge=point.clone().addScaledVector(right,.34).project(camera),bottom=point.clone().add(new T.Vector3(0,-1.2,0)).project(camera),half=Math.abs(edge.x-p.x)*width/2;
           bodies.push({x:(p.x+1)*width/2-half,y,w:half*2,h:Math.max(h,(p.y-bottom.y)*height/2+h),distance});
         }
@@ -165,7 +174,8 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
       const {width,height}=container.current!.getBoundingClientRect();if(!width||!height||!camera)return;
       container.current!.closest<HTMLElement>('.game-space')?.style.setProperty('--rendered-scene-height',height+'px');
       const aspect=width/height,f=framingRef.current;
-      if(first&&isPersonal(f))first.resize(aspect);
+      if(follower&&isPersonal(f))follower.resize(aspect);
+      else if(first&&isPersonal(f))first.resize(aspect);
       else if(third&&f==='third')third.resize(aspect);
       else if(camera instanceof T.OrthographicCamera){const half=Math.max(f==='map'?6.3:6.2,(f==='map'?8.9:11.5)/aspect);Object.assign(camera,{left:-half*aspect,right:half*aspect,top:half,bottom:-half});}
       else{const vertical=2*Math.atan(Math.tan(T.MathUtils.degToRad(30))*Math.max(1,1.8/aspect));camera.aspect=aspect;camera.fov=Math.min(92,T.MathUtils.radToDeg(vertical));}
@@ -173,7 +183,10 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
     }
     function setCamera(f:Framing){
       const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id),personal=isPersonal(f);
-      if(personal){
+      if(personal&&!debug){
+        if(!follower||current?.self.id!==previousOwner)follower=createFollowCamera(m?room.pose(m.id)??{x:0,z:2}:{x:0,z:2},m?(room.pose(m.id)?.yaw??Math.PI)+.42:Math.PI,area,room.constrainCamera);
+        camera=follower.camera;first=null;
+      }else if(personal){
         // The welcome camera has no owner. Adopt the assigned seat immediately;
         // interpolating from seat 0 crosses the table and clips the first snack.
         const eye=eyeFor(f),fresh=!first||current?.self.id!==previousOwner;if(fresh)first=createFirstPersonCamera(eye);camera=first!.camera;first!.anchor(eye);
@@ -191,11 +204,11 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
       }
       previousFraming=f;previousMotion=m?.motion?.id;previousSeat=m?.seat;previousOwner=current?.self.id;
       room.interior(f!=='diorama'&&f!=='map'&&f!=='third',f!=='diorama'&&f!=='map');
-      room.firstPerson(personal?current?.self.id??null:null,foodRef.current);room.reveal(camera,null,true);room.tick(performance.now(),current,reduced);
-      Object.assign(container.current!.dataset,{perspective:f,firstPerson:String(personal),cameraSeat:String(m?.seat??0),area});
+      room.firstPerson(personal&&debug?current?.self.id??null:null,foodRef.current);room.reveal(camera,null,true);room.tick(performance.now(),current,reduced);
+      Object.assign(container.current!.dataset,{perspective:f,firstPerson:String(personal&&debug),cameraMode:follower?'follow':'study',cameraSeat:String(m?.seat??0),area});
       resize();
     }
-    cameraUpdate.current=setCamera;lookAtSea.current=()=>{first?.aim(Math.PI,-.02);if(reduced)first?.update(1,true);};setCamera(framingRef.current);
+    cameraUpdate.current=setCamera;lookAtSea.current=()=>{follower?.aim(Math.PI,-.13);first?.aim(Math.PI,-.02);if(reduced)first?.update(1,true);};setCamera(framingRef.current);
     const element=canvas.current!;
     let down:{x:number;y:number;lastX:number;lastY:number;id:number;dragged:boolean}|null=null;
     let lastWalk=0;
@@ -206,7 +219,7 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
       const d=down;
       if(d&&d.id===e.pointerId){
         if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>5)d.dragged=true;
-        if(d.dragged&&first){const rect=element.getBoundingClientRect();first.drag(e.clientX-d.lastX,e.clientY-d.lastY,rect.width,rect.height);setHovered(null);element.style.cursor='grabbing';}
+        if(d.dragged&&(follower||first)){const rect=element.getBoundingClientRect();(follower||first)!.drag(e.clientX-d.lastX,e.clientY-d.lastY,rect.width,rect.height);setHovered(null);element.style.cursor='grabbing';}
         d.lastX=e.clientX;d.lastY=e.clientY;return;
       }
       if(e.pointerType==='touch')return;
@@ -217,8 +230,9 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
     const pointerUp=(e:PointerEvent)=>{
       const start=down;down=null;element.style.cursor='grab';
       if(element.hasPointerCapture(e.pointerId))element.releasePointerCapture(e.pointerId);
-      if(!start||start.id!==e.pointerId||start.dragged||actions.current.disabled)return;
+      if(!start||start.id!==e.pointerId||start.dragged)return;
       const hit=hitAt(e.clientX,e.clientY);
+      if(actions.current.disabled&&hit?.object.userData.action!=='cup')return;
       if(hit?.object.userData.action){dismissHint();const data=hit.object.userData,m=latest.current?.room.members.find(m=>m.id===latest.current?.self.id);if(data.station&&(m?.station!==data.station||m&&room.pose(m.id)?.moving))void actions.current.chooseObject(data.station);else void actions.current.onUse(data.action);return;}
       if(hit?.object.userData.portal){void actions.current.choosePortal();return;}
       if(hit?.object.userData.station){void actions.current.chooseObject(hit.object.userData.station);return;}
@@ -235,13 +249,13 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
     };
     const pointerLeave=(e:PointerEvent)=>{if(!down){if(!(e.relatedTarget instanceof Element&&e.relatedTarget.closest('.discovery-cue,.object-context')))setHovered(null);element.style.cursor='';}};
     const keyDown=(e:KeyboardEvent)=>{
-      if(!first||e.ctrlKey||e.metaKey||e.altKey)return;
+      const controls=follower||first;if(!controls||e.ctrlKey||e.metaKey||e.altKey)return;
       const delta:Record<string,[number,number]>={ArrowLeft:[.12,0],ArrowRight:[-.12,0],ArrowUp:[0,.08],ArrowDown:[0,-.08]};
       if(e.key==='Escape'){e.preventDefault();void actions.current.onStand();return;}
       const step:Record<string,[number,number]>={w:[0,1],s:[0,-1],a:[-1,0],d:[1,0]};
-      if(step[e.key.toLowerCase()]&&!e.repeat&&!actions.current.disabled&&performance.now()-lastWalk>350){e.preventDefault();const current=latest.current,self=current?.self.id,pose=self?room.pose(self):null;if(pose){const [side,forward]=step[e.key.toLowerCase()],yaw=first.angles.yaw;for(const length of[1.8,1,.45]){const x=pose.x+(Math.sin(yaw)*forward-Math.cos(yaw)*side)*length,z=pose.z+(Math.cos(yaw)*forward+Math.sin(yaw)*side)*length;if(isWalkable({x,z},area)){lastWalk=performance.now();void actions.current.onMove(x,z);break;}}}return;}
-      if(e.key==='Home'){e.preventDefault();first.aim(Math.PI,-.02);return;}
-      if(delta[e.key]){e.preventDefault();setHovered(null);first.turn(...delta[e.key]);}
+      if(step[e.key.toLowerCase()]&&!e.repeat&&!actions.current.disabled&&performance.now()-lastWalk>350){e.preventDefault();const current=latest.current,self=current?.self.id,pose=self?room.pose(self):null;if(pose){const [side,forward]=step[e.key.toLowerCase()],yaw=controls.angles.yaw;for(const length of[1.8,1,.45]){const x=pose.x+(Math.sin(yaw)*forward-Math.cos(yaw)*side)*length,z=pose.z+(Math.cos(yaw)*forward+Math.sin(yaw)*side)*length;if(isWalkable({x,z},area)){lastWalk=performance.now();void actions.current.onMove(x,z);break;}}}return;}
+      if(e.key==='Home'){e.preventDefault();controls.aim(Math.PI,-.13);return;}
+      if(delta[e.key]){e.preventDefault();setHovered(null);controls.turn(...delta[e.key]);}
     };
     element.addEventListener('pointerdown',pointerDown);element.addEventListener('pointermove',pointerMove);element.addEventListener('pointerup',pointerUp);element.addEventListener('pointercancel',pointerCancel);element.addEventListener('lostpointercapture',pointerCancel);element.addEventListener('pointerleave',pointerLeave);element.addEventListener('keydown',keyDown);
     const observer=new ResizeObserver(resize);observer.observe(container.current!);
@@ -252,10 +266,12 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
         const current=latest.current,self=current?.self.id,pose=self?room.pose(self):null,f=framingRef.current,dt=last?(time-last)/1000:1/30;
         if(first&&isPersonal(f)){first.anchor(eyeFor(f));first.update(dt,reduced);}
         if(third&&f==='third'&&pose)third.follow(pose,dt,reduced);
-        room.firstPerson(isPersonal(f)?self??null:null,foodRef.current);room.tick(time,current,reduced);
-        room.reveal(camera,f==='third'&&pose&&pose.sit<.5?pose:null,reduced);
-        room.foreground(camera,current,isPersonal(f)&&f!=='walking'&&!foodRef.current,null,reduced);
-        Object.assign(container.current!.dataset,{cameraX:camera.position.x.toFixed(4),cameraY:camera.position.y.toFixed(4),cameraZ:camera.position.z.toFixed(4),cameraFov:camera instanceof T.PerspectiveCamera?String(camera.fov):'ortho',cameraYaw:first?.angles.yaw.toFixed(4)??'',cameraPitch:first?.angles.pitch.toFixed(4)??'',actorX:pose?.x.toFixed(3)??'',actorZ:pose?.z.toFixed(3)??''});
+        room.scene.updateMatrixWorld(true);
+        if(follower&&pose){const station=current?.room.members.find(m=>m.id===self)?.station;follower.follow({...pose,focus:station&&!pose.moving?stations[station]:null},dt,reduced);}
+        room.firstPerson(isPersonal(f)&&debug?self??null:null,foodRef.current);room.tick(time,current,reduced);
+        room.reveal(camera,(follower||f==='third')&&pose?pose:null,reduced);
+        room.foreground(camera,current,debug&&isPersonal(f)&&f!=='walking'&&!foodRef.current,null,reduced);
+        Object.assign(container.current!.dataset,{cameraX:camera.position.x.toFixed(4),cameraY:camera.position.y.toFixed(4),cameraZ:camera.position.z.toFixed(4),cameraFov:camera instanceof T.PerspectiveCamera?String(camera.fov):'ortho',cameraYaw:(follower||first)?.angles.yaw.toFixed(4)??'',cameraPitch:(follower||first)?.angles.pitch.toFixed(4)??'',actorX:pose?.x.toFixed(3)??'',actorZ:pose?.z.toFixed(3)??''});
         const now=room.now(),animated=current?.room.members.some(m=>m.motion&&m.motion.endsAt>now||now-m.actionAt<4500||m.pantry.coffee.stage==='brewing'||Boolean(m.pantry.rest.tea?.pourAt));
         if(shadowState!==current||animated&&time-shadowTime>100){renderer.shadowMap.needsUpdate=true;shadowState=current;shadowTime=time;}
         if(time-labelTime>120){positionLabels();labelTime=time;}renderer.render(room.scene,camera);last=time;
@@ -281,7 +297,8 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
       {!ready&&!error&&<div className="three-message">창가의 빛을 들이는 중…</div>}
       {error?<div className="three-message" role="alert"><p>{error}</p><button className="primary" disabled={disabled} onClick={area==='healing'?()=>void choosePortal():onFallback}>{area==='healing'?'탕비실로 돌아가기':'도트로 이어가기'}</button></div>:<>
         {debug&&<><button ref={ref('shelf')} className="hotspot three-hotspot" onClick={onShelf} disabled={disabled}>오늘의 레몬파이</button><button ref={ref('drink')} className="hotspot three-hotspot" onClick={onDrink} disabled={disabled}>한 잔</button></>}
-        {!debug&&state&&!tvOpen&&!foodInHand&&!moving&&!discovery&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-snack')} className="world-action snack-world-hint" disabled={disabled} onClick={()=>{setIntro(false);onShelf();}}>{heldName(state.self.pantry)?heldName(state.self.pantry)+' 내려놓고 간식 집기':intro?'간식을 눌러보세요':'간식 집기'}</button>}
+        {!debug&&state&&!tvOpen&&!foodInHand&&!moving&&!discovery&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-snack')} className="world-action snack-world-hint" disabled={disabled} onClick={()=>{setIntro(false);onShelf();}}>{intro?'간식을 눌러보세요':directAction(state,'snack')?.label}</button>}
+        {!debug&&state&&!tvOpen&&!moving&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-cup')} className="world-action cup-world-hint" disabled={disabled&&!foodInHand} onClick={()=>void useNearObject('cup')}>{directAction(state,'cup')?.label??'잔 준비 중'}</button>}
         {!debug&&!tvOpen&&!foodInHand&&discovery&&<button ref={ref('discovery')} className="world-action discovery-cue" onFocus={()=>{cueFocus.current=true;}} onBlur={()=>{cueFocus.current=false;}} disabled={disabled||moving||state?.room.members.some(m=>m.id!==state.self.id&&m.station===discovery)} onClick={()=>void chooseObject(discovery)}>{stations[discovery].name}{moving?' · 이동 중':' 가기'}</button>}
         {!debug&&!tvOpen&&!foodInHand&&moving&&me?.seat!=null&&!me.station&&<span ref={ref('destination')} className="world-status destination-cue" role="status">자리로 가는 중</span>}
         {!debug&&!tvOpen&&!foodInHand&&<span ref={beacon} className="target-beacon" aria-hidden="true"/>}
@@ -289,7 +306,7 @@ export default function Room3D({onExplore,onUse,contextContent,landscapeId,tvOpe
         {state?.room.members.filter(m=>debug||m.id!==state.self.id).map(m=><div ref={ref(m.id)} key={m.id} className={`visitor-name three-name ${!m.connected?'reconnecting':''}`}><span className="presence-dot"/>{m.name}</div>)}
       </>}
       {onTv&&!tvOpen&&<button className="tv-entry" disabled={disabled||moving||me?.seat==null} onClick={onTv}>TV 함께 보기</button>}
-      {!debug&&!tvOpen&&!foodInHand&&state&&!moving&&<div ref={context} className={'object-context'+(me?.station?' at-station':' held-context')} aria-label="가까이 있는 물건">
+      {!debug&&!tvOpen&&!foodInHand&&state&&!moving&&!tabledDrink&&<div ref={context} className={'object-context'+(me?.station?' at-station':' held-context')} aria-label="가까이 있는 물건">
         {me?.station&&directAction(state,me.station)&&<button className="world-action" disabled={disabled} onClick={()=>void useNearObject(me.station!)}>{directAction(state,me.station)!.label}</button>}
         {arrival&&me?.station&&<span className="arrival-note" role="status">도착했어요</span>}
         {me?.station==='coffee'&&state.self.pantry.coffee.stage==='brewing'&&<div className="brew-feedback"><span role="status">커피가 차오르고 있어요</span><progress ref={brewProgress} max={1} value={0} aria-label="커피 추출"/><button className="world-action" disabled={disabled} onClick={()=>void stand()}>추출 멈추기</button></div>}

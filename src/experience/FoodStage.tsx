@@ -4,10 +4,11 @@ import type {Serving} from './types';
 import {playSound,wrapperMotion,stopWrapperSound} from './sound';
 const Food3D=lazy(()=>import('./Food3D'));
 
-type Props={serving:Serving;busy:boolean;appearance?:'pixel'|'3d';onProgress:(progress:number)=>Promise<unknown>;onOpen:()=>Promise<unknown>;onBite:()=>Promise<unknown>};
-export function FoodStage({serving,busy,appearance='pixel',onProgress,onOpen,onBite}:Props){
+type Props={onFlush?:(flush:(()=>Promise<boolean>)|null)=>void;serving:Serving;busy:boolean;appearance?:'pixel'|'3d';onProgress:(progress:number)=>Promise<unknown>;onOpen:()=>Promise<unknown>;onBite:()=>Promise<unknown>};
+export function FoodStage({onFlush,serving,busy,appearance='pixel',onProgress,onOpen,onBite}:Props){
   const initial=serving.state==='sealed'?(serving.open_progress||0):1;
   const canvas=useRef<HTMLCanvasElement>(null),drag=useRef<{x:number;y:number;id:number;progress:number;moved:boolean}|null>(null);
+  const pendingSave=useRef<Promise<unknown>|null>(null);
   const live=useRef(true),biting=useRef(false),lastBite=useRef(-Infinity);
   const anim=useRef(0),progressRef=useRef(initial),submitted=useRef(initial),opening=useRef(false),animating=useRef(false);
   const latest=useRef({onProgress,serving});latest.current={onProgress,serving};
@@ -24,13 +25,15 @@ export function FoodStage({serving,busy,appearance='pixel',onProgress,onOpen,onB
     function render(){drawFood(c,progress,serving.bites,serving.state==='empty',serving.portions===1,Date.now()-crunch);if(Date.now()-crunch<650)frame=requestAnimationFrame(render);}
     render();return()=>cancelAnimationFrame(frame);
   },[progress,serving,crunch,pixel]);
-  async function saveProgress(){
+  async function saveProgress():Promise<boolean>{
+    if(pendingSave.current){const ok=await pendingSave.current;if(!ok)return false;return saveProgress();}
     const p=Math.min(.984,progressRef.current);
-    if(opening.current||latest.current.serving.state!=='sealed'||p<=submitted.current+.001)return;
-    submitted.current=p;const result=await latest.current.onProgress(p);
-    if(!result)submitted.current=latest.current.serving.open_progress||0;
+    if(opening.current||latest.current.serving.state!=='sealed'||p<=submitted.current+.001)return true;
+    submitted.current=p;pendingSave.current=latest.current.onProgress(p);const result=await pendingSave.current;pendingSave.current=null;
+    if(!result)submitted.current=latest.current.serving.open_progress||0;return Boolean(result);
   }
-  function cancelGesture(){tap.current=null;drag.current=null;cancelAnimationFrame(anim.current);animating.current=false;setDragging(false);setUnwrapping(false);stopWrapperSound();void saveProgress();}
+  async function cancelGesture(){tap.current=null;drag.current=null;cancelAnimationFrame(anim.current);animating.current=false;setDragging(false);setUnwrapping(false);stopWrapperSound();return await saveProgress();}
+  useEffect(()=>{onFlush?.(cancelGesture);return()=>onFlush?.(null);},[onFlush]);
   useEffect(()=>{live.current=true;const hidden=()=>{if(document.hidden)cancelGesture();};document.addEventListener('visibilitychange',hidden);window.addEventListener('blur',cancelGesture);return()=>{live.current=false;document.removeEventListener('visibilitychange',hidden);window.removeEventListener('blur',cancelGesture);cancelAnimationFrame(anim.current);stopWrapperSound();void saveProgress();};},[]);
   async function finish(){
     if(opening.current||busy){setUnwrapping(false);return;}

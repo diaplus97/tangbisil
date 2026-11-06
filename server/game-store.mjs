@@ -78,7 +78,7 @@ export function createGameStore(db,{crossRoomOffers=false}={}) {
   function act(id, roomId, input) {
     const { type, requestId } = input;
     if (typeof requestId !== 'string' || !/^[\w-]{8,80}$/.test(requestId)) throw new GameError('요청을 다시 시도해 주세요.',400);
-    const signature=JSON.stringify([type,input.servingId,input.progress,input.offerId,input.drink]);
+    const signature=JSON.stringify([type,input.servingId,input.progress,input.offerId,input.drink,...(input.bites!==undefined?[input.bites]:[])]);
     const old = db.prepare('SELECT action,result,signature FROM receipts WHERE user_id=? AND request_id=?').get(id,requestId);
     if (old) {
       if (old.action !== type) throw new GameError('이미 사용한 요청입니다.',409);
@@ -109,6 +109,7 @@ export function createGameStore(db,{crossRoomOffers=false}={}) {
       } else if (type === 'bite') {
         needOwn();
         if (food.state !== 'open') throw new GameError('포장을 열어 주세요.');
+        if(input.bites!==undefined&&input.bites!==food.bites)throw new GameError('이미 한입 먹은 간식이에요. 지금 접시에서 이어 주세요.');
         const bites = food.bites + 1;
         db.prepare('UPDATE servings SET bites=?,state=? WHERE id=?').run(bites,bites >= food.portions ? 'empty' : 'open',food.id);
         if(food.offer_id)db.prepare('UPDATE claims SET tasted_at=COALESCE(tasted_at,?) WHERE offer_id=? AND user_id=?').run(Date.now(),food.offer_id,id);
@@ -132,6 +133,7 @@ export function createGameStore(db,{crossRoomOffers=false}={}) {
         if (!['tea','coffee','water'].includes(input.drink)) throw new GameError('음료를 선택해 주세요.',400);
         db.prepare('UPDATE users SET drink=? WHERE id=?').run(input.drink,id);
       } else if (type !== 'wave') throw new GameError('알 수 없는 행동이에요.',400);
+      if(['take','open','bite','sample'].includes(type))activities.stow(id);
       db.prepare('INSERT INTO receipts(user_id,request_id,action,result,signature) VALUES(?,?,?,?,?)').run(id,requestId,type,JSON.stringify(result),signature);
       db.exec('COMMIT');
       return result;

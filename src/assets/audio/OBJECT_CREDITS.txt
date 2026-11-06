@@ -30,3 +30,6 @@ Runtime playback update, 2026-11-06 (source files and licenses unchanged):
 Coffee cycle uses the existing 4.5s recording. Visual flow/fill runs from 0.45s to 4.05s; resumed playback seeks to elapsed cycle time. Cancel/exit/mute stops the cycle.
 Cup placement contact is scheduled at 260ms and pickup contact at 120ms of a 360ms lift. Normal next actions (placement to brewing, pickup to walking/sitting) preserve the pending contact; cancellation, room travel, disconnection and mute clear it. Both servers encode ordinary movement as rest plus a timed route.
 Timing/source counts were checked in browser instrumentation; actual audio listening remains unverified.
+
+Third-person table interaction update, 2026-11-06 (recordings unchanged):
+Cup, tea and bottle sip gestures return to the tray at 1100ms. Switching to a snack sooner plays the pending return contact once at that transition. Existing mute/cancellation rules remain. This documents playback timing, not a listening assessment.

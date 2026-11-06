@@ -122,7 +122,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
             }
             send(res,200,{...result,state:snapshot(r,id)});return;
           }
-          if(/^(candy-|coffee-|fridge-|bottle-|plant-|stone-|tea-|sand-|vase-|items-)/.test(input.type)){
+          if(/^(cup-|candy-|coffee-|fridge-|bottle-|plant-|stone-|tea-|sand-|vase-|items-)/.test(input.type)){
             const result=store.activities.act(id,r,m,input);
             if(!result.replay){if(input.type!=='sand-edit')m.contact=null;else if(input.gesture===true)m.contact={gestureId:input.requestId,kind:input.operation==='stone'?'stone':'rake',until:Date.now()+320};m.action=input.type;m.actionAt=Date.now();
               if(input.type==='tea-pour'){clearTimeout(m.brewTimer);const t=store.activities.get(id).rest.tea;m.brewTimer=setTimeout(()=>{if(r.members.get(id)===m)broadcast(r);},Math.max(0,t.pourEnd-Date.now())+20);m.brewTimer.unref();}

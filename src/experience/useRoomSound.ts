@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import type {Member,Snapshot} from './types';
 import {sampleMotion} from '../../shared/space.mjs';
 import {playSound,playMachine,playTeaPour,stopRoomSounds,peerSandSound,type SoundKind} from './sound';
-import {CUP_RETURN_MS} from './gestureTiming';
+import {CUP_RETURN_MS,SIP_RETURN_MS} from './gestureTiming';
 import {COFFEE_BREW_MS,CUP_PLACE_MS} from '../../shared/coffee.mjs';
 import {keepsCupContact} from './cupContact';
 
@@ -58,10 +58,10 @@ export function useRoomSound(state:Snapshot|null,online=true){
     for(const m of state.room.members){
       const key=m.actionAt+':'+m.action,old=seen.current.get(m.id);seen.current.set(m.id,key);
       const queued=pending.current.get(m.id);
-      if(queued&&!keepsCupContact(queued,m)){clearTimeout(queued.timer);pending.current.delete(m.id);}
+      if(queued&&!keepsCupContact(queued,m)){clearTimeout(queued.timer);pending.current.delete(m.id);if(['cup-sip','tea-sip','bottle-sip'].includes(queued.action)&&m.connected&&['bite','open','unwrap'].includes(m.action)&&m.actionAt>queued.at&&m.actionAt-queued.at<SIP_RETURN_MS)playFor(m,'putdown');}
       if(!old||old===key||!m.connected||state.serverTime-m.actionAt>1600)continue;
-      if(['wave','coffee-place','coffee-take'].includes(m.action)){
-        const contact=m.action==='wave'?CUP_RETURN_MS:m.action==='coffee-place'?CUP_PLACE_MS:120;
+      if(['cup-sip','tea-sip','bottle-sip','wave','coffee-place','coffee-take'].includes(m.action)){
+        const contact=['cup-sip','tea-sip','bottle-sip'].includes(m.action)?SIP_RETURN_MS:m.action==='wave'?CUP_RETURN_MS:m.action==='coffee-place'?CUP_PLACE_MS:120;
         const delay=Math.max(0,m.actionAt+contact-now),deadline=performance.now()+delay;
         const source={action:m.action,at:m.actionAt};
         const timer=setTimeout(()=>{

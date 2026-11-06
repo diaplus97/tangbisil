@@ -1,3 +1,4 @@
+import {tableDrink} from '../shared/table-drink.mjs';
 import {DurableObject} from 'cloudflare:workers';
 import {sqliteAdapter,jsonStore} from './sql.mjs';
 import {createGameStore} from '../server/game-store.mjs';
@@ -22,6 +23,7 @@ export class PantryVisitor extends DurableObject {
     const {user,tables}=record.checkpoint,{token_hash,...safe}=user;
     const pantry=tables.pantry_items[0]?JSON.parse(tables.pantry_items[0].data):{candy:null,bottle:null,coffee:{stage:'carried',roomId:null,readyAt:0},rest:emptyRest()};
     pantry.rest={...emptyRest(),...pantry.rest};pantry.rest.tea=sampleTea(pantry.rest.tea,Date.now());
+    pantry.coffee.sips??=0;pantry.tableDrink??=tableDrink(pantry);
     if(pantry.coffee.stage==='brewing'&&pantry.coffee.readyAt<=Date.now())pantry.coffee.stage='ready';
     return {...safe,serving:tables.servings[0]??null,discoveries:tables.discoveries,pantry};
   }

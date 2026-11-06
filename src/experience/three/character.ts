@@ -4,7 +4,7 @@ import {softBox} from './detailGeometry';
 import type {Member} from '../types';
 import type {Pose} from '../../../shared/space.mjs';
 import {armReach} from './armReach';
-import {CUP_RETURN_MS} from '../gestureTiming';
+import {CUP_RETURN_MS,SIP_RETURN_MS} from '../gestureTiming';
 import {misterModel,stoneModel,teaModel} from './restModels';
 import {candyModel,bottleModel} from './stations';
 
@@ -93,10 +93,10 @@ export function createCharacter(kit:Workshop,member:Member){
       const bend=Math.PI-Math.acos(T.MathUtils.clamp((.42*.42+.55*.55-d*d)/(2*.42*.55),-1,1));
       leg.hip.position.y=hipY;leg.hip.rotation.x=-upper;leg.knee.rotation.x=bend;leg.ankle.rotation.x=upper-bend;
     }
-    const age=now-m.actionAt,gesture=age>=0&&age<CUP_RETURN_MS&&['wave','bite','candy-eat','bottle-sip','tea-sip'].includes(m.action);
-    const amount=gesture?Math.min(1,age/400,(CUP_RETURN_MS-age)/450):0;
-    const c=m.pantry?.candy,b=m.pantry?.bottle,holdCandy=Boolean(c?.held&&c.state!=='eaten'||gesture&&m.action==='candy-eat'),holdBottle=!holdCandy&&Boolean(b?.held&&b.sips<3||gesture&&m.action==='bottle-sip');
-    const rest=m.pantry.rest,kind=rest?.sprayer?'sprayer':rest?.stone?.held?'stone':rest?.tea?.held?'tea':'';
+    const age=now-m.actionAt,gestureLength=['cup-sip','tea-sip','bottle-sip'].includes(m.action)?SIP_RETURN_MS:CUP_RETURN_MS,gesture=age>=0&&age<gestureLength&&['cup-sip','wave','bite','candy-eat','bottle-sip','tea-sip'].includes(m.action);
+    const amount=gesture?Math.min(1,age/400,(gestureLength-age)/350):0;
+    const c=m.pantry?.candy,b=m.pantry?.bottle,holdCandy=Boolean(c?.held&&c.state!=='eaten'||gesture&&m.action==='candy-eat'),holdBottle=!holdCandy&&Boolean(b?.held&&b.sips<3&&pose.inSeat==null||gesture&&m.action==='bottle-sip');
+    const rest=m.pantry.rest,kind=rest?.sprayer?'sprayer':rest?.stone?.held?'stone':rest?.tea&&(rest.tea.held&&pose.inSeat==null||gesture&&m.action==='tea-sip')?'tea':'';
     const nextItem=JSON.stringify([kind,holdCandy,holdBottle,c?.progress,b?.sips]);
     if(itemKey!==nextItem){restTea?.dispose();restTea=null;restStone=null;if(heldItem)kit.release(heldItem);heldItem=kind==='sprayer'?misterModel(kit,right.wrist):kind==='stone'?(restStone=stoneModel(kit,right.wrist)).group:kind==='tea'?(restTea=teaModel(kit,right.wrist)).group:holdCandy?candyModel(kit,right.wrist,c?.progress??1):holdBottle?bottleModel(kit,right.wrist,b?.sips??0):null;itemKey=nextItem;if(heldItem){heldItem.scale.setScalar(holdCandy?.65:.7);heldItem.position.set(0,.025,.04);if(kind==='sprayer')heldItem.rotation.y=Math.PI;}}
     restTea?.update(rest?.tea??null,now,time,reduced);if(restStone&&rest?.stone)restStone.deform(now-rest.stone.pressAt,rest.stone.point,reduced);
@@ -119,12 +119,12 @@ export function createCharacter(kit:Workshop,member:Member){
         a.elbow.rotation.x=T.MathUtils.lerp(lower,-.58-sweep*.4,sandBlend);a.wrist.rotation.x=-a.shoulder.rotation.x-a.elbow.rotation.x;
       }
     }
-    if(gesture&&['tea-sip','bottle-sip','candy-eat','bite'].includes(m.action)){
-      const y=m.action==='tea-sip'?.60:m.action==='bottle-sip'?.56:.72,reach=armReach(right.shoulder.position,new T.Vector3(.075,y,.25));
+    if(gesture&&['cup-sip','tea-sip','bottle-sip','candy-eat','bite'].includes(m.action)){
+      const y=['cup-sip','tea-sip'].includes(m.action)?.60:m.action==='bottle-sip'?.56:.72,reach=armReach(right.shoulder.position,new T.Vector3(.075,y,.25));
       right.shoulder.quaternion.slerp(reach.shoulder,amount);right.elbow.quaternion.slerp(reach.elbow,amount);
       right.wrist.quaternion.copy(right.shoulder.quaternion).multiply(right.elbow.quaternion).invert();
     }
-    heldCup.visible=gesture&&m.action==='wave';heldBite.visible=gesture&&m.action==='bite';
+    heldCup.visible=gesture&&['cup-sip','wave'].includes(m.action);heldCup.rotation.x=gesture&&m.action==='cup-sip'?-.3*amount:0;heldBite.visible=gesture&&m.action==='bite';
     head.rotation.y=0;head.rotation.z=0;
     const blink=((time+seed*31)%5200);for(const eye of eyes)eye.scale.y=(!reduced&&blink<130)?.12:1.15;
     ring.visible=isMe&&sit<.95;group.updateMatrixWorld(true);

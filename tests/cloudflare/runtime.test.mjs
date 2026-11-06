@@ -10,6 +10,19 @@ import {tvQueue} from '../../shared/room-media.mjs';
 const require=createRequire(import.meta.url),fromWrangler=createRequire(require.resolve('wrangler/package.json'));
 const {Miniflare,convertV4MiniflareOptions}=fromWrangler('miniflare');
 const config=JSON.parse((await readFile(new URL('../../wrangler.pantry.jsonc',import.meta.url),'utf8')).replace(/^\s*\/\/.*$/gm,''));
+test('Cloudflare direct bite and table sip synchronize once and persist across hibernation and room changes',{timeout:30000},async t=>{
+ const {mf,visitor,connect}=await setup(t),a=await visitor('탁상A'),b=await visitor('탁상B'),c=await connect(a),peer=await connect(b);
+ await c.act('take');const servingId=c.state.self.serving.id;await c.act('unwrap',{servingId,progress:.51});
+ const key=randomUUID();assert.equal((await c.act('cup-sip',{sips:0},key)).status,200);assert.equal(c.state.self.serving.open_progress,.51);
+ const actionAt=c.state.room.members.find(m=>m.id===a.user.id).actionAt;
+ assert.equal((await c.act('cup-sip',{sips:0},key)).data.replay,true);assert.equal(c.state.room.members.find(m=>m.id===a.user.id).actionAt,actionAt);
+ assert.equal((await c.act('cup-sip',{sips:0})).status,409);await c.act('open',{servingId});await c.act('bite',{servingId,bites:0});
+ assert.equal((await c.act('bite',{servingId,bites:0})).status,409);await peer.wait(()=>peer.state.room.members.find(m=>m.id===a.user.id)?.food?.bites===1);
+ assert.equal(peer.state.room.members.find(m=>m.id===a.user.id).pantry.coffee.sips,1);assert.equal(peer.state.self.pantry.coffee.sips,0);
+ const saved=structuredClone(c.state.self);await mf.unsafeEvictDurableObject('pantry-test','PantryRoom',{name:'window',webSockets:'hibernate'});
+ const rejoined=await connect(a,'quiet');assert.deepEqual(rejoined.state.self.serving,saved.serving);assert.equal(rejoined.state.self.pantry.coffee.sips,1);assert.equal(rejoined.state.self.drink,saved.drink);assert.deepEqual(rejoined.state.self.discoveries,saved.discoveries);
+});
+
 test('Cloudflare room scenery and TV queue survive hibernation without waking alarms', {timeout:60000},async t=>{
   const {mf,visitor,connect,storage}=await setup(t),a=await visitor('TV A'),b=await visitor('TV B'),first=await connect(a),second=await connect(b);
   assert.deepEqual(first.state.room.media,second.state.room.media);

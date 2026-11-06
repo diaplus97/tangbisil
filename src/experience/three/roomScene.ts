@@ -10,7 +10,9 @@ import {createLighting} from './lighting';
 import {createCharacter} from './character';
 import {coffeePosition,pantryOffset,sharedPlate} from './layout';
 import {sampleMotion,getSpace,type Area} from '../../../shared/space.mjs';
-import {CUP_RETURN_MS} from '../gestureTiming';
+import {CUP_SIPS} from '../../../shared/coffee.mjs';
+import {tableDrink} from '../../../shared/table-drink.mjs';
+import {CUP_RETURN_MS,SIP_RETURN_MS} from '../gestureTiming';
 import type {SeaPlaybackStatus} from './seaPlayback';
 import {createRestStations} from './restStations';
 import {stoneModel,teaModel} from './restModels';
@@ -41,6 +43,13 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
   const steamMaterial=new T.MeshBasicMaterial({color:'#faf2da',transparent:true,opacity:.28,depthWrite:false});
   for(let i=0;i<5;i++){const puff=kit.mesh(steam,new T.SphereGeometry(.025,6,4),steamMaterial,coffeePosition.x,1.7,coffeePosition.z);puff.castShadow=false;puff.scale.set(1,2,1);}
   const handPosition=new T.Vector3(),tablePosition=new T.Vector3();
+  const cameraRay=new T.Raycaster(),cameraSolids:T.Mesh[]=[];for(const root of scene.children)if(root!==dynamic)root.traverse(o=>{if(o instanceof T.Mesh)cameraSolids.push(o);});
+  scene.updateMatrixWorld(true);
+  function constrainCamera(origin:T.Vector3,desired:T.Vector3,ignoreNear=.2){
+    const delta=desired.clone().sub(origin),length=delta.length();cameraRay.set(origin,delta.normalize());cameraRay.far=length+.24;
+    const obstruction=cameraRay.intersectObjects(cameraSolids,false).find(h=>{let node:T.Object3D|null=h.object;while(node){if(!node.visible)return false;node=node.parent;}if(!(h.object instanceof T.Mesh))return false;const mat=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex??0]:h.object.material;return mat.visible&&(!mat.transparent||mat.opacity>.9)&&h.distance>ignoreNear;});
+    if(obstruction&&obstruction.distance<length+.24)desired.copy(origin).addScaledVector(delta,Math.max(.45,obstruction.distance-.24));
+  }
   function pose(id:string){const m=current?.room.members.find(m=>m.id===id);return m?sampleMotion(m,Date.now()+clockOffset):null;}
   function sync(state:Snapshot|null){
     current=state;if(state)clockOffset=state.serverTime-Date.now();
@@ -48,34 +57,33 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
     for(const [id,p]of people)if(!members.some(m=>m.id===id)){p.dispose();people.delete(id);const tray=trays.get(id);if(tray){tray.tea?.dispose();kit.release(tray.group);trays.delete(id);}}
     for(const m of members){
       if(!people.has(m.id)){const p=createCharacter(kit,m);dynamic.add(p.group);people.set(m.id,p);}
-      const key=JSON.stringify([m.drink,m.food,m.pantry.candy,m.pantry.bottle,m.pantry.coffee.stage,m.pantry.rest?.stone?.held,Boolean(m.pantry.rest?.stone),m.pantry.rest?.tea?.held,m.pantry.rest?.tea?.location,Boolean(m.pantry.rest?.tea),Boolean(m.pantry.rest?.sand),m.pantry.rest?.sand?.held,m.pantry.rest?.vase,m.id===state?.self.id?state.self.pantry.rest.vase:null]);if(trays.get(m.id)?.key===key)continue;
+      const key=JSON.stringify([m.drink,m.pantry.tableDrink,m.food,m.pantry.candy,m.pantry.bottle,m.pantry.coffee.stage,m.pantry.coffee.sips,m.pantry.rest?.stone?.held,Boolean(m.pantry.rest?.stone),m.pantry.rest?.tea?.held,m.pantry.rest?.tea?.location,Boolean(m.pantry.rest?.tea),Boolean(m.pantry.rest?.sand),m.pantry.rest?.sand?.held,m.pantry.rest?.vase,m.id===state?.self.id?state.self.pantry.rest.vase:null]);if(trays.get(m.id)?.key===key)continue;
       const old=trays.get(m.id);if(old){old.tea?.dispose();kit.release(old.group);}
       const g=new T.Group();dynamic.add(g);
       kit.box(g,.79,.035,.44,0,.01,0,'#bda584',.05);kit.box(g,.74,.015,.4,0,.032,0,'#e8dfc8',.045);
+      const foodGroup=new T.Group();g.add(foodGroup);
       if(!healing&&m.food?.state==='sealed'&&m.food.open_progress>0){
-        const progress=m.food.open_progress,pack=new T.Group();g.add(pack);pack.position.set(.16,.05,0);pack.scale.setScalar(.24);
+        const progress=m.food.open_progress,pack=new T.Group();foodGroup.add(pack);pack.position.set(.16,.05,0);pack.scale.setScalar(.24);
         kit.box(pack,2.05,.018,1.18,0,0,0,'#c2cecc',.04);pie(kit,pack);
         const width=2.05*(1-progress),edge=-1.025+2.05*progress;
         kit.box(pack,width,.55,1.02,edge+width/2,.28,0,'#efe4c3',.025);
         for(const z of[-.49,.49])kit.box(pack,width,.014,.055,edge+width/2,.56,z,'#97b1bd',.004);
         const curl=kit.cylinder(pack,.105,.105,1.04,edge,.61,0,'#e8d9b1');curl.rotation.x=Math.PI/2;
-      }else if(!healing&&(m.food?.state==='sealed'||m.id===state?.self.id&&(!m.food||m.food.state==='empty'))){const pack=packet(kit,g,.16,.08,0,.65);pack.rotation.x=-Math.PI/2;pack.position.z=.14;}
-      else if(!healing&&m.food?.state==='open'){const snack=pie(kit,g,m.food.bites,m.food.portions===1);snack.scale.setScalar(.24);snack.position.set(.16,.05,0);}
+      }else if(!healing&&(m.food?.state==='sealed'||m.id===state?.self.id&&(!m.food||m.food.state==='empty'))){const pack=packet(kit,foodGroup,.16,.08,0,.65);pack.rotation.x=-Math.PI/2;pack.position.z=.14;}
+      else if(!healing&&m.food?.state==='open'){const snack=pie(kit,foodGroup,m.food.bites,m.food.portions===1);snack.scale.setScalar(.24);snack.position.set(.16,.05,0);}
       if(m.pantry?.candy&&!m.pantry.candy.held&&m.pantry.candy.state!=='eaten'){const candy=candyModel(kit,g,m.pantry.candy.progress);candy.position.set(.29,.12,.12);candy.scale.setScalar(.55);}
-      if(m.pantry?.bottle&&!m.pantry.bottle.held&&m.pantry.bottle.sips<3){const bottle=bottleModel(kit,g,m.pantry.bottle.sips);bottle.position.set(-.31,.04,-.1);bottle.scale.setScalar(.72);}
-      consolidate(g,kit);const cup=mug(kit,g,healing?.25:-.2,.048,healing?-.15:.08,m.drink,healing?.55:.75);consolidate(cup,kit);
-      const rest=m.pantry.rest;let tea:ReturnType<typeof teaModel>|undefined;
+      foodGroup.removeFromParent();consolidate(foodGroup,kit);consolidate(g,kit);g.add(foodGroup);
+      const rest=m.pantry.rest,drinkKind=tableDrink(m.pantry);let tea:ReturnType<typeof teaModel>|undefined;
+      const cup=drinkKind==='tea'?(tea=teaModel(kit,g)).group:drinkKind==='bottle'?bottleModel(kit,g,m.pantry.bottle?.sips??0):mug(kit,g,0,0,0,m.drink,1,1-(m.pantry.coffee.sips??0)/CUP_SIPS);
+      cup.scale.setScalar(healing?.6:drinkKind==='tea'?.65:.75);cup.position.set(healing?.25:-.23,.048,0);if(drinkKind!=='tea')consolidate(cup,kit);
       if(healing&&rest?.sand&&!(m.id===state?.self.id&&rest.sand.held)){const sand=sandModel(kit,g);sand.group.position.set(.03,.06,.09);sand.group.scale.setScalar(.6);}
       if(healing&&rest?.vase&&!(m.id===state?.self.id&&rest.vase.held)){const personal=m.id===state?.self.id?state.self.pantry.rest.vase:null,vase=vaseModel(kit,g,rest.vase.flower,personal?.position??0,personal?.tilt??0);vase.position.set(-.25,.05,-.16);}
-      if(!healing&&(rest?.stone||rest?.tea)){kit.box(g,.45,.022,.65,-.62,.035,.04,'#c8d1be',.04);}
+      if(!healing&&rest?.stone){kit.box(g,.45,.022,.65,-.62,.035,.04,'#c8d1be',.04);}
       if(rest?.stone&&!rest.stone.held){const stone=stoneModel(kit,g);stone.group.position.set(healing?-.25:-.62,.14,healing?.22:.2);stone.group.scale.setScalar(.8);}
-      if(rest?.tea&&!rest.tea.held&&rest.tea.location==='personal'){tea=teaModel(kit,g);tea.group.position.set(healing?.25:-.62,.05,-.17);tea.group.scale.setScalar(healing?.6:.85);}
       if(m.id===state?.self.id){
-        hit(g,'snack',.16,.15,.02,.42,.28,.38);
+        foodGroup.userData.action='snack';
         cup.userData.action='cup';
         if(m.pantry?.candy&&!m.pantry.candy.held&&m.pantry.candy.state!=='eaten')hit(g,'candy',.29,.15,.12,.2,.18,.2);
-        if(m.pantry?.bottle&&!m.pantry.bottle.held&&m.pantry.bottle.sips<3)hit(g,'bottle',-.31,.18,-.1,.17,.36,.17);
-        if(tea)tea.group.userData.action='tea-held';
       }
       trays.set(m.id,{group:g,cup,key,tea});
     }
@@ -95,7 +103,8 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
         const cupAge=now-m.actionAt,lift=ownView&&m.action==='wave'&&cupAge>=0&&cupAge<CUP_RETURN_MS?Math.max(0,Math.min(1,cupAge/400,(CUP_RETURN_MS-cupAge)/450)):0;
         // In first person the local body is hidden, but its cup still lifts and
         // returns to the actual tray at the shared contact-sound timestamp.
-        tray.cup.visible=(ownView||!gesture.cupRaised)&&(!m.pantry||m.pantry.coffee.stage==='carried')&&!(healing&&m.pantry.rest.tea?.location==='personal'&&!m.pantry.rest.tea.held);
+        const sipping=['cup-sip','tea-sip','bottle-sip'].includes(m.action)&&cupAge>=0&&cupAge<SIP_RETURN_MS;
+        tray.cup.visible=!sipping&&(tableDrink(m.pantry)!=='cup'||m.pantry.coffee.stage==='carried');
         tray.cup.position.set(healing?.25:-.23,.048+lift*.25,(healing?-.15:0)-lift*.12);
         tray.cup.rotation.x=lift*.12;
         tray.group.visible=!(firstPerson===m.id&&(holding||position.inSeat==null));
@@ -107,5 +116,5 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
     steam.visible=false;
   }
   function lighting(warm:boolean){lights.setWarm(warm);architecture.lighting(warm);landscape.lighting(warm);}
-  return {scene,sync,tick,lighting,now:()=>Date.now()+clockOffset,interactionTargets(){return [...objects.interactionTargets,...restObjects.interactionTargets,...(shelfHit?[shelfHit]:[]),...(shared.visible?[plateHit]:[]),...(current&&trays.get(current.self.id)?[trays.get(current.self.id)!.group]:[])];},landscape:landscape.select,reveal:architecture.reveal,seaMotion:landscape.motion,active:landscape.active,seatTargets,objectTargets,portalTargets:architecture.portalTargets,foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null,reduced=false){const r=state?.self.pantry.rest;objects.foreground(camera,state,show&&!r?.sprayer&&!r?.stone?.held&&!r?.tea?.held,pull,reduced,Date.now()+clockOffset);restObjects.foreground(camera,state,show);},snackPosition(){const tray=current&&trays.get(current.self.id);return tray?.group.visible?tray.group.localToWorld(new T.Vector3(.16,.20,0)):null;},pose,firstPerson(id:string|null,foodInHand=false){firstPerson=id;holding=foodInHand;},labelPosition(id:string){const p=pose(id);return p?people.get(id)?.labelPosition(p):undefined;},interior(enabled:boolean,perspective=enabled){architecture.interior(enabled);landscape.interior(perspective);},dispose(){for(const p of people.values())p.dispose();objects.dispose();restObjects.dispose();for(const tray of trays.values())tray.tea?.dispose();landscape.dispose();kit.dispose();steamMaterial.dispose();hitMaterial.dispose();markerMaterial.dispose();}};
+  return {scene,sync,tick,lighting,constrainCamera,now:()=>Date.now()+clockOffset,interactionTargets(){return [...objects.interactionTargets,...restObjects.interactionTargets,...(shelfHit?[shelfHit]:[]),...(shared.visible?[plateHit]:[]),...(current&&trays.get(current.self.id)?[trays.get(current.self.id)!.group]:[])];},landscape:landscape.select,reveal:architecture.reveal,seaMotion:landscape.motion,active:landscape.active,seatTargets,objectTargets,portalTargets:architecture.portalTargets,foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null,reduced=false){const r=state?.self.pantry.rest;objects.foreground(camera,state,show&&!r?.sprayer&&!r?.stone?.held&&!r?.tea?.held,pull,reduced,Date.now()+clockOffset);restObjects.foreground(camera,state,show);},cupPosition(){const tray=current&&trays.get(current.self.id);return tray?.group.visible?tray.group.localToWorld(new T.Vector3(-.23,.20,0)):null;},snackPosition(){const tray=current&&trays.get(current.self.id);return tray?.group.visible?tray.group.localToWorld(new T.Vector3(.16,.20,0)):null;},pose,firstPerson(id:string|null,foodInHand=false){firstPerson=id;holding=foodInHand;},labelPosition(id:string){const p=pose(id);return p?people.get(id)?.labelPosition(p):undefined;},interior(enabled:boolean,perspective=enabled){architecture.interior(enabled);landscape.interior(perspective);},dispose(){for(const p of people.values())p.dispose();objects.dispose();restObjects.dispose();for(const tray of trays.values())tray.tea?.dispose();landscape.dispose();kit.dispose();steamMaterial.dispose();hitMaterial.dispose();markerMaterial.dispose();}};
 }

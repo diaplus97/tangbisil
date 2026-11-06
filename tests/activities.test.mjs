@@ -17,6 +17,44 @@ function setup(t){
  const act=(m,type,extra={},key=randomUUID())=>store.activities.act(m.id,room,m,{type,requestId:key,...extra},now);
  return{store,a,b,am,bm,room,move,arrive,act,now:()=>now,advance:ms=>now+=ms};
 }
+test('table sipping is owned, finite, idempotent and preserves snack and other drinks',t=>{
+ const {store,am,bm,room,act,move,arrive}=setup(t);
+ store.act(am.id,'window',{type:'take',requestId:randomUUID()});const food=store.serving(am.id);
+ store.act(am.id,'window',{type:'unwrap',requestId:randomUUID(),servingId:food.id,progress:.5});const saved=store.serving(am.id);
+ const key=randomUUID();act(am,'cup-sip',{sips:0},key);assert.equal(store.activities.get(am.id).coffee.sips,1);
+ assert.equal(act(am,'cup-sip',{sips:0},key).replay,true);assert.throws(()=>act(am,'cup-sip',{sips:0}));assert.throws(()=>act(am,'cup-sip',{sips:1},key));
+ assert.equal(store.activities.get(bm.id).coffee.sips,0);assert.deepEqual(store.serving(am.id),saved);assert.equal(store.getUser(am.id).drink,'tea');
+ for(let sips=1;sips<5;sips++)act(am,'cup-sip',{sips});assert.throws(()=>act(am,'cup-sip',{sips:5}));
+ move(am,'coffee');assert.throws(()=>act(am,'cup-sip',{sips:5}));arrive(am);act(am,'coffee-place');assert.throws(()=>act(am,'cup-sip',{sips:0}));
+ store.activities.leave(am.id,room,'coffee');assert.deepEqual(store.serving(am.id),saved);
+});
+
+test('failed sip leaves held items untouched; successful table sip stows them atomically',t=>{
+ const {store,am,room,move,arrive,act,advance,now}=setup(t);move(am,'candy');arrive(am);act(am,'candy-take');const candy=store.activities.get(am.id).candy;
+ moveVisitor(room,am,{type:'sit',seat:0,requestId:randomUUID()},now());advance(am.motion.endsAt-now()+1);
+ assert.throws(()=>act(am,'cup-sip',{sips:3}));assert.equal(store.activities.get(am.id).candy.held,true);
+ act(am,'cup-sip',{sips:0});assert.equal(store.activities.get(am.id).candy.held,false);assert.equal(store.activities.get(am.id).candy.id,candy.id);
+ assert.equal(store.activities.get(am.id).coffee.sips,1);
+});
+
+test('prepared tea and bottles drink directly from the table without consuming the ordinary mug',t=>{
+ const {store,am,bm,room,move,arrive,act,advance,now}=setup(t);
+ const sit=()=>{moveVisitor(room,am,{type:'sit',seat:0,requestId:randomUUID()},now());advance(am.motion.endsAt-now()+1);};
+ move(am,'tea');arrive(am);act(am,'tea-place');let tea=store.activities.get(am.id,now()).rest.tea;
+ act(am,'tea-bag',{itemId:tea.id});act(am,'tea-pour',{itemId:tea.id});advance(3100);act(am,'tea-stop',{itemId:tea.id});act(am,'tea-take',{itemId:tea.id});sit();
+ tea=store.activities.get(am.id,now()).rest.tea;const key=randomUUID(),input={itemId:tea.id,volume:tea.volume,table:true};
+ assert.throws(()=>act(bm,'tea-sip',input));assert.throws(()=>act(am,'cup-sip',{sips:0}));act(am,'tea-sip',input,key);
+ assert.equal(store.activities.get(am.id,now()).rest.tea.volume,tea.volume-.16);assert.equal(store.activities.get(am.id,now()).rest.tea.held,false);assert.equal(act(am,'tea-sip',input,key).replay,true);assert.throws(()=>act(am,'tea-sip',input));
+ assert.equal(store.activities.get(am.id).coffee.sips,0);
+ move(am,'fridge');arrive(am);act(am,'fridge-open');act(am,'bottle-take');const bottle=store.activities.get(am.id).bottle;sit();
+ act(am,'bottle-sip',{itemId:bottle.id,table:true,sips:0});assert.equal(store.activities.get(am.id).bottle.sips,1);assert.equal(store.activities.get(am.id).bottle.held,false);assert.equal(store.activities.get(am.id).tableDrink,'bottle');
+ assert.equal(store.activities.get(am.id,now()).rest.tea.volume,tea.volume-.16);assert.throws(()=>act(am,'tea-sip',{itemId:tea.id,table:true,volume:tea.volume-.16}));assert.throws(()=>act(am,'bottle-sip',{itemId:bottle.id,table:true,sips:0}));
+ act(am,'tea-hold',{itemId:tea.id,held:true,stow:true});assert.equal(store.activities.get(am.id).tableDrink,'tea');
+ act(am,'tea-sip',{itemId:tea.id,volume:tea.volume-.16,table:true});assert.equal(store.activities.get(am.id).bottle.sips,1);
+ act(am,'bottle-hold',{itemId:bottle.id,held:true,stow:true});assert.equal(store.activities.get(am.id).tableDrink,'bottle');
+ act(am,'bottle-sip',{itemId:bottle.id,table:true,sips:1});assert.equal(store.activities.get(am.id).bottle.sips,2);
+});
+
 test('stations reserve before walking, reject remote actions, support cancellation and retargeting',t=>{
  const s=setup(t),{store,am,bm,room,move,arrive,act}=s;
  assert.throws(()=>act(am,'candy-take'),/걸어간/);move(am,'candy');assert.throws(()=>act(am,'candy-take'),/도착/);

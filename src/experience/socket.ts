@@ -1,5 +1,5 @@
 import type {Snapshot} from './types';
-export type ActionReply={status:number;data?:{firstDiscovery:boolean;state:Snapshot};error?:string};
+export type ActionReply={status:number;data?:{replay?:boolean;firstDiscovery:boolean;state:Snapshot};error?:string};
 export type PantrySocket={action:(input:Record<string,unknown>)=>Promise<ActionReply>;contact:(input:Record<string,unknown>)=>void;done:Promise<void>;close:()=>void};
 export class PauseConnection extends Error{}
 export async function openPantrySocket(token:string,room:string,signal:AbortSignal,onState:(state:Snapshot)=>void):Promise<PantrySocket>{

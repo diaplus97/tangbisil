@@ -97,3 +97,14 @@
  .first-person-mode .object-options-panel .personal-items-panel{position:fixed;inset:auto 14px 70px;max-height:55dvh}
  .first-person-mode .simple-tray .food-action-row .primary,.first-person-mode .simple-tray .tray-rest,.first-person-mode .simple-tray .share-snack{padding:8px;font-size:18px}
 }
+
+/* Low third-person view: small labels stay beside the actual table objects. */
+.follow-mode .cup-world-hint{position:absolute;z-index:11;font-size:14px;min-height:44px;padding:8px 10px;max-width:140px}
+.follow-mode .snack-world-hint{font-size:14px;min-height:44px;padding:8px 10px;max-width:160px}
+.follow-mode.view-3d .wrapper-inset{bottom:18px;width:min(350px,calc(100vw - 24px));grid-template-columns:1fr auto;gap:6px}
+.follow-mode.view-3d .wrapper-inset .food-stage{width:100%;bottom:50px;aspect-ratio:1.75}
+.follow-mode .wrapper-inset .tray-rest{font-size:14px;box-shadow:none;background:#f9f6ecd9}
+.follow-mode .wrapper-inset .food-action-row .primary{font-size:16px}
+.follow-mode .wrapper-inset .simple-tray-foot{display:none}
+.follow-mode .wrapper-inset .drag-hint{font-size:13px;background:#f9f6eceb;border-radius:10px}
+.follow-mode .room-assist .look-window{font-size:14px;padding:8px 10px}

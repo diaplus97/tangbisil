@@ -1,3 +1,4 @@
+import {tableDrink} from '../shared/table-drink.mjs';
 import {flowers,validArrangement} from '../shared/vase.mjs';
 import {randomUUID} from 'node:crypto';
 import {decodeSand,encodeSand,rakeSand,initialStones} from '../shared/sand.mjs';
@@ -65,8 +66,8 @@ export function restAction({p,input,member,pose,room,now,near,GameError}){
   t.pourAt=now;t.pourEnd=now+(1-t.volume)*3000;if(t.bagIn&&!t.steepAt)t.steepAt=now;
  }else if(type==='tea-stop'){teaHere();r.tea.pourAt=0;r.tea.pourEnd=0;}
  else if(type==='tea-remove'){teaHere();if(!r.tea.bagIn)throw new GameError('티백은 이미 받침에 있어요.');r.tea.bagIn=false;r.tea.steepAt=0;}
- else if(type==='tea-take'){teaHere();hand('tea');Object.assign(r.tea,{location:'personal',roomId:null,held:true,pourAt:0,pourEnd:0});}
- else if(type==='tea-hold'){own(r.tea,'찻잔');atSeat();if(r.tea.location!=='personal'||typeof input.held!=='boolean')throw new GameError('내 자리에 있는 잔을 집어 주세요.');if(input.held)hand('tea');r.tea.held=input.held;}
- else if(type==='tea-sip'){own(r.tea,'찻잔');atSeat();if(!r.tea.held||r.tea.volume<=0)throw new GameError('차가 든 잔을 먼저 집어 주세요.');r.tea.volume=Math.max(0,r.tea.volume-.16);}
+ else if(type==='tea-take'){teaHere();hand('tea');Object.assign(r.tea,{location:'personal',roomId:null,held:true,pourAt:0,pourEnd:0});p.tableDrink='tea';}
+ else if(type==='tea-hold'){own(r.tea,'찻잔');atSeat();if(r.tea.location!=='personal'||typeof input.held!=='boolean')throw new GameError('내 자리에 있는 잔을 집어 주세요.');if(input.held){hand('tea');p.tableDrink='tea';}r.tea.held=input.held;}
+ else if(type==='tea-sip'){own(r.tea,'찻잔');atSeat();if(r.tea.location!=='personal'||(!r.tea.held&&input.table!==true)||r.tea.volume<=0)throw new GameError('내 자리에 차가 든 잔이 있어야 해요.');if(input.table===true){if(tableDrink(p)!=='tea'||input.volume!==r.tea.volume)throw new GameError('잔의 남은 양이 바뀌었어요.');freeHand(p,{stow:true},null,GameError);r.tea.held=false;}r.tea.volume=Math.max(0,r.tea.volume-.16);p.tableDrink='tea';}
  else throw new GameError('알 수 없는 휴식 행동이에요.',400);
 }
