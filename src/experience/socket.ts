@@ -1,10 +1,10 @@
 import type {Snapshot} from './types';
+import {requestJson} from './request';
 export type ActionReply={status:number;data?:{replay?:boolean;firstDiscovery:boolean;state:Snapshot};error?:string};
 export type PantrySocket={action:(input:Record<string,unknown>)=>Promise<ActionReply>;contact:(input:Record<string,unknown>)=>void;done:Promise<void>;close:()=>void};
 export class PauseConnection extends Error{}
 export async function openPantrySocket(token:string,room:string,signal:AbortSignal,onState:(state:Snapshot)=>void):Promise<PantrySocket>{
-  const admission=await fetch(`/api/connect?room=${room}`,{method:'POST',headers:{Authorization:`Bearer ${token}`},signal});
-  const grant=await admission.json().catch(()=>({error:'지금은 잠시 쉬어가는 중이에요. 조금 뒤 다시 들어와 주세요.'}));
+  const {response:admission,data:grant}=await requestJson(`/api/connect?room=${room}`,{method:'POST',headers:{Authorization:`Bearer ${token}`},signal});
   if(!admission.ok){if([409,429,503,404].includes(admission.status))throw new PauseConnection(grant.error??'잠시 뒤 다시 들어와 주세요.');throw Object.assign(new Error(grant.error),{status:admission.status});}
   if(signal.aborted)throw new DOMException('Aborted','AbortError');
   const url=new URL(`/api/socket?room=${room}`,location.href);url.protocol=url.protocol==='https:'?'wss:':'ws:';
@@ -22,7 +22,7 @@ export async function openPantrySocket(token:string,room:string,signal:AbortSign
   const abort=()=>{reason=new DOMException('Aborted','AbortError');ws.close();stop();};
   const openTimeout=setTimeout(()=>{reason=new Error('연결 응답을 기다리고 있어요.');ws.close();stop();},10000);
   signal.addEventListener('abort',abort,{once:true});
-  ws.onopen=()=>{clearTimeout(openTimeout);heartbeat=setInterval(()=>{
+  ws.onopen=()=>{heartbeat=setInterval(()=>{
     if(Date.now()-lastPong>75000){ws.close();return;}
     if(ws.readyState===WebSocket.OPEN)ws.send('ping');
   },25000);};
@@ -30,7 +30,7 @@ export async function openPantrySocket(token:string,room:string,signal:AbortSign
     if(event.data==='pong'){lastPong=Date.now();return;}
     try{
       const frame=JSON.parse(event.data);
-      if(frame.type==='state')onState(frame.state);
+      if(frame.type==='state'){clearTimeout(openTimeout);onState(frame.state);}
       if(frame.type==='relocated'||frame.type==='paused'){reason=new PauseConnection(frame.error);ws.close();stop();}
       if(frame.type==='result'){
         const entry=pending.get(frame.requestId);if(entry){clearTimeout(entry.timer);pending.delete(frame.requestId);entry.resolve(frame);}

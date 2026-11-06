@@ -54,8 +54,16 @@ export async function setSeaSound(on:boolean){
 export function setSoundVolume(value:number){volume=Math.max(0,Math.min(1,value));if(context&&master){master.gain.cancelAndHoldAtTime(context.currentTime);master.gain.linearRampToValueAtTime(enabled?volume:0,context.currentTime+.04);}}
 export function setBiteSound(on:boolean){mouth=on;}
 export function setOtherSounds(on:boolean){others=on;if(!on)for(const v of voices)if(v.remote)v.stop();}
-export function setActionSounds(on:boolean){actions=on;if(!on){stopRoomSounds();document.dispatchEvent(new Event('pantry-audio-muted'));}else document.dispatchEvent(new Event('pantry-audio-ready'));}
+export function setActionSounds(on:boolean){actions=on;if(!on){stopRoomSounds();document.dispatchEvent(new Event('pantry-audio-muted'));}else{loadActionSounds();document.dispatchEvent(new Event('pantry-audio-ready'));}}
 export function stopRoomSounds(){stopSandSound();stopWrapperSound();for(const voice of voices)voice.stop();}
+function loadActionSounds(){
+  if(!enabled||!actions||!context||loading)return;
+  const missing=Object.entries(urls).filter(([key])=>!buffers.has(key as Clip));if(!missing.length)return;
+  loading=Promise.allSettled(missing.map(async([key,url])=>{
+    const response=await fetch(url);if(!response.ok)throw new Error('Audio unavailable');
+    buffers.set(key as Clip,await context!.decodeAudioData(await response.arrayBuffer()));
+  })).then(()=>{loading=undefined;if(enabled&&actions)document.dispatchEvent(new Event('pantry-audio-ready'));});
+}
 export async function enableSound(on:boolean){
   enabled=on;const ticket=++generation;
   if(!on){seaWanted=false;seaGeneration++;stopSea();stopSandSound();stopWrapperSound();for(const v of voices)v.stop();document.dispatchEvent(new Event('pantry-audio-muted'));if(context&&master)master.gain.setTargetAtTime(0,context.currentTime,.015);return true;}
@@ -67,10 +75,7 @@ export async function enableSound(on:boolean){
       document.addEventListener('visibilitychange',()=>{if(document.hidden){stopSandSound();stopWrapperSound();for(const v of voices)v.stop();document.dispatchEvent(new Event('pantry-audio-muted'));void context?.suspend();}else if(enabled)void context?.resume().then(()=>document.dispatchEvent(new Event('pantry-audio-ready')));});
     }
     master!.gain.setTargetAtTime(volume,context.currentTime,.025);if(!document.hidden)await context.resume();
-    loading??=Promise.allSettled(Object.entries(urls).map(async([key,url])=>{
-      const response=await fetch(url);if(!response.ok)throw new Error('Audio unavailable');
-      buffers.set(key as Clip,await context!.decodeAudioData(await response.arrayBuffer()));
-    })).then(results=>{if(results.some(result=>result.status==='rejected'))loading=undefined;if(enabled)document.dispatchEvent(new Event('pantry-audio-ready'));});
+    loadActionSounds();
     // Ocean playback must not wait for (or fail with) an unrelated object clip.
     return enabled&&ticket===generation;
   }catch{if(ticket===generation)enabled=false;loading=undefined;return false;}

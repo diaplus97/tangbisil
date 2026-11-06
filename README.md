@@ -110,7 +110,7 @@ npm run dev:cloudflare
 
 공개 배포의 health·두 방문자 나눔·새로고침과 이번 재배포 후 개인 기록 보존 검수를 마쳤다. 시식을 든 별도 방 링크 이동/맛봄은 로컬 DO에서 검증했으며 해당 흐름의 공개 검수는 남아 있다. 방문자 토큰은 해당 브라우저에 있으므로 PC 기록이 휴대폰으로 자동 이전되지는 않는다. 로컬 실행과 다른 주소에서는 새 방문자로 시작한다. 계정 복구·대규모 부하·운영 백업/보존 정책도 후속 검토 대상이다.
 
-선택 배포용 Docker와 `render.yaml`은 유지한다. Node 24 단일 서버, `HOST=0.0.0.0`, 플랫폼 `PORT`, `/api/health`, 영속 DB 경로가 필요하다. Render는 `/var/data/pantry.sqlite`와 1GB 디스크, Railway는 `/data/pantry.sqlite`와 해당 볼륨을 사용한다. 유료 서비스 생성은 보류한다. `npm run check:runtime`은 별도 임시 폴더/DB에서 Node 배포 구성을 검사한다. 구 Cloudflare용 `verify:deploy`·`verify:online`은 실행하지 않는다.
+선택 배포용 Docker와 `render.yaml`은 유지한다. Node 24 단일 서버, `HOST=0.0.0.0`, 플랫폼 `PORT`, `/api/health`, 영속 DB 경로가 필요하다. Render는 `/var/data/pantry.sqlite`와 1GB 디스크, Railway는 `/data/pantry.sqlite`와 해당 볼륨을 사용한다. 유료 서비스 생성은 보류한다. `npm run check:runtime`은 별도 임시 폴더/DB에서 Node 배포 구성을 검사한다. `npm run verify:deploy -- <주소>`와 `verify:online`은 현재 게임의 HTML·health·같은 출처 실행 파일/스타일을 GET으로 확인한다. 방문자 생성·기록 정리·AI 호출은 없으며 실제 두 방문자 동기화 검수를 대체하지 않는다.
 
 ## 주요 소스
 - `src/experience/`: 화면·3D·입력·실시간 연결

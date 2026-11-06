@@ -1,6 +1,6 @@
 import http from 'node:http';
 import {sandContact} from './sand-contact.mjs';
-import {roomSnapshot,validateSnackAction,actionNames as actions} from './room-view.mjs';
+import {roomSnapshot,roomSnapshotBatch,validateSnackAction,actionNames as actions} from './room-view.mjs';
 import { stat } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 import { createStore, GameError } from './store.mjs';
@@ -26,9 +26,10 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
   }
   const snapshot=(r,id)=>roomSnapshot(store,r,id,version);
   function broadcast(r) {
-    version++;
+    version++;const view=roomSnapshotBatch(store,r,version);
     for (const m of r.members.values()) {
-      const data=`event: state\ndata: ${JSON.stringify(snapshot(r,m.id))}\n\n`;
+      if(!m.streams.size)continue;
+      const data=`event: state\ndata: ${JSON.stringify(view(m.id))}\n\n`;
       for (const res of m.streams) { if (!res.destroyed) res.write(data); }
     }
   }

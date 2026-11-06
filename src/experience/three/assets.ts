@@ -57,13 +57,14 @@ export function consolidate(group:T.Group,kit:Workshop){
 }
 
 export function label(kit:Workshop,parent:T.Object3D,text:string,w:number,h:number,x:number,y:number,z:number,color=colors.deepBlue,bg=colors.cream,fontSize=42){
-  const texture=kit.texture(c=>{
+  const key='label:'+JSON.stringify([text,color,bg,fontSize]);let material=kit.materials.get(key);
+  if(!material){const texture=kit.texture(c=>{
     c.fillStyle=bg;c.fillRect(0,0,512,128);c.fillStyle=color;
     let size=Math.min(fontSize,96);c.font=`500 ${size}px "Malgun Gothic", sans-serif`;
     while(size>16&&(c.measureText(text).width>464||c.measureText(text).actualBoundingBoxAscent+c.measureText(text).actualBoundingBoxDescent>96)){size--;c.font=`500 ${size}px "Malgun Gothic", sans-serif`;}
     const metrics=c.measureText(text);c.textAlign='center';c.textBaseline='alphabetic';c.fillText(text,256,64+(metrics.actualBoundingBoxAscent-metrics.actualBoundingBoxDescent)/2);
   },512,128);
-  const material=new T.MeshStandardMaterial({map:texture,roughness:1,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});kit.materials.set('label:'+text+kit.materials.size,material);
+  material=new T.MeshStandardMaterial({map:texture,roughness:1,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});kit.materials.set(key,material);}
   return kit.mesh(parent,new T.PlaneGeometry(w,h),material,x,y,z);
 }
 

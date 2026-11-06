@@ -7,7 +7,7 @@ import {getSpace} from '../shared/space.mjs';
 import {moveVisitor} from '../server/movement.mjs';
 import {completeTravel,reservedSeats} from '../server/travel.mjs';
 import {sandContact} from '../server/sand-contact.mjs';
-import {roomSnapshot,validateSnackAction,actionNames} from '../server/room-view.mjs';
+import {roomSnapshot,roomSnapshotBatch,validateSnackAction,actionNames} from '../server/room-view.mjs';
 import {startRoomMedia,mediaAction,migrateTvQueue,needsTvQueueMigration} from '../shared/room-media.mjs';
 import {actionInput} from '../shared/requests.mjs';
 
@@ -33,7 +33,7 @@ export class PantryRoom extends DurableObject {
   home(key){return this.env.VISITORS.get(this.env.VISITORS.idFromName(key));}
   other(room){return this.env.ROOMS.get(this.env.ROOMS.idFromName(room));}
   snapshot(id){return roomSnapshot(this.store,this.r,id,this.r.version,m=>this.sockets(m.id).length>0);}
-  broadcast(){for(const m of this.r.members.values()){const value=JSON.stringify({type:'state',state:this.snapshot(m.id)});for(const ws of this.sockets(m.id))try{ws.send(value);}catch{}}}
+  broadcast(){const view=roomSnapshotBatch(this.store,this.r,this.r.version,m=>this.sockets(m.id).length>0);for(const m of this.r.members.values()){const sockets=this.sockets(m.id);if(!sockets.length)continue;const value=JSON.stringify({type:'state',state:view(m.id)});for(const ws of sockets)try{ws.send(value);}catch{}}}
   queueUser(m){
     const previous=this.r.pending[m.key];if(!previous)m.revision++;
     const checkpoint=captureUser(this.db,m.id),food=checkpoint.tables.servings[0];
@@ -56,7 +56,9 @@ export class PantryRoom extends DurableObject {
     }
   }
   async schedule(){
-    const times=[this.r.retryAt,...[...this.r.members.values()].flatMap(m=>[m.departAt,m.arriveAt,m.readyAt])].filter(t=>t>0);
+    // Overdue game timers cannot bypass a failed outbox's backoff or restart
+    // automatic retries after its budget is exhausted. An explicit action can retry.
+    const times=(this.r.retries&&this.hasOutbox()?[this.r.retryAt]:[...[...this.r.members.values()].flatMap(m=>[m.departAt,m.arriveAt,m.readyAt])]).filter(t=>t>0);
     const next=times.length?Math.max(Date.now()+20,Math.min(...times)):null,current=await this.ctx.storage.getAlarm();
     if(next!==null){if(current!==next)await this.ctx.storage.setAlarm(next);}else if(current!==null)await this.ctx.storage.deleteAlarm();
   }
@@ -192,13 +194,24 @@ export class PantryRoom extends DurableObject {
   webSocketClose(ws){try{ws.close(1000,'Disconnected');}catch{}return this.exclusive(async()=>{
     const attachment=ws.deserializeAttachment(),m=this.r.members.get(attachment?.id);
     if(!m||this.sockets(m.id).some(socket=>socket!==ws))return;
-    await this.flush();this.atomic(()=>{
+    // Record disconnection before an outbox flush can fail. Recovery must still
+    // release this seat even if the close callback cannot reach its final flush.
+    this.atomic(()=>{
       m.contact=null;m.departAt=Date.now()+5000;
       if(m.travel||m.motion?.keyboard){moveVisitor(this.r,m,{type:'stand',requestId:'disconnect-'+crypto.randomUUID()});m.arriveAt=0;}
-      if(m.station==='tea'||m.station==='plant'){this.store.activities.leave(m.id,this.r,m.station);m.readyAt=0;this.queueUser(m);}
       this.r.version++;
+    });await this.flush();this.atomic(()=>{
+      if(m.station==='tea'||m.station==='plant'){this.store.activities.leave(m.id,this.r,m.station);m.readyAt=0;this.queueUser(m);}
     });await this.flush();this.broadcast();await this.schedule();
   });}
   webSocketError(ws){try{ws.close(1011,'Connection interrupted');}catch{}return this.webSocketClose(ws);}
-  alarm(){return this.exclusive(()=>this.advance());}
+  hasOutbox(){return Object.keys(this.r.pending).length>0||this.r.tastes.length>0||this.r.releases.length>0;}
+  alarm(){return this.exclusive(async()=>{
+    if(this.r.retries&&this.hasOutbox()&&(!this.r.retryAt||this.r.retryAt>Date.now())){await this.schedule();return;}
+    try{await this.advance();}catch(error){
+      // flush already persisted the next bounded retry. Throwing here would also
+      // start the platform's alarm retries, outside that budget.
+      if(!this.r.retries||!this.hasOutbox())throw error;
+    }
+  });}
 }

@@ -201,6 +201,36 @@ test('Cloudflare pending personal commit recovers after failure without an extra
   await home.exec("UPDATE cf_json SET value=? WHERE key='record'",original);
   const retry=await c.act('bite',{servingId},requestId);assert.equal(retry.status,200);assert.equal(retry.data.replay,true);assert.equal(retry.data.state.self.serving.bites,1);assert.equal(retry.data.state.self.coins,50);
 });
+test('Cloudflare disconnect during a failed save still schedules departure without losing the pending item',{timeout:30000},async t=>{
+ const {visitor,connect,storage}=await setup(t),a=await visitor('퇴장복구'),c=await connect(a);
+ const key=createHash('sha256').update(a.token).digest('hex'),home=await storage('PantryVisitor',key),room=await storage('PantryRoom','window');
+ const original=(await home.exec("SELECT value FROM cf_json WHERE key='record'"))[0].value,changed=JSON.parse(original);changed.epoch+=99;
+ await home.exec("UPDATE cf_json SET value=? WHERE key='record'",JSON.stringify(changed));assert.equal((await c.act('take')).status,503);c.ws.close();
+ await delay(200);const read=async()=>JSON.parse((await room.exec("SELECT value FROM cf_json WHERE key='room'"))[0].value),pending=await read();
+ assert.ok(pending.members[0].departAt>0);assert.ok(pending.pending[key]);await home.exec("UPDATE cf_json SET value=? WHERE key='record'",original);
+ await delay(5100);const b=await visitor('동료'),peer=await connect(b);assert.equal(peer.state.room.members.some(m=>m.id===a.user.id),false);
+ const restored=await connect(a);assert.equal(restored.state.self.serving.state,'sealed');
+});
+
+test('Cloudflare failed saves respect backoff despite overdue movement and stop after three automatic retries',{timeout:50000},async t=>{
+ const {visitor,connect,storage}=await setup(t),a=await visitor('대기검사'),c=await connect(a);
+ const key=createHash('sha256').update(a.token).digest('hex'),home=await storage('PantryVisitor',key),room=await storage('PantryRoom','window');
+ const original=(await home.exec("SELECT value FROM cf_json WHERE key='record'"))[0].value,changed=JSON.parse(original);changed.epoch+=99;
+ await home.exec("UPDATE cf_json SET value=? WHERE key='record'",JSON.stringify(changed));
+ const requestId=randomUUID();assert.equal((await c.act('stand',{},requestId)).status,503);
+ const read=async()=>JSON.parse((await room.exec("SELECT value FROM cf_json WHERE key='room'"))[0].value);
+ const first=await read();assert.equal(first.retries,1);assert.ok(first.retryAt-Date.now()>9000);
+ await delay(1500);const overdue=await read();assert.ok(overdue.members[0].arriveAt<Date.now());assert.equal(overdue.retries,1);
+ for(let expected=2;expected<=4;expected++){
+  const before=await read();await delay(Math.max(0,before.retryAt-Date.now())+150);const after=await read();
+  assert.equal(after.retries,expected);if(expected<4)assert.ok(after.retryAt-Date.now()>9000);else assert.equal(after.retryAt,0);
+ }
+ await delay(2500);assert.equal((await read()).retries,4);
+ await home.exec("UPDATE cf_json SET value=? WHERE key='record'",original);
+ assert.equal((await c.act('stand',{},requestId)).status,200);
+ const recovered=await read();assert.equal(recovered.retries,0);assert.equal(recovered.retryAt,0);assert.equal(Object.keys(recovered.pending).length,0);assert.equal(recovered.members[0].arriveAt,0);
+});
+
 test('Cloudflare room capacity, unsupported rooms and daily allowance fail gently', {timeout:30000},async t=>{
   const {visitor,connect}=await setup(t,{ROOM_DAILY_MESSAGES:'2'}),users=[];
   for(let i=0;i<7;i++)users.push(await visitor('자리'+i));

@@ -16,6 +16,7 @@ export function createGameStore(db,{crossRoomOffers=false}={}) {
       state TEXT NOT NULL CHECK(state IN ('sealed','open','empty')), bites INTEGER NOT NULL DEFAULT 0,
       portions INTEGER NOT NULL DEFAULT 3, source TEXT NOT NULL, created_at INTEGER NOT NULL
     );
+    CREATE INDEX IF NOT EXISTS servings_user_created ON servings(user_id,created_at);
     CREATE TABLE IF NOT EXISTS discoveries (
       user_id TEXT NOT NULL REFERENCES users(id), snack_id TEXT NOT NULL, discovered_at INTEGER NOT NULL,
       source TEXT NOT NULL, PRIMARY KEY(user_id,snack_id)
