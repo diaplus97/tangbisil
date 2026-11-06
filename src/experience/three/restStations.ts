@@ -53,13 +53,14 @@ export function createRestStations(kit:Workshop,scene:T.Scene,visible=true){
 
  const stream=kit.cylinder(tray,.005,.009,.13,-.2,.355,.12,'#d4dfcb');stream.visible=false;stream.castShadow=false;const waterMat=new T.MeshPhysicalMaterial({color:'#f2fff8',transparent:true,opacity:.55,roughness:.08,clearcoat:1,depthWrite:false});kit.materials.set('tea-stream',waterMat);stream.material=waterMat;
  label(kit,tray,'따뜻한 보리차',.6,.08,0,-.085,.49,'#5b735d','#e8e3d0',84);
- const hand=new T.Group();foregroundScene.add(hand);let handKind='',held:T.Group|null=null,heldTea:ReturnType<typeof teaModel>|null=null;
+ const hand=new T.Group();hand.userData.action='held';foregroundScene.add(hand);let handKind='',held:T.Group|null=null,heldTea:ReturnType<typeof teaModel>|null=null;
  function foreground(camera:T.Camera,state:Snapshot|null,show:boolean){
   const r=state?.self.pantry.rest,kind=r?.sprayer?'sprayer':r?.tea?.held?'tea':'';hand.visible=show&&Boolean(kind);if(!hand.visible)return;
   if(kind!==handKind){heldTea?.dispose();heldTea=null;if(held)kit.release(held);held=new T.Group();hand.add(held);handKind=kind;
    const item=kind==='sprayer'?misterModel(kit,held):(heldTea=teaModel(kit,held)).group;item.position.set(0,-.13,0);
    kit.sphere(held,.06,.07,-.07,.04,'#dfb599',.55,.8,1);kit.box(held,.085,.09,.25,.095,-.13,.17,'#6d8c99',.03);
   }
+  hand.traverse(o=>{if(o instanceof T.Mesh)o.castShadow=false;});
   const now=state?state.serverTime+performance.now()-received:Date.now();heldTea?.update(r?.tea??null,now,performance.now(),false);
   const bottom=camera instanceof T.PerspectiveCamera?-Math.tan(T.MathUtils.degToRad(camera.fov/2))*.68*.7:-.2;
   hand.position.set(.19,bottom,-.68).applyQuaternion(camera.quaternion).add(camera.position);hand.quaternion.copy(camera.quaternion);hand.scale.setScalar(.75);
@@ -73,10 +74,10 @@ export function createRestStations(kit:Workshop,scene:T.Scene,visible=true){
   leaves.forEach(({pivot,rest,index})=>{const a=age<1900?Math.exp(-age/600)*Math.sin(age*.012+index*.6)*.055:0,b=brushAge<2200?Math.exp(-brushAge/800)*Math.sin(brushAge*.006+index*.3)*.12:0;pivot.rotation.x=rest+(reduced?0:a+b);});
   droplets.forEach((d,i)=>{d.visible=spray>0&&age>220+i*5&&age<18000;});dropletMat.opacity=Math.max(0,.75*(1-age/18000));
   mist.visible=!reduced&&spray>0&&age>=0&&age<650;
-  if(mist.visible)for(let i=0;i<52;i++){const t=Math.max(0,(age-i*3)/650),a=i*2.399,r=.025+((i*37)%53)/53*.21;dummy.position.set(.5*(1-t)+Math.cos(a)*r*t,1.42+Math.sin(a)*r*t-.13*t*t,.55-.7*t);dummy.scale.setScalar(t>0?Math.sin(Math.PI*Math.min(1,t)):.001);dummy.updateMatrix();mist.setMatrixAt(i,dummy.matrix);}mist.instanceMatrix.needsUpdate=true;
+  if(mist.visible)for(let i=0;i<52;i++){const t=Math.max(0,(age-i*3)/650),a=i*2.399,r=.025+((i*37)%53)/53*.21;dummy.position.set(.5*(1-t)+Math.cos(a)*r*t,1.42+Math.sin(a)*r*t-.13*t*t,.55-.7*t);dummy.scale.setScalar(t>0?Math.sin(Math.PI*Math.min(1,t)):.001);dummy.updateMatrix();mist.setMatrixAt(i,dummy.matrix);}if(mist.visible)mist.instanceMatrix.needsUpdate=true;
   const owner=members.find(m=>m.station==='tea'&&m.pantry.rest?.tea?.location==='station'),raw=owner?.pantry.rest.tea??null,t=sampleTea(raw as Tea|null,now),pouring=Boolean(t?.pourAt&&t.pourEnd>now);
   tea.group.visible=Boolean(t);tea.update(raw,now,time,reduced);usedBag.visible=Boolean(t?.bagUsed&&!t.bagIn);saucer.visible=true;tin.visible=true;stream.visible=pouring;const surface=.095+(t?.volume??0)*.155;stream.position.y=(.38+surface)/2;stream.scale.y=(.38-surface)/.13;stream.scale.x=reduced?1:1+Math.sin(time*.023)*.08;
   kettle.position.set(.16,.16,-.12);kettle.rotation.z=0;tap.position.y=pouring?.172:.18;
  }
- return{tick,foreground,dispose(){mist.geometry.dispose();mistMaterial.dispose();tea.dispose();heldTea?.dispose();}};
+ return{interactionTargets:[hand],tick,foreground,dispose(){mist.geometry.dispose();mistMaterial.dispose();tea.dispose();heldTea?.dispose();}};
 }

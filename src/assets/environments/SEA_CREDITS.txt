@@ -24,7 +24,10 @@ Pexels License: https://www.pexels.com/license/
 Filmed footage; audio removed, 1280x640 crop at 24 fps,
 1-second overlap dissolve, 13-second H.264/VP9 loop.
 
-Posters use the first edited frame. landscape-video.json records source URLs,
+Forest now uses a static 1920x960 poster extracted at 4 seconds from the official
+1920x1080 source (50854-1080.mp4), without stabilization zoom or upscaling.
+Forest loops are retained as source history but never loaded/decoded in the game.
+Fire and sea posters use the first edited frame. landscape-video.json records source URLs,
 original/output SHA256, file sizes, and edits. Licenses permit use in this game;
 they do not mean that the source footage is public domain or may be resold as stock.
 

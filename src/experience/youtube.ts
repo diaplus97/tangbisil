@@ -2,7 +2,7 @@ export type YouTubePlayer={
   loadVideoById:(clip:{videoId:string;startSeconds:number})=>void;
   cueVideoById:(clip:{videoId:string;startSeconds:number})=>void;
   playVideo:()=>void;pauseVideo:()=>void;mute:()=>void;destroy:()=>void;
-  getPlayerState:()=>number;
+  getPlayerState:()=>number;getCurrentTime:()=>number;getDuration:()=>number;getPlaybackRate:()=>number;getVideoUrl:()=>string;
 };
 type PlayerOptions={events:{onReady:(event:{target:YouTubePlayer})=>void;onStateChange:(event:{data:number})=>void;onError:(event:{data:number})=>void;onAutoplayBlocked:()=>void}};
 type YouTubeApi={Player:new(element:HTMLIFrameElement,options:PlayerOptions)=>YouTubePlayer};

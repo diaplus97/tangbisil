@@ -46,7 +46,7 @@ export async function setSeaSound(on:boolean){
   try{
     seaLoading??=fetch(seaUrl).then(async response=>{if(!response.ok)throw new Error('Sea audio unavailable');return context!.decodeAudioData(await response.arrayBuffer());});
     seaBuffer=await seaLoading;
-    if(ticket!==seaGeneration||!seaWanted||!enabled)return false;
+    if(ticket!==seaGeneration||!seaWanted||!enabled)return true;
     startSea();return true;
   }catch{if(ticket===seaGeneration)seaWanted=false;seaLoading=undefined;return false;}
 }
@@ -66,11 +66,12 @@ export async function enableSound(on:boolean){
       document.addEventListener('visibilitychange',()=>{if(document.hidden){stopSandSound();stopWrapperSound();for(const v of voices)v.stop();void context?.suspend();}else if(enabled)void context?.resume();});
     }
     master!.gain.setTargetAtTime(volume,context.currentTime,.025);if(!document.hidden)await context.resume();
-    loading??=Promise.all(Object.entries(urls).map(async([key,url])=>{
+    loading??=Promise.allSettled(Object.entries(urls).map(async([key,url])=>{
       const response=await fetch(url);if(!response.ok)throw new Error('Audio unavailable');
       buffers.set(key as Clip,await context!.decodeAudioData(await response.arrayBuffer()));
-    })).then(()=>{});
-    await loading;if(enabled&&ticket===generation)document.dispatchEvent(new Event('pantry-audio-ready'));return enabled&&ticket===generation;
+    })).then(results=>{if(results.some(result=>result.status==='rejected'))loading=undefined;if(enabled)document.dispatchEvent(new Event('pantry-audio-ready'));});
+    // Ocean playback must not wait for (or fail with) an unrelated object clip.
+    return enabled&&ticket===generation;
   }catch{if(ticket===generation)enabled=false;loading=undefined;return false;}
 }
 function play(clip:Clip,{gain=1,rate=1,pan=0,remote=false,rustle=false,offset=0,duration}:{gain?:number;rate?:number;pan?:number;remote?:boolean;rustle?:boolean;offset?:number;duration?:number}={}){

@@ -1,0 +1,87 @@
+/* The room owns the viewport. Controls are local, optional overlays. */
+.first-person-mode:not(.is-welcome):not(.dev-mode){height:100dvh;min-height:0;max-width:none;padding:0;display:flex;flex-direction:column;overflow:hidden;gap:0}
+.first-person-mode:not(.is-welcome) .app-header{flex:none;height:64px;padding:0 20px;box-sizing:border-box}
+.first-person-mode:not(.is-welcome) .game-space{flex:1 1 0;min-height:0;display:flex;flex-direction:column;isolation:isolate}
+.first-person-mode:not(.is-welcome):not(.dev-mode) .room-three,.first-person-mode:not(.is-welcome):not(.dev-mode) .three-loading{flex:1 1 0;height:auto;min-height:0;border:0;border-radius:0;margin:0}
+.first-person-mode:not(.dev-mode) .room-three-canvas{cursor:grab;outline-offset:-3px}
+.first-person-mode:not(.dev-mode) .room-navigation{position:absolute;inset:0;pointer-events:none;z-index:12;display:block;padding:0;min-height:0}
+.first-person-mode .room-navigation .look-controls,.first-person-mode .room-navigation .mobile-tools-slot{display:none}
+.first-person-mode .room-navigation .destination-bar{pointer-events:auto;position:absolute;right:12px;top:8px;width:0;height:0;margin:0;padding:0}
+.first-person-mode .room-navigation .seat-picker>summary{position:fixed;left:-10000px}
+.first-person-mode .room-navigation .seat-picker-panel{position:absolute;left:auto;right:0;top:0;bottom:auto;transform:none;width:min(360px,calc(100vw - 24px));max-height:calc(100dvh - 96px)}
+.first-person-mode .scene-toolbar{display:flex;inset:12px 14px auto}
+.first-person-mode .scene-toolbar .scene-label{background:#f4f6ecb8;backdrop-filter:blur(8px);border:1px solid #ffffff9c;box-shadow:0 2px 12px #304c4410}
+.first-person-mode .scene-toolbar .sea-sound-toggle{background:#f4f6ecdb;border:1px solid #ffffffa8;box-shadow:0 2px 12px #304c4410}
+.object-context{position:absolute;z-index:9;display:flex;align-items:center;justify-content:center;gap:6px;max-width:calc(100% - 24px);pointer-events:none}
+.object-context.at-station{left:var(--context-x,50%);top:var(--context-y,58%);transform:none}
+.object-context.held-context{right:14px;bottom:max(68px,env(safe-area-inset-bottom));flex-wrap:wrap;max-width:270px}
+.object-context button,.object-context summary{pointer-events:auto}
+.world-action,.world-status,.room-assist button,.object-options>summary{min-height:44px;border:1px solid #fffdf6b5;border-radius:14px;background:#f7f7edeb;box-shadow:0 3px 18px #2b443826;color:#365a4c;font-size:13px;line-height:1.55;padding:10px 14px;white-space:normal;word-break:keep-all;backdrop-filter:blur(10px)}
+.world-action:hover,.room-assist button:hover{background:#fffdf7;border-color:#86a391}
+.world-status{display:flex;align-items:center}
+.object-options{position:relative;pointer-events:auto}
+.object-options>summary{list-style:none;min-width:44px;text-align:center;padding:9px;font-size:20px;cursor:pointer}
+.object-options>summary::-webkit-details-marker{display:none}
+.object-options-panel{position:fixed;z-index:25;right:14px;bottom:68px;max-width:min(360px,calc(100vw - 28px));max-height:55dvh;overflow:auto;background:#fcfcf3;border:1px solid #cbd8c9;border-radius:16px;box-shadow:0 6px 32px #253c3538;padding:10px;pointer-events:auto}
+.first-person-mode .object-options-panel .object-actions{margin:0;padding:4px;border:0;background:transparent}
+.first-person-mode .object-options-panel .object-actions>p{position:static;width:auto;height:auto;clip-path:none;white-space:normal;margin:0 0 8px;font-size:12px;line-height:1.6}
+.first-person-mode .object-options-panel .object-action-buttons{flex-direction:column;align-items:stretch;gap:6px}
+.first-person-mode .object-options-panel .object-action-buttons button{font-size:13px;min-height:44px;flex:none}
+.room-assist{position:absolute;right:14px;bottom:max(12px,env(safe-area-inset-bottom));z-index:8;display:flex;gap:6px}
+.direct-hint{position:absolute;left:14px;bottom:16px;z-index:8;max-width:calc(100% - 190px);display:flex;align-items:center;gap:4px;padding:8px 12px;border-radius:12px;background:#f4f6ece0;color:#4a675a;font-size:12px;line-height:1.6;pointer-events:none}
+.direct-hint button{pointer-events:auto;min-width:32px;min-height:32px;padding:0;background:transparent;color:#4a675a;font-size:18px}
+.first-person-mode .audio-status{position:absolute;z-index:24;top:65px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 28px);background:#fff9ebed;padding:8px 12px;border-radius:10px;font-size:12px;line-height:1.6}
+.first-person-mode .error-banner{position:fixed;left:50%;bottom:74px;transform:translateX(-50%);z-index:30;width:max-content;max-width:calc(100vw - 28px);margin:0;font-size:13px;line-height:1.6}
+.first-person-mode.view-3d .simple-tray{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);width:min(400px,calc(100vw - 24px));padding:0;display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:6px;z-index:10;pointer-events:none}
+.first-person-mode .simple-tray button,.first-person-mode .simple-tray .food-stage{pointer-events:auto}
+.first-person-mode .simple-tray-head,.first-person-mode .simple-tray-foot,.first-person-mode .simple-tray .food-action-row{display:contents}
+.first-person-mode .simple-tray-head h2,.first-person-mode .simple-tray .interaction-note{display:none}
+.first-person-mode.view-3d .simple-tray .food-stage{top:auto;bottom:52px;width:min(360px,calc(100vw - 20px));height:auto;aspect-ratio:1.75;left:50%;transform:translateX(-50%)}
+.first-person-mode .simple-tray .food-action-row .primary,.first-person-mode .simple-tray .tray-rest,.first-person-mode .simple-tray .share-snack{min-height:44px;max-width:none;min-width:44px;width:auto;padding:8px 12px;background:#f7f7edee;color:#365a4c;border:1px solid #ffffffb5;border-radius:12px;font-size:13px;line-height:1.6;box-shadow:0 3px 16px #2b443826;justify-content:center}
+.first-person-mode .simple-tray .food-action-row .primary{grid-column:1;grid-row:1}
+.first-person-mode .simple-tray .tray-rest{grid-column:2;grid-row:1}
+.first-person-mode .simple-tray .share-snack,.first-person-mode .simple-tray .shared-status{grid-column:3;grid-row:1}
+.first-person-mode .simple-tray .food-action-row .primary>span,.first-person-mode .simple-tray .tray-rest>span[aria-hidden],.first-person-mode .share-snack>span[aria-hidden]{display:none}
+.first-person-mode .simple-tray .compact-label{display:inline}.first-person-mode .simple-tray .desktop-label{display:none}
+.first-person-mode .simple-tray .shared-status{background:#f7f7edee;border-radius:10px;padding:8px;font-size:11px;line-height:1.6}
+/* Readable first-use controls; the 48px target is a project goal, not a claim of conformance. */
+.first-person-mode:not(.is-welcome) .app-header{position:absolute;inset:12px 14px auto;height:auto;padding:0;pointer-events:none;align-items:flex-start}
+.first-person-mode .app-header a,.first-person-mode .app-header button,.first-person-mode .app-header details{pointer-events:auto}
+.first-person-mode:not(.is-welcome) .brand{background:#f9f6ec;border:1px solid #e0e5d8;border-radius:16px;padding:10px 16px;color:#314a40;font-size:24px;line-height:1.25;min-height:68px;box-sizing:border-box}
+.first-person-mode .brand-mark,.first-person-mode .header-controls>.connection{display:none}
+.first-person-mode .brand small{display:block;font-size:14px;line-height:1.6;letter-spacing:0;color:#314a40}
+.first-person-mode .header-controls{align-items:flex-start;gap:8px}
+.first-person-mode .sound-toggle,.first-person-mode .desktop-help,.first-person-mode .desktop-settings,.first-person-mode .play-menu>summary{display:flex;align-items:center;justify-content:center;min-height:48px;min-width:48px;font-size:18px;line-height:1.5;padding:10px 16px;border:1px solid #d7dfcf;border-radius:14px;background:#f9f6ec;color:#314a40;gap:0}
+.first-person-mode .sound-toggle svg,.first-person-mode .play-menu>summary>span{display:none}
+.first-person-mode .sound-toggle span{display:inline}
+.first-person-mode .scene-toolbar{display:none}
+.first-person-mode .play-menu-content button{font-size:18px;line-height:1.5;min-height:48px}
+.world-action,.world-status,.room-assist button,.object-options>summary{min-height:48px;min-width:48px;font-size:18px;line-height:1.5;background:#f9f6ec;color:#314a40;border-color:#d5dfcc;backdrop-filter:none;box-sizing:border-box}
+.object-context{gap:8px}
+.object-options>summary{font-size:16px;padding:10px}
+.snack-world-hint{max-width:min(280px,calc(100% - 24px));position:absolute;z-index:8;border:2px solid #77916b;box-shadow:0 3px 16px #2b443826}
+.snack-world-hint::after{content:'';position:absolute;bottom:-9px;left:50%;width:14px;height:14px;transform:rotate(45deg);background:#f9f6ec;border-right:2px solid #77916b;border-bottom:2px solid #77916b}
+.direct-hint{font-size:18px;line-height:1.5;background:#f9f6ec;color:#314a40;max-width:calc(100% - 260px)}
+.room-assist.at-object{left:14px;right:auto}
+.room-assist.at-object .look-window{display:none}
+.room-assist{gap:8px}
+.first-person-mode .simple-tray .food-action-row .primary,.first-person-mode .simple-tray .tray-rest,.first-person-mode .simple-tray .share-snack{font-size:18px;line-height:1.5;min-height:48px;min-width:48px;background:#f9f6ec;color:#314a40}
+.first-person-mode .simple-tray{gap:8px}
+@media(max-width:650px){
+ .first-person-mode:not(.is-welcome) .app-header{inset:10px 10px auto;padding:0;height:auto}
+ .first-person-mode:not(.is-welcome) .brand{font-size:20px;padding:8px 10px;min-height:62px;border-radius:14px}
+ .first-person-mode .brand small{font-size:12px}
+ .first-person-mode .header-controls{gap:8px}
+ .first-person-mode .desktop-help,.first-person-mode .desktop-settings{display:none}
+ .first-person-mode .sound-toggle,.first-person-mode .play-menu>summary{padding:10px;font-size:18px;min-height:48px}
+ .first-person-mode .connection{left:12px}
+ .first-person-mode .scene-toolbar{inset:8px 10px auto;gap:6px}
+ .first-person-mode .scene-toolbar .scene-label{max-width:calc(100% - 134px);padding:8px;font-size:11px}
+ .first-person-mode .scene-toolbar .sea-sound-toggle{font-size:11px;padding:8px}
+ .direct-hint{left:10px;bottom:74px;max-width:calc(100% - 20px);font-size:18px;padding:8px 12px}
+ .room-assist{right:10px;bottom:10px}
+ .world-action,.world-status{font-size:18px;padding:10px 14px}
+ .object-context.held-context{right:10px;bottom:66px}
+ .first-person-mode .object-options-panel .personal-items-panel{position:fixed;inset:auto 14px 70px;max-height:55dvh}
+ .first-person-mode .simple-tray .food-action-row .primary,.first-person-mode .simple-tray .tray-rest,.first-person-mode .simple-tray .share-snack{padding:8px;font-size:18px}
+}

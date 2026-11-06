@@ -86,7 +86,7 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   // Static batch excludes the articulated door and the bottle being picked.
   fridge.remove(hinge,pickupBottle);fixed.remove(fridge);consolidate(fridge,kit);consolidate(fixed,kit);scene.add(fridge);fridge.add(hinge,pickupBottle);
   const lamp=new T.PointLight('#f1fff1',0,2.6,2);lamp.position.set(0,2.04,.2);fridge.add(lamp);
-  const hands=new T.Group();foregroundScene.add(hands);let handKey='',handItem:T.Group|null=null;
+  const hands=new T.Group();hands.userData.action='held';foregroundScene.add(hands);let handKey='',handItem:T.Group|null=null;
   function held(kind:'candy'|'bottle'|'cup',progress:number,eaten:boolean,sips:number,drink:string){
     const key=[kind,progress.toFixed(2),eaten,sips,drink].join(':');if(key===handKey)return;handKey=key;
     if(handItem)kit.release(handItem);handItem=new T.Group();hands.add(handItem);
@@ -99,9 +99,12 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
       const sleeve=kit.box(arm,.095,.11,.24,side*.028,-.045,.13,'#6d8c99',.04);sleeve.rotation.z=-side*.2;
     }
   }
+  const doorHit=kit.mesh(hinge,new T.BoxGeometry(1.16,2.23,.17),hitMaterial,.57,1.11,0);doorHit.userData={action:'fridge-door',station:'fridge'};doorHit.castShadow=false;
+  const bottleHit=kit.mesh(fridge,new T.BoxGeometry(.9,1.5,.3),hitMaterial,0,1.05,.25);bottleHit.userData={action:'fridge-bottle',station:'fridge'};bottleHit.castShadow=false;
   let angle=0;
   function tick(state:Snapshot|null,now:number,time:number,reduced:boolean){
     const f=state?.room.fixtures?.fridge,open=Boolean(f?.open);angle=reduced?(open?-1.65:0):T.MathUtils.lerp(angle,open?-1.65:0,.16);hinge.rotation.y=angle;lamp.intensity=open?.55:0;
+    bottleHit.visible=open;
     pickupBottle.visible=!state?.room.members.some(m=>m.id===f?.owner&&m.pantry?.bottle&&m.pantry.bottle.sips<3);
     const owner=state?.room.members.find(m=>m.station==='coffee'&&m.pantry?.coffee.stage!=='carried'),coffee=owner?.pantry.coffee;
     cup.visible=Boolean(coffee);const brewing=coffee?.stage==='brewing'&&coffee.readyAt>now,filled=coffee?.stage==='ready'||Boolean(coffee?.readyAt&&coffee.readyAt<=now);
@@ -116,8 +119,9 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
     const isCandy=me?.station!=='coffee'&&Boolean(candy?.held&&candy.state!=='eaten'),isBottle=me?.station!=='coffee'&&!isCandy&&Boolean(bottle?.held&&bottle.sips<3);
     hands.visible=show&&(isCandy||isBottle||Boolean(cup));if(!hands.visible)return;
     held(isCandy?'candy':isBottle?'bottle':'cup',pull??candy?.progress??0,false,bottle?.sips??0,state?.self.drink??'coffee');
+    hands.traverse(o=>{if(o instanceof T.Mesh)o.castShadow=false;});
     const bottom=camera instanceof T.PerspectiveCamera?-Math.tan(T.MathUtils.degToRad(camera.fov/2))*.66*.74:-.18;
     hands.position.set(isCandy?0:.22,bottom,-.66).applyQuaternion(camera.quaternion).add(camera.position);hands.quaternion.copy(camera.quaternion);hands.scale.setScalar(.72);
   }
-  return{hits,tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
+  return{hits,interactionTargets:[hands,doorHit,bottleHit],tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
 }

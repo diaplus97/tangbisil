@@ -29,9 +29,19 @@
           "bytes": 2995911
         },
         "pantry-forest-v1.jpg": {
-          "sha256": "a5393df808c2e157ba3a961aa66525058b500bbbd861af83978295c09ffceb14",
-          "bytes": 252439
+          "sha256": "29db5b9cbf48d95109a7fb0f68eea083c6ce6fd90bba0f2914dbddb77044c82b",
+          "bytes": 697868
         }
+      },
+      "posterSource": {
+        "file": "https://assets.mixkit.co/videos/50854/50854-1080.mp4",
+        "sha256": "695e3b9fed45d24d47c7f91f80b54545d27d1dc84f8415796d51ef13ed1f4b3f",
+        "frameSeconds": 4,
+        "edits": [
+          "1920x1080 source, centre crop to 1920x960",
+          "No stabilization zoom, no upscaling, JPEG quality 2",
+          "Static-only runtime; retained loops are not fetched or decoded"
+        ]
       }
     },
     {

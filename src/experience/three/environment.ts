@@ -10,7 +10,7 @@ export type LandscapeStatus='loading'|'ready'|'fallback';
 // rays meet a virtual background farther behind the wall, rather than a poster
 // on the glass. The retained orthographic study uses the whole panorama.
 export function windowLandscape(kit:Workshop,scene:T.Scene,onStatus:(status:LandscapeStatus)=>void,video:HTMLVideoElement,onPlayback:(status:SeaPlaybackStatus)=>void,opening=windowOpening,initialView:WindowView=windowViews.sea){
-  let disposed=false,videoReady=false,generation=0,wanted=false,active=true;
+  let disposed=false,videoReady=false,generation=0,wanted=false,active=true,currentView=initialView;
   let texture:T.Texture|null=null,playback:ReturnType<typeof createSeaPlayback>|null=null;
   const material=new T.ShaderMaterial({
     uniforms:{landscape:{value:null as T.Texture|null},loaded:{value:0},videoSource:{value:0},warmth:{value:0},perspective:{value:0},
@@ -51,7 +51,7 @@ export function windowLandscape(kit:Workshop,scene:T.Scene,onStatus:(status:Land
   mesh.castShadow=false;mesh.receiveShadow=false;
   const videoTexture=new T.VideoTexture(video);videoTexture.colorSpace=T.SRGBColorSpace;
   function select(view:WindowView){
-    const ticket=++generation;playback?.dispose();if(texture){kit.textures.delete(texture);texture.dispose();}videoReady=false;
+    currentView=view;const ticket=++generation;playback?.dispose();playback=null;if(texture){kit.textures.delete(texture);texture.dispose();}videoReady=false;
     material.uniforms.landscape.value=null;material.uniforms.loaded.value=0;material.uniforms.videoSource.value=0;
     material.uniforms.fallbackLow.value.set(view.fallbackLow);material.uniforms.fallbackHigh.value.set(view.fallbackHigh);onStatus('loading');
     material.uniforms.viewCenter.value.set(...view.center);material.uniforms.viewSize.value.set(...view.size);
@@ -60,6 +60,7 @@ export function windowLandscape(kit:Workshop,scene:T.Scene,onStatus:(status:Land
       if(!videoReady){material.uniforms.landscape.value=loaded;material.uniforms.loaded.value=1;onStatus('ready');}
     },undefined,()=>{if(!disposed&&ticket===generation&&!videoReady)onStatus('fallback');});
     texture.colorSpace=T.SRGBColorSpace;texture.anisotropy=4;kit.textures.add(texture);
+    if(view.id==='forest'){onPlayback('paused');return;}
     playback=createSeaPlayback(video,()=>{
       if(disposed||ticket!==generation)return;videoReady=true;material.uniforms.landscape.value=videoTexture;material.uniforms.videoSource.value=1;material.uniforms.loaded.value=1;onStatus('ready');
     },status=>{
@@ -71,7 +72,7 @@ export function windowLandscape(kit:Workshop,scene:T.Scene,onStatus:(status:Land
   select(initialView);
   return {
     select,
-    motion(on:boolean){wanted=on;playback?.motion(on);},
+    motion(on:boolean){wanted=on;playback?.motion(on&&currentView.id!=='forest');},
     active(on:boolean){active=on;playback?.active(on);},
     lighting(warm:boolean){material.uniforms.warmth.value=warm?1:0;},
     interior(enabled:boolean){material.uniforms.perspective.value=enabled?1:0;},

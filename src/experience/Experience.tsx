@@ -3,6 +3,7 @@ import {Room,Avatar} from './Room';
 import {getSpace} from '../../shared/space.mjs';
 import {heldName} from '../../shared/rest.mjs';
 import {ToolsDockContext,closeOtherPickers} from './PersonalItems';
+import {directAction} from './directActions';
 import {StationActions} from './StationActions';
 import {SnackTray} from './SnackTray';
 import {usePantry,roomId} from './usePantry';
@@ -14,6 +15,7 @@ import './shared-tv.css';
 import './experience.css';
 import './play.css';
 import './first-person.css';
+import './direct-room.css';
 const VaseStage=lazy(()=>import('./VaseStage'));
 const SandStage=lazy(()=>import('./SandStage'));
 const StoneStage=lazy(()=>import('./StoneStage'));
@@ -68,7 +70,7 @@ export default function Experience(){
    if(!ok){setWaves(false);setAudioStatus('파도 소리를 불러오지 못했어요. 다시 켜서 시도해 주세요.');}else setAudioStatus('');
  }
  const menu=useRef<HTMLDetailsElement>(null),soundTicket=useRef(0);useRoomSound(state,status==='online'&&!tvOpen);
- useEffect(()=>{if(tvOpen){stopRoomSounds();void setSeaSound(false);}else if(waves&&sound)void setSeaSound(true);},[tvOpen]);
+ useEffect(()=>{if(tvOpen){++waveTicket.current;setAudioStatus('');stopRoomSounds();void setSeaSound(false);}else if(waves&&sound)void setSeaSound(true);},[tvOpen]);
  async function chooseSound(mode:'mute'|'waves'|'all'){
    const ticket=++soundTicket.current;++waveTicket.current;const on=mode!=='mute';
    setSound(on);setWaves(on);setActions(mode==='all');setActionSounds(mode==='all');setAudioStatus(on?'소리를 준비하고 있어요.':'');
@@ -76,7 +78,7 @@ export default function Experience(){
    const seaOk=ok&&on?await setSeaSound(true):ok;if(ticket!==soundTicket.current)return;
    if(!ok||!seaOk){setSound(false);setWaves(false);await enableSound(false);setAudioStatus('소리를 준비하지 못했어요. 다시 눌러 주세요.');}else setAudioStatus('');
  }
- async function toggleSound(){const on=!sound,ticket=++soundTicket.current;setSound(on);if(!on){waveTicket.current++;setWaves(false);}setAudioStatus(on?'소리를 준비하고 있어요.':'');const ok=await enableSound(on);if(ticket!==soundTicket.current)return;if(on&&!ok){setSound(false);setAudioStatus('소리를 불러오지 못했어요. 다시 켜서 시도해 주세요.');}else setAudioStatus('');}
+
  const[view,setView]=useState<'pixel'|'3d'>(()=>new URLSearchParams(location.search).get('view')==='pixel'?'pixel':'3d');
  function changeView(next:'pixel'|'3d'){setView(next);const url=new URL(location.href);url.searchParams.set('view',next);history.replaceState(null,'',url);}
  useEffect(()=>{if(status!=='online')stopRoomSounds();},[status]);
@@ -100,17 +102,19 @@ export default function Experience(){
  useEffect(()=>{const outside=(e:PointerEvent)=>{if(menu.current&&!menu.current.contains(e.target as Node))menu.current.open=false;};document.addEventListener('pointerdown',outside);return()=>document.removeEventListener('pointerdown',outside);},[]);
  function explore(){closeMenu();setPanel(null);setMovementMode(true);}
  const held=me?heldName(me.pantry):null,snackLabel=(held?held+' 내려놓고 ':'')+(hasFood?resumeLabel:'간식 꺼내기');
- async function take(){if(held&&!await act('items-stow'))return;setMovementMode(false);if(hasFood){setPanel('food');return;}const r=await act('take');if(r){setPanel('food');playSound('paper');}}
+ async function take(){if(member?.station&&!await act('stand'))return;if(held&&!await act('items-stow'))return;setMovementMode(false);if(hasFood){setPanel('food');return;}const r=await act('take');if(r){setPanel('food');playSound('paper');}}
+ async function useObject(target:string){if(!state||busy||!online)return;const action=directAction(state,target);if(!action)return;if(action.type==='snack')return take();if(action.type==='shared')return sample();const result=await act(action.type,action.extra);if(result&&action.type==='candy-unwrap')playSound('open');return result;}
  async function bite(){const r=await act('bite',{servingId:food?.id});if(r)playSound('bite');return r;}
  async function offer(){const r=await act('offer');if(r)playSound('cup');return r;}
  async function copyInvite(){closeMenu();const url=new URL(location.href);url.search='';url.searchParams.set('room',roomId);try{await navigator.clipboard.writeText(url.href);setToast('함께 앉을 수 있는 링크를 복사했어요.');}catch{setPanel('help');}}
  const guide=hasFood?(food?.state==='sealed'?'꺼내 둔 간식이 기다리고 있어요.':'먹던 간식은 그대로 남아 있어요.'):'간식을 꺼내 포장을 열어보세요.';
  return <ToolsDockContext.Provider value={toolsHost}><main className={'pantry-app play-mode view-'+view+(debug?' dev-mode':view==='3d'?' first-person-mode':'')+(trayOpen?' snack-active':'')+(tvOpen?' tv-active':'')+(status==='welcome'?' is-welcome':'')}>
    <header className="app-header">
-     <a className="brand" href={location.pathname+location.search} aria-label="탕비실"><span className="brand-mark"><Icon name="cup"/></span><span>{healing?'힐링방':'탕비실'}<small>{healing?'기대어 쉬는 오후.':'잠깐, 한 조각의 여유.'}</small></span></a>
+     <a className="brand" href={location.pathname+location.search} aria-label="탕비실"><span className="brand-mark"><Icon name="cup"/></span><span>{healing?'힐링방':'탕비실'}<small>{online?'함께 쉬는 중 · '+state?.room.members.filter(m=>m.connected).length+'명':'잠깐 쉬어가요'}</small></span></a>
      <div className="header-controls">
        <span className={'connection '+(online?'live':'')} role="status"><i/>{online?'여기 '+state?.room.members.filter(m=>m.connected).length+'명 · 전체 '+(state?.room.total??state?.room.members.length)+'명':status==='welcome'?'잠깐 쉬어가요':status==='paused'?'잠시 쉬는 중':status==='offline'?'다시 연결 중':'자리를 찾는 중'}</span>
-       <button className="sound-toggle" aria-label={sound?'소리 끄기':'소리 켜기'} aria-pressed={sound} onClick={()=>void toggleSound()}><Icon name={sound?'sound':'mute'}/><span>{sound?'소리 끄기':'소리 켜기'}</span></button>
+       <button className="sound-toggle" aria-label={sound?'소리 끄기':'소리 켜기'} aria-pressed={sound} onClick={()=>void chooseSound(sound?'mute':'all')}><Icon name={sound?'sound':'mute'}/><span>{sound?'소리 켜짐':'소리 끔'}</span></button>
+       <button className="desktop-help" onClick={()=>openPanel('help')}>도움말</button><button className="desktop-settings" onClick={()=>openPanel('settings')}>설정</button>
        <details ref={menu} className="play-menu" onToggle={e=>{if(e.currentTarget.open)closeOtherPickers(e.currentTarget);}} onKeyDown={e=>{if(e.key==='Escape'){closeMenu();menu.current?.querySelector('summary')?.focus();}}}>
          <summary>메뉴 <span aria-hidden="true">⋯</span></summary>
          <nav className="play-menu-content" aria-label="보조 메뉴">
@@ -120,7 +124,7 @@ export default function Experience(){
            <button onClick={()=>openPanel('settings')}><Icon name="sliders"/>소리·풍경 설정</button>
            {healing&&<button onClick={()=>openPanel('tv')}>TV 안내·영상 목록</button>}
            {me&&<><button disabled={!online||busy||walking||member?.seat==null} onClick={()=>{closeMenu();setPanel(null);void (async()=>{if(held&&!await act('items-stow'))return;await act('wave');})();}}><Icon name="cup"/>{held?held+' 내려놓고 컵 들기':trayOpen?'간식 내려놓고 컵 들기':'컵 들기'}</button>
-             {view==='3d'&&<button disabled={!online} onClick={explore}>자리 고르기</button>}
+             {view==='3d'&&<button disabled={!online} onClick={explore}>갈곳 찾기</button>}
              {own&&<button disabled={!online||busy} onClick={()=>{closeMenu();void act('retract',{offerId:own.id});}}>나눈 간식 거두기</button>}
              <button onClick={()=>void copyInvite()}><Icon name="share"/>동료 초대</button></>}
            <button onClick={()=>openPanel('help')}><Icon name="help"/>이용 안내</button>
@@ -131,7 +135,7 @@ export default function Experience(){
    {audioStatus&&<p className="audio-status" role="status">{audioStatus}</p>}
    {debug&&<div className="view-bar"><span>개발용 화면 비교</span><div className="view-switch" role="group" aria-label="그림체 비교"><button aria-pressed={view==='pixel'} onClick={()=>changeView('pixel')}>2D 도트</button><button aria-pressed={view==='3d'} onClick={()=>changeView('3d')}>입체 탕비실</button></div></div>}
    <section className="game-space" aria-label="공용 탕비실">
-     {view==='3d'?<Suspense fallback={<div className="room-frame three-loading">창가의 빛을 들이는 중…</div>}><Room3D key={area} landscapeId={landscapeId} tvOpen={tvOpen} onTv={healing?()=>{closeMenu();setMovementMode(false);setPanel('tv');}:undefined} windowContent={tvOpen&&healing&&state?<Suspense fallback={<div className="shared-tv"><p>TV를 준비하고 있어요.</p><button onClick={()=>setTvOpen(false)}>그만 보기</button></div>}><SharedTV state={state} active={online&&!panel} busy={busy} act={act} onClose={()=>setTvOpen(false)}/></Suspense>:undefined} onTravel={to=>{setPanel(null);return act('travel',{to});}} onToolsMount={setToolsHost} onApproach={station=>{setPanel(null);return act('approach',{station});}} seaMotion={seaMotion} waves={waves} onWaves={()=>void toggleWaves()} state={state} debug={debug} movementMode={movementMode} foodInHand={trayOpen} onFinishMove={()=>setMovementMode(false)} sampleLabel={(held?held+' 내려놓고 ':'')+'동료가 나눈 한 조각 맛보기'} sampleAvailable={Boolean(availableSample)} disabled={!online||busy} onShelf={()=>void take()} onPlate={()=>void sample()} onDrink={()=>openPanel('drink')} onFallback={()=>changeView('pixel')} onMove={(x,z)=>{setPanel(null);return act('move',{x,z});}} onSit={seat=>{setPanel(null);return act('sit',{seat});}} onStand={()=>act('stand')}/></Suspense>:
+     {view==='3d'?<Suspense fallback={<div className="room-frame three-loading">창가의 빛을 들이는 중…</div>}><Room3D onUse={useObject} contextContent={state?<StationActions state={state} busy={busy} online={online} onExplore={explore} onSnack={()=>void take()} snackLabel={snackLabel} act={act}/>:undefined} key={area} landscapeId={landscapeId} tvOpen={tvOpen} onTv={healing?()=>{closeMenu();setMovementMode(false);setPanel('tv');}:undefined} windowContent={tvOpen&&healing&&state?<Suspense fallback={<div className="shared-tv"><p>TV를 준비하고 있어요.</p><button onClick={()=>setTvOpen(false)}>그만 보기</button></div>}><SharedTV state={state} active={online&&!panel} busy={busy} act={act} onClose={()=>setTvOpen(false)}/></Suspense>:undefined} onTravel={to=>{setPanel(null);return act('travel',{to});}} onToolsMount={setToolsHost} onApproach={station=>{setPanel(null);return act('approach',{station});}} seaMotion={seaMotion&&Boolean(state)} waves={waves} onWaves={()=>void toggleWaves()} state={state} debug={debug} movementMode={movementMode} foodInHand={trayOpen} onFinishMove={()=>{setMovementMode(false);requestAnimationFrame(()=>document.querySelector<HTMLCanvasElement>('.room-three-canvas')?.focus({preventScroll:true}));}} sampleLabel={(held?held+' 내려놓고 ':'')+'동료가 나눈 한 조각 맛보기'} sampleAvailable={Boolean(availableSample)} disabled={!online||busy} onShelf={()=>void take()} onPlate={()=>void sample()} onDrink={()=>openPanel('drink')} onFallback={()=>changeView('pixel')} onMove={(x,z)=>{setPanel(null);return act('move',{x,z});}} onSit={seat=>{setPanel(null);return act('sit',{seat});}} onStand={()=>act('stand')}/></Suspense>:
        <Room state={state} simple={!debug} sampleAvailable={Boolean(availableSample)} disabled={!online||busy} onShelf={()=>void take()} onPlate={()=>void sample()} onDrink={()=>openPanel('drink')}/>}
    {view==='3d'&&!tvOpen&&state&&!trayOpen&&!walking&&member?.seat!=null&&me?.pantry.rest?.stone?.held&&<Suspense fallback={null}><StoneStage state={state} disabled={!online||busy} onPress={point=>act('stone-press',{itemId:me.pantry.rest.stone!.id,point})}/></Suspense>}
    {view==='3d'&&!tvOpen&&healing&&state&&!trayOpen&&!walking&&member?.seat!=null&&me?.pantry.rest?.vase?.held&&<Suspense fallback={null}><VaseStage vase={me.pantry.rest.vase} disabled={!online||busy} act={act}/></Suspense>}
@@ -146,8 +150,8 @@ export default function Experience(){
        <details className="welcome-appearance"><summary>모습 고르기</summary><div className="avatar-choices">{[0,1].map(v=><button key={v} type="button" className={avatar===v?'selected':''} onClick={()=>setAvatar(v)} aria-pressed={avatar===v} aria-label={v?'베이지 셔츠 모습':'남색 카디건 모습'}><Avatar variant={v}/></button>)}</div></details>
      </form>
    </section>}
-   {!tvOpen&&state&&!trayOpen&&!walking&&(member?.station||member?.seat!=null)&&<StationActions state={state} busy={busy} online={online} onExplore={explore} onSnack={()=>void take()} snackLabel={snackLabel} act={act}/>}
-   {!tvOpen&&me&&!hasObjects&&!trayOpen&&!walking&&!member?.station&&member?.seat!=null&&<section className="play-next" aria-label="지금 할 수 있는 행동">
+   {(view!=='3d'||debug)&&!tvOpen&&state&&!trayOpen&&!walking&&(member?.station||member?.seat!=null)&&<StationActions state={state} busy={busy} online={online} onExplore={explore} onSnack={()=>void take()} snackLabel={snackLabel} act={act}/>}
+   {(view!=='3d'||debug)&&!tvOpen&&me&&!hasObjects&&!trayOpen&&!walking&&!member?.station&&member?.seat!=null&&<section className="play-next" aria-label="지금 할 수 있는 행동">
      <p>{guide}</p><button id="pick-up-snack" className="primary" onClick={()=>void take()} disabled={!online||busy}>{hasFood?resumeLabel:'간식 꺼내기'} <span aria-hidden="true">↗</span></button>
    </section>}
    {error&&<div className={'error-banner'+(status==='paused'?' connection-paused':'')} role="alert"><span>{error}</span>{status==='paused'?<div className="connection-options"><button onClick={retry}>다시 연결</button><select aria-label="다른 탕비실" defaultValue="" onChange={e=>{const url=new URL(location.href);url.searchParams.set('room',e.target.value);location.assign(url.href);}}><option value="" disabled>다른 방 고르기</option>{[['window','창가'],['breeze','바람'],['quiet','고요'],['sunset','노을']].filter(([id])=>id!==roomId).map(([id,label])=><option key={id} value={id}>{label} 탕비실</option>)}</select></div>:<button onClick={clearError} aria-label="오류 안내 닫기">×</button>}</div>}
@@ -162,7 +166,7 @@ export default function Experience(){
        <label className="sound-check"><input type="checkbox" checked={waves} onChange={()=>void toggleWaves()}/>파도 소리</label>
        <label>파도 음량 <span>{Math.round(waveVolume*100)}%</span><input aria-label="파도 음량" type="range" min="0" max="100" value={Math.round(waveVolume*100)} onChange={e=>{const value=Number(e.target.value)/100;setWaveVolume(value);setSeaVolume(value);}}/></label>
        <div className="landscape-choice" role="group" aria-label="내 창밖 풍경">{(['auto','sea','forest','fire'] as const).map(id=><button key={id} aria-pressed={landscapeChoice===id} onClick={()=>{setLandscapeChoice(id);try{localStorage.setItem('tangbisil:landscape',id);}catch{}}}>{id==='auto'?'방의 추천 풍경':landscapeLabels[id]}</button>)}</div><p className="landscape-note">추천은 서울 시간으로 낮에는 바다·숲, 저녁에는 모닥불을 골라요. 함께 머무는 동안 바뀌지 않습니다. 직접 고른 풍경은 내 화면에만 적용돼요.</p>
-       <label className="sound-check"><input type="checkbox" checked={seaMotion} onChange={e=>{motionOverride.current=true;setSeaMotion(e.target.checked);try{localStorage.setItem('tangbisil:landscape-motion',e.target.checked?'on':'off');}catch{}}}/>풍경 움직임</label>
+       <label className="sound-check"><input type="checkbox" disabled={landscapeId==='forest'} checked={landscapeId!=='forest'&&seaMotion} onChange={e=>{motionOverride.current=true;setSeaMotion(e.target.checked);try{localStorage.setItem('tangbisil:landscape-motion',e.target.checked?'on':'off');}catch{}}}/>풍경 움직임{landscapeId==='forest'?' · 숲은 선명한 정지 풍경':''}</label>
      </div>
      <label className="sound-check"><input type="checkbox" checked={actionSounds} onChange={e=>{setActions(e.target.checked);setActionSounds(e.target.checked);}}/>물건을 만지는 소리</label>
      <label className="sound-check"><input type="checkbox" disabled={!actionSounds} checked={others} onChange={e=>{setOthers(e.target.checked);setOtherSounds(e.target.checked);}}/>가까운 동료의 작은 소리</label>
@@ -172,7 +176,7 @@ export default function Experience(){
    {panel==='album'&&me&&<Modal title="간식 기록" eyebrow="맛본 날의 작은 기억" onClose={()=>setPanel(null)}>
      <div className="album-page"><div className={'album-sticker '+(!discovered?'undiscovered':'')}><PiePreview/><span className="sticker-id">No. 001 / LEMON</span>{discovered&&<span className="album-stamp">맛본 날의 기록</span>}</div><h3>{discovered?'레몬 샌드파이':'아직 맛본 간식이 없어요'}</h3><p>{discovered?'레몬잼과 크림 사이, 오후에 찾은 작은 맛.':'간식을 한입 먹으면 여기에 남아요.'}</p>{discovered&&<div className="album-details"><span>첫 발견 <b>{new Date(lemonRecord!.discovered_at).toLocaleDateString('ko-KR')}</b></span><span>만난 곳 <b>{lemonRecord!.source==='shared'?'동료의 시식 접시':'창가의 간식 선반'}</b></span><span>내 탕비 예산 <b>{me.coins}</b></span></div>}{candyRecord&&<div className="candy-record"><span>🍬</span><div><strong>레몬꿀 사탕</strong><p>한 알의 달콤한 쉼표 · {new Date(candyRecord.discovered_at).toLocaleDateString('ko-KR')}</p></div></div>}<p className="small-print">같은 브라우저로 다시 오면 기록이 이어져요.</p></div>
    </Modal>}
-   {panel==='drink'&&me&&<Modal title="한 잔을 준비하러 갈까요?" eyebrow="자리 고르기" onClose={()=>setPanel(null)}><div className="help-content"><p>커피 머신에 컵을 놓고 커피를 내리거나, 냉장고에서 시원한 음료를 꺼낼 수 있어요.</p><button className="primary" onClick={explore}>자리 고르기</button></div></Modal>}
-   {panel==='help'&&<Modal title="잠깐 쉬어가는 방법" eyebrow="탕비실" onClose={()=>setPanel(null)}><div className="help-content"><p>앉아 있을 때도 손가락으로 화면을 밀거나 마우스로 드래그해 주변을 둘러보세요. 키보드 방향키도 사용할 수 있어요. 모바일의 ‘풍경 보기’와 파도 켜기는 ‘둘러보기’ 안에 있습니다. 사물을 누르거나 ‘둘러보기’에서 목적지를 고르면 이동하고, 빈 자리를 고르면 앉아요. 창가 식물에 물을 뿌리거나, 말랑돌을 가져오거나, 보리차를 준비해도 좋아요. 걷는 중에도 목적지를 바꾸거나 멈출 수 있어요.</p><p>사탕은 집은 뒤 ‘포장 열기’를 한 번 누르면 열립니다. 레몬파이는 간식을 꺼내 포장을 열고 한입 먹어보세요. 중간에 내려놓아도 뜯던 포장과 남은 간식이 그대로 이어져요.</p><p>포장을 연 뒤에는 ‘한 조각 나누기’로 공용 접시에 놓을 수 있어요. 다른 사람이 놓은 조각은 방 안의 ‘한 조각 맛보기’로 가져와요.</p><div className="help-invite"><strong>동료와 함께 쉬고 싶다면</strong><p>메뉴의 ‘동료 초대’로 링크를 복사하거나, 다른 방문자를 열어보세요.</p><button className="secondary" onClick={()=>{const u=new URL(location.href);u.search='';u.searchParams.set('visitor',crypto.randomUUID());u.searchParams.set('room',roomId);window.open(u.href,'_blank','noopener');}}>두 번째 방문자 열기 ↗</button></div></div></Modal>}
+   {panel==='drink'&&me&&<Modal title="한 잔을 준비하러 갈까요?" eyebrow="자리 고르기" onClose={()=>setPanel(null)}><div className="help-content"><p>커피 머신에 컵을 놓고 커피를 내리거나, 냉장고에서 시원한 음료를 꺼낼 수 있어요.</p><button className="primary" onClick={explore}>갈곳 찾기</button></div></Modal>}
+   {panel==='help'&&<Modal title="잠깐 쉬어가는 방법" eyebrow="탕비실" onClose={()=>setPanel(null)}><div className="help-content"><p>앉아 있을 때도 손가락으로 화면을 밀거나 마우스로 드래그해 주변을 둘러보세요. 키보드 방향키도 사용할 수 있어요. 바닥을 톡 누르면 그곳으로 걷고, 물체를 누르면 가까이 갑니다. 가까이에서 다시 누르면 사용할 수 있어요. 빈 의자를 누르면 앉아요. W·A·S·D로 걸을 수도 있고 Esc로 멈춥니다. 메뉴의 ‘갈곳 찾기’에서도 목적지를 고를 수 있어요. 창가 식물에 물을 뿌리거나, 말랑돌을 가져오거나, 보리차를 준비해도 좋아요. 걷는 중에도 목적지를 바꾸거나 멈출 수 있어요.</p><p>사탕은 집은 뒤 ‘포장 열기’를 한 번 누르면 열립니다. 레몬파이는 간식을 꺼내 포장을 열고 한입 먹어보세요. 중간에 내려놓아도 뜯던 포장과 남은 간식이 그대로 이어져요.</p><p>포장을 연 뒤에는 ‘한 조각 나누기’로 공용 접시에 놓을 수 있어요. 다른 사람이 놓은 조각은 방 안의 ‘한 조각 맛보기’로 가져와요.</p><div className="help-invite"><strong>동료와 함께 쉬고 싶다면</strong><p>메뉴의 ‘동료 초대’로 링크를 복사하거나, 다른 방문자를 열어보세요.</p><button className="secondary" onClick={()=>{const u=new URL(location.href);u.search='';u.searchParams.set('visitor',crypto.randomUUID());u.searchParams.set('room',roomId);window.open(u.href,'_blank','noopener');}}>두 번째 방문자 열기 ↗</button></div></div></Modal>}
  </main></ToolsDockContext.Provider>;
 }

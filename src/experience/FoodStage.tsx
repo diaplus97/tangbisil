@@ -10,7 +10,7 @@ export function FoodStage({serving,busy,appearance='pixel',onProgress,onOpen,onB
   const canvas=useRef<HTMLCanvasElement>(null),drag=useRef<{x:number;id:number;progress:number}|null>(null);
   const anim=useRef(0),progressRef=useRef(initial),submitted=useRef(initial),opening=useRef(false),animating=useRef(false);
   const latest=useRef({onProgress,serving});latest.current={onProgress,serving};
-  const lastMotion=useRef(performance.now());
+  const lastMotion=useRef(performance.now()),tap=useRef<{x:number;y:number;id:number;moved:boolean}|null>(null);
   const [progress,setProgress]=useState(initial),[dragging,setDragging]=useState(false);
   const [crunch,setCrunch]=useState(0),[unwrapping,setUnwrapping]=useState(false),[fallback,setFallback]=useState(false);
   const prevBites=useRef(serving.bites),pixel=appearance==='pixel'||fallback;
@@ -43,16 +43,19 @@ export function FoodStage({serving,busy,appearance='pixel',onProgress,onOpen,onB
     anim.current=requestAnimationFrame(move);
   }
   function pointerDown(e:PointerEvent<HTMLDivElement>){
+    if(e.isPrimary&&e.button===0&&serving.state==='open'&&!busy){tap.current={x:e.clientX,y:e.clientY,id:e.pointerId,moved:false};e.currentTarget.setPointerCapture(e.pointerId);return;}
     if(!e.isPrimary||e.button!==0||drag.current||serving.state!=='sealed'||busy||opening.current||animating.current)return;
     e.currentTarget.setPointerCapture(e.pointerId);drag.current={x:e.clientX,id:e.pointerId,progress:progressRef.current};lastMotion.current=performance.now();setDragging(true);
   }
   function pointerMove(e:PointerEvent<HTMLDivElement>){
+    if(tap.current&&Math.hypot(e.clientX-tap.current.x,e.clientY-tap.current.y)>6)tap.current.moved=true;
     if(!drag.current||e.pointerId!==drag.current.id||busy)return;
     const width=e.currentTarget.getBoundingClientRect().width,p=Math.max(progressRef.current,Math.min(1,drag.current.progress+(e.clientX-drag.current.x)/(width*.28)));
     const now=performance.now(),speed=Math.abs(p-progressRef.current)/Math.max(.016,(now-lastMotion.current)/1000);lastMotion.current=now;wrapperMotion(speed,p);
     progressRef.current=p;setProgress(p);
   }
   function pointerUp(e:PointerEvent<HTMLDivElement>){
+    if(tap.current?.id===e.pointerId){const touch=tap.current;tap.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);if(!touch.moved&&serving.state==='open'&&!busy)void onBite();return;}
     if(!drag.current||e.pointerId!==drag.current.id)return;
     drag.current=null;setDragging(false);stopWrapperSound();
     if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
@@ -61,7 +64,7 @@ export function FoodStage({serving,busy,appearance='pixel',onProgress,onOpen,onB
   return <div className="food-interaction">
     <div className={`food-stage ${dragging?'dragging':''} ${serving.state}`} data-testid="food-stage" data-serving-id={serving.id} data-bites={serving.bites} data-state={serving.state} data-progress={progress.toFixed(3)}
       onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp}
-      onPointerCancel={()=>{if(!drag.current)return;drag.current=null;setDragging(false);stopWrapperSound();void saveProgress();}}>
+      onPointerCancel={()=>{tap.current=null;if(!drag.current)return;drag.current=null;setDragging(false);stopWrapperSound();void saveProgress();}}>
       {pixel?<canvas ref={canvas} width="320" height="200" aria-label={label}/>:<Suspense fallback={<div className="food-three-loading">접시를 놓는 중…</div>}><Food3D progress={progress} bites={serving.bites} empty={serving.state==='empty'} sample={serving.portions===1} crunch={crunch} label={label} onUnavailable={()=>setFallback(true)}/></Suspense>}
       {serving.state==='sealed'&&<div className="drag-hint" aria-hidden="true">{progress>.01?(dragging?'사각사각, 원하는 만큼.':'뜯던 곳에서 이어 당겨요.'):'포장을 잡고 오른쪽으로'} <span>⟶</span></div>}
       {serving.state==='empty'&&<span className="plate-note">잘 먹었습니다.</span>}
