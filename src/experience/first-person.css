@@ -91,6 +91,9 @@
  .first-person-mode .error-banner{position:relative;inset:auto;transform:none;flex:none;width:auto;max-width:none}
 }
 .portal-choice{width:100%;min-height:44px;background:#e5eddf;color:#365b49;padding:10px 14px;border-radius:8px;text-align:left;display:flex;justify-content:space-between;font-size:14px;line-height:1.6}
+.error-banner.connection-paused{flex-direction:column;align-items:stretch;gap:10px;line-height:1.6}
+.connection-options{display:flex;gap:8px;flex-wrap:wrap}
+.error-banner .connection-options button,.connection-options select{min-height:44px;padding:8px 12px;border:1px solid #cbc4b7;border-radius:8px;background:#faf8f2;color:#4f5b4f;font:inherit;line-height:1.4;flex:1;min-width:0}
 .area-count{font-size:11px;color:#627b68;margin:8px 0 12px}
 .first-person-mode .rest-actions .object-action-buttons>.personal-items{flex:0 1 auto}
 .sand-stage{position:absolute;z-index:6;top:calc(var(--rendered-scene-height,var(--scene-height)) - 230px);left:50%;transform:translateX(-50%);width:460px;height:230px;pointer-events:none}

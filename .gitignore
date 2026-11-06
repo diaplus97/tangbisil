@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-cf/
+.wrangler/
 data/
 art/references/
 art/experiments/

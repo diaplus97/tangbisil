@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // NEW test Worker. Never deploy this through the legacy Pages configuration.
+  // The deployment owner must verify the account remains on Workers Free.
+  "name": "tangbisil-playtest",
+  "main": "cloudflare/worker.mjs",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  // Workers Free supplies its own CPU limit; custom cpu_ms is rejected on Free.
+  "assets": {
+    "directory": "./dist-cf",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/assets/pantry-sea-loop-*"]
+  },
+  "durable_objects": { "bindings": [
+    { "name": "ROOMS", "class_name": "PantryRoom" },
+    { "name": "VISITORS", "class_name": "PantryVisitor" },
+    { "name": "GATES", "class_name": "PantryGate" }
+  ] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PantryRoom", "PantryVisitor", "PantryGate"] }],
+  "vars": {
+    "ALLOWED_ROOMS": "window,breeze,quiet,sunset",
+    "ADMISSIONS": "open",
+    "ROOM_DAILY_MESSAGES": "2000",
+    "SESSIONS_PER_SHARD_DAY": "64",
+    "CONNECTS_PER_SHARD_DAY": "800"
+  },
+  "observability": { "enabled": false }
+}

@@ -1,6 +1,6 @@
 # 탕비실 · 바다 앞에서 잠깐 쉬기
 
-같은 방에서 말없이 쉬고, 간식과 음료를 준비하는 웹게임입니다. 내 시점은 넓은 1인칭이며 **앉아 있어도 드래그·터치·방향키로 주변을 둘러봅니다.** 메인 방에는 테이블 3개·의자 8개, 힐링방에는 빈백 4자리·창가 2자리가 있고 두 공간을 합쳐 6명까지 함께합니다. 로컬 실행과 단일 서버 배포를 지원합니다.
+같은 방에서 말없이 쉬고, 간식과 음료를 준비하는 웹게임입니다. 내 시점은 넓은 1인칭이며 **앉아 있어도 드래그·터치·방향키로 주변을 둘러봅니다.** 메인 방에는 테이블 3개·의자 8개, 힐링방에는 빈백 4자리·창가 2자리가 있고 두 공간을 합쳐 6명까지 함께합니다. 로컬 Node 실행과 Cloudflare 무료 테스트 배포 구성을 지원합니다.
 
 ## 실행
 Windows에서 **탕비실 실행.cmd**를 더블클릭하면 `http://127.0.0.1:4317`이 열립니다. 이미 실행 중이면 같은 서버를 사용합니다. 이 작업 폴더에는 빌드와 의존성이 준비되어 있습니다.
@@ -69,29 +69,39 @@ npm start
 
 다른 PC는 호스트 PC의 LAN 주소로 접속하며 포트 접근이 허용되어 있어야 합니다. 휴대폰의 UUID·클립보드 기능까지 시험하려면 아래 HTTPS 배포 주소를 사용합니다. 이전 Cloudflare Pages 정적 배포만으로 현재 Node/SQLite/SSE API가 실행되지는 않습니다.
 
-## Render 공개 테스트 배포
-저장소 루트의 `render.yaml`을 Blueprint로 연결합니다. 배포 담당은 비용을 확인한 뒤 서비스와 디스크를 생성하고 HTTPS 주소를 발급합니다. 설정 파일 추가만으로 서비스가 생성되지는 않습니다. 자동 배포는 꺼 두었으므로 이후 갱신도 수동으로 배포합니다.
+## Cloudflare 무료 테스트 배포
+현재 공개 테스트 경로는 **Workers Static Assets + SQLite Durable Objects**다. 기존 `wrangler.toml`은 구 Pages용이므로 사용하지 않는다. 새 `wrangler.pantry.jsonc`는 별도 Worker **`tangbisil-playtest`**를 대상으로 하며 기존 Pages를 덮어쓰지 않는다. 로컬 Node/SQLite/SSE 실행은 그대로 유지한다.
 
-| 배포 설정 | 값 |
+```sh
+npm ci
+npm run build:cloudflare
+npm run test:cloudflare
+npm run dev:cloudflare
+```
+
+로컬 Cloudflare 주소는 `http://127.0.0.1:8787`, 별도 개발 DB는 `data/cloudflare`다. Node의 `data/pantry.sqlite`를 업로드하거나 변경하지 않는다. Wrangler **4.156.2**를 두 잠금 파일에 고정했다. 검사 명령은 로컬 런타임과 `--dry-run`만 사용한다. 배포 담당은 계정의 **Workers Free** 표시를 확인한 뒤 `npx wrangler deploy --config wrangler.pantry.jsonc`로 새 Worker를 배포하고 출력된 HTTPS 주소에서 두 방문자를 검수한다. 유료 전환이나 별도 유료 서비스 생성은 이 구성에 없다. 비용이 필요한 변경은 먼저 사용자에게 알린다.
+
+무료 계정에서는 `limits.cpu_ms` 설정이 배포 오류 100328로 거절된다. 사용자 지정 CPU 제한을 넣지 않고 Workers Free의 기본 제한을 사용한다.
+
+| 저장/연결 | 역할 |
 | --- | --- |
-| 소스 | `diaplus97/tangbisil`, `codex/shared-lemon-pie`, 저장소 루트 |
-| 빌드/시작 | `runtime: docker`, 루트 `Dockerfile`, 별도 명령 덮어쓰기 없음 |
-| 서버 | `0.5c-512mb` (이전 Starter), Singapore, **인스턴스 1개** |
-| 실행 환경 | `HOST=0.0.0.0`, `NODE_ENV=production`, `PANTRY_DB=/var/data/pantry.sqlite` |
-| 포트 | Render가 제공하는 `PORT` 사용, Blueprint에서 고정하지 않음 |
-| 영속 디스크 | **1GB**, `/var/data`, 첫 실행부터 연결하고 새 온라인 DB로 시작 |
-| 상태 확인 | `/api/health` |
-| 자동 배포 | `autoDeployTrigger: 'off'`, 자동 확장/미리보기 서비스 없음 |
+| `PantryRoom` | 방마다 1개, 두 공간 합계 6명. 자리·가구·나눔/수령/맛봄·행동 순서와 저장 대기 기록 |
+| `PantryVisitor` | 방문자마다 1개. 음식·음료·개인 도구·기록·재시도 영수증과 방 쓰기 권한/버전 |
+| `PantryGate` | 고정 8개로 입장 제한 분산. IP 원문 대신 해시와 당일 카운터만 보관 |
+| WebSocket | 휴면 지원 연결. 자동 ping 응답, 영속 연결 첨부정보로 복원. 서버의 반복 타이머/SSE 없음 |
+| Alarm | 이동·추출/붓기 완료, 연결 종료 유예, 실패 저장의 제한된 재시도에만 사용 |
 
-2026-11-06 확인한 [공식 요금](https://render.com/pricing?trk=public_profile__reactions-text)은 서버 $7/월 + 디스크 1GB $0.25/월, 기본 합계 **$7.25/월**이다. 추가 사용량·워크스페이스 요금·세금은 별도이므로 월 $10 상한을 보장하는 설정은 아니다. [무료 서버에는 영속 디스크를 연결할 수 없다](https://render.com/docs/disks). 생성 화면의 비용과 사용량 설정은 배포 담당이 최종 확인한다. [현재 플랜 ID와 이전 이름의 대응](https://render.com/docs/compute-plans), [Blueprint 필드](https://render.com/docs/blueprint-spec)를 확인했다.
+개인 상태는 방 객체의 SQL 트랜잭션과 저장 대기 기록을 함께 확정한 뒤 방문자 객체에 버전 순서대로 반영한다. 확인된 다음에만 화면에 성공을 알린다. 중간 실패는 같은 요청으로 이어가며 개인 기록의 새 방 이동은 이전 방 저장/권한 반환 후에만 허용된다. **같은 방문자를 다른 방 링크에서 열면 이전 방 화면은 쉬는 상태로 전환**된다. 같은 방은 두 화면까지 허용한다. 시식을 들고 다른 방으로 가도 개인 조각은 유지하며, 먹었다는 알림은 원래 방의 접시에 중복 없이 전달한다. 다른 방 DB의 접시를 직접 참조하는 외래키는 사용하지 않는다. Node에서는 기존 단일 DB 외래키를 유지한다.
 
-공용 Docker 구성은 Node 24에서 `npm ci` → Vite 빌드 후 `dist`·서버·공용 모듈·자산 출처만 복사한다. 실행 명령은 `node server/start.mjs`이며 서버는 Node 내장 모듈만 사용한다. `.dockerignore`는 필요한 입력만 허용하여 로컬 DB·환경 파일·인증 정보·원본 참고자료·QA 결과를 제외한다. 로컬 DB 업로드나 pre-deploy DB 명령은 필요 없다.
+무료 검증 설정은 허용 방 `window,breeze,quiet,sunset`만 열고 임의 방 이름 생성을 거절한다. 방마다 하루 행동/접촉 메시지 **2,000개**, 방문자당 초당 **8개** 제한이며 만원/당일 한도에서는 자동 재접속을 멈추고 다시 연결·다른 방 선택을 보여준다. 입장 제한은 샤드별 신규 방문자 64명/일·연결 요청 800개/일, IP별 신규 6명/일·연결 요청 240개/일·12개/분이다. 연결 준비와 WebSocket 업그레이드는 각각 한 요청이다. 카운터는 UTC 날짜를 기준으로 바뀐다. `ADMISSIONS=closed`로 새 입장을 멈출 수 있다. 이 값은 초기 공개 검증용 제한이며 동접 성능이나 월 청구액의 절대 상한을 뜻하지 않는다.
 
-방·자리·실시간 연결은 프로세스 메모리에 있으므로 복제본이나 다중 지역을 추가하지 않는다. [디스크가 연결된 Render 서비스](https://render.com/docs/disks)는 한 인스턴스에서 실행하며 재배포 시 잠시 연결이 끊긴다. 클라이언트는 재접속하고 확인된 기록은 `/var/data`에서 복구한다. 다른 경로에 쓴 데이터는 영속 저장 대상이 아니다. Docker 자체 기본값 `/data/pantry.sqlite`는 Render의 환경 변수가 덮어쓴다. Railway로 배포할 경우 같은 이미지를 사용하고 영속 볼륨 `/data`·인스턴스 1개·플랫폼 `PORT`·`/api/health`를 서비스 설정에 적용한다.
+2026-11-06 기준 [Workers Free](https://developers.cloudflare.com/workers/platform/pricing/)는 Worker 요청 100,000회/일, [DO Free](https://developers.cloudflare.com/durable-objects/platform/pricing/)는 요청 100,000회/일·13,000 GB-s/일·SQL 읽기 500만 행/일·쓰기 10만 행/일·총 저장 5GB 한도다. Free 한도 초과는 해당 작업의 제한으로 이어지며 유료로 자동 전환하는 코드는 없다. 서비스 카운터 외에도 인증·알람·DB 복구 등이 한도를 소비하므로 남은 무료 사용량은 운영 대시보드에서 확인한다. 실제 부하검사 전 지원 동접과 월요금을 단정하지 않는다.
 
-SSE는 즉시 스냅샷과 10초 heartbeat를 전송하며 `no-cache, no-transform`·`X-Accel-Buffering: no`를 사용한다. 추가 프록시에서는 스트리밍 버퍼링을 끄고 공개 `Host`와 `Origin`을 유지한다. 초대 링크는 현재 HTTPS 주소와 방 번호로 생성된다. 방문자 정보는 해당 브라우저에 귀속되므로 PC 기록이 휴대폰으로 자동 이전되지는 않는다.
+일반 [정적 자산 요청은 무료](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/)이며 API와 바다 영상 경로만 Worker를 거친다. 영상의 Range 요청은 빌드 시 만든 크기 목록으로 206/416·HEAD·suffix를 처리한다. 일부 Static Assets 응답에 `Content-Length`가 없어도 Safari의 MP4 탐색 요청이 동작한다. 영상 요청은 Worker 사용량에 포함된다. 빌드는 파일당 25MiB 제한을 검사하고 자산 출처를 `/credits`에 복사한다. 실제 iPhone Safari 검수는 별도다.
 
-배포 전 `npm run build && npm run check:runtime`으로 독립 임시 폴더·새 DB에서 실행 구성, 포트/호스트, 프록시 헤더, 두 방문자의 나눔/맛보기, SSE heartbeat·재접속, 프로세스 재시작 후 기록을 검사한다. 로컬 DB와 현재 실행 서버는 유지한다. 실제 Docker 빌드 → 외부 `/api/health` → HTTPS 두 기기 접속 → 재배포 후 기록 보존은 별도 배포 검수다. 기존 `verify:deploy`·`verify:online`은 구 Cloudflare용이므로 실행하지 않는다.
+공개 배포 후에는 `/api/health` → HTTPS 두 방문자의 간식 나눔 → 새로고침 → 시식을 든 방 이동/맛봄 → 재배포 후 개인 기록 순으로 확인한다. 방문자 토큰은 해당 브라우저에 있으므로 PC 기록이 휴대폰으로 자동 이전되지는 않는다. 로컬 실행과 다른 주소에서는 새 방문자로 시작한다. 계정 복구·대규모 부하·운영 백업/보존 정책은 후속 검토 대상이다.
+
+선택 배포용 Docker와 `render.yaml`은 유지한다. Node 24 단일 서버, `HOST=0.0.0.0`, 플랫폼 `PORT`, `/api/health`, 영속 DB 경로가 필요하다. Render는 `/var/data/pantry.sqlite`와 1GB 디스크, Railway는 `/data/pantry.sqlite`와 해당 볼륨을 사용한다. 유료 서비스 생성은 보류한다. `npm run check:runtime`은 별도 임시 폴더/DB에서 Node 배포 구성을 검사한다. 구 Cloudflare용 `verify:deploy`·`verify:online`은 실행하지 않는다.
 
 ## 주요 소스
 - `src/experience/`: 화면·3D·입력·실시간 연결

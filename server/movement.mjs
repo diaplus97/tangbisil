@@ -1,6 +1,6 @@
 import {getSpace,isWalkable,planMotion,sampleMotion} from '../shared/space.mjs';
 import {reservedSeats} from './travel.mjs';
-import {GameError} from './store.mjs';
+import {GameError} from '../shared/errors.mjs';
 
 export function moveVisitor(room,member,input,now=Date.now()){
   if(typeof input.requestId!=='string'||!/^[\w-]{8,80}$/.test(input.requestId))throw new GameError('요청 번호를 확인해 주세요.',400);

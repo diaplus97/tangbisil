@@ -42,7 +42,7 @@ function Modal({title,eyebrow,children,onClose,wide=false}:{title:string;eyebrow
 function PiePreview(){const ref=useRef<HTMLCanvasElement>(null);useEffect(()=>{drawFood(ref.current!.getContext('2d')!,0,0,false,false,900);},[]);return <canvas className="pie-preview" ref={ref} width="320" height="200" aria-label="레몬 글라세 샌드파이"/>;}
 
 export default function Experience(){
- const{state,status,error,busy,enter,act,contact,clearError}=usePantry();
+ const{state,status,error,busy,enter,act,contact,retry,clearError}=usePantry();
  const debug=new URLSearchParams(location.search).get('dev')==='1';
  const[name,setName]=useState(''),[avatar,setAvatar]=useState(0);
  const[panel,setPanel]=useState<'food'|'album'|'drink'|'help'|'settings'|null>(null),[movementMode,setMovementMode]=useState(false);
@@ -98,7 +98,7 @@ export default function Experience(){
    <header className="app-header">
      <a className="brand" href={location.pathname+location.search} aria-label="탕비실"><span className="brand-mark"><Icon name="cup"/></span><span>{healing?'힐링방':'탕비실'}<small>{healing?'기대어 쉬는 오후.':'잠깐, 한 조각의 여유.'}</small></span></a>
      <div className="header-controls">
-       <span className={'connection '+(online?'live':'')} role="status"><i/>{online?'여기 '+state?.room.members.filter(m=>m.connected).length+'명 · 전체 '+(state?.room.total??state?.room.members.length)+'명':status==='welcome'?'잠깐 쉬어가요':status==='offline'?'다시 연결 중':'자리를 찾는 중'}</span>
+       <span className={'connection '+(online?'live':'')} role="status"><i/>{online?'여기 '+state?.room.members.filter(m=>m.connected).length+'명 · 전체 '+(state?.room.total??state?.room.members.length)+'명':status==='welcome'?'잠깐 쉬어가요':status==='paused'?'잠시 쉬는 중':status==='offline'?'다시 연결 중':'자리를 찾는 중'}</span>
        <button className="sound-toggle" aria-label={sound?'소리 끄기':'소리 켜기'} aria-pressed={sound} onClick={()=>void toggleSound()}><Icon name={sound?'sound':'mute'}/><span>{sound?'소리 끄기':'소리 켜기'}</span></button>
        <details ref={menu} className="play-menu" onToggle={e=>{if(e.currentTarget.open)closeOtherPickers(e.currentTarget);}} onKeyDown={e=>{if(e.key==='Escape'){closeMenu();menu.current?.querySelector('summary')?.focus();}}}>
          <summary>메뉴 <span aria-hidden="true">⋯</span></summary>
@@ -138,7 +138,7 @@ export default function Experience(){
    {me&&!hasObjects&&!trayOpen&&!walking&&!member?.station&&member?.seat!=null&&<section className="play-next" aria-label="지금 할 수 있는 행동">
      <p>{guide}</p><button id="pick-up-snack" className="primary" onClick={()=>void take()} disabled={!online||busy}>{hasFood?resumeLabel:'간식 꺼내기'} <span aria-hidden="true">↗</span></button>
    </section>}
-   {error&&<div className="error-banner" role="alert"><span>{error}</span><button onClick={clearError} aria-label="오류 안내 닫기">×</button></div>}
+   {error&&<div className={'error-banner'+(status==='paused'?' connection-paused':'')} role="alert"><span>{error}</span>{status==='paused'?<div className="connection-options"><button onClick={retry}>다시 연결</button><select aria-label="다른 탕비실" defaultValue="" onChange={e=>{const url=new URL(location.href);url.searchParams.set('room',e.target.value);location.assign(url.href);}}><option value="" disabled>다른 방 고르기</option>{[['window','창가'],['breeze','바람'],['quiet','고요'],['sunset','노을']].filter(([id])=>id!==roomId).map(([id,label])=><option key={id} value={id}>{label} 탕비실</option>)}</select></div>:<button onClick={clearError} aria-label="오류 안내 닫기">×</button>}</div>}
    {toast&&<div className="toast" role="status"><span>✦</span>{toast}</div>}
    {panel==='settings'&&<Modal title="소리·풍경 설정" eyebrow="내가 편안한 만큼" onClose={()=>setPanel(null)}><div className="settings-form">
      <div className="sound-presets" role="group" aria-label="소리 조합">

@@ -1,16 +1,14 @@
 import http from 'node:http';
 import {sandContact} from './sand-contact.mjs';
-import {heldName} from '../shared/rest.mjs';
+import {roomSnapshot,validateSnackAction,actionNames as actions} from './room-view.mjs';
 import { stat } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 import { createStore, GameError } from './store.mjs';
 import {completeTravel,reservedSeats} from './travel.mjs';
 import {moveVisitor} from './movement.mjs';
 import {serveStatic} from './static.mjs';
-import {getSpace,sampleMotion} from '../shared/space.mjs';
+import {getSpace} from '../shared/space.mjs';
 
-const actions = { take:'간식을 골랐어요',open:'포장을 열었어요',bite:'한입 먹었어요',offer:'시식을 놓았어요',sample:'시식을 가져갔어요',wave:'컵을 들었어요',drink:'음료를 골랐어요' };
-const roomName = id => id === 'window' ? '창가 탕비실' : '우리 탕비실';
 export function createPantryServer({ database='data/pantry.sqlite', staticDir='dist', middleware, graceMs=5000 }={}) {
   const store = createStore(database);
   const rooms = new Map();
@@ -22,15 +20,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
     if (!rooms.has(id)) rooms.set(id,{ id, members:new Map(), history:[],fixtures:{fridge:{open:false,owner:null,changedAt:0}} });
     return rooms.get(id);
   }
-  function snapshot(r, id) {
-    const area=r.members.get(id)?.area??'pantry',members=[...r.members.values()],counts={pantry:members.filter(m=>(m.area??'pantry')==='pantry').length,healing:members.filter(m=>m.area==='healing').length};
-    return { version, serverTime:Date.now(), self:store.self(id), room:{ id:r.id,area,total:members.length,counts,name:area==='healing'?'힐링방':roomName(r.id),
-      members:members.filter(m=>(m.area??'pantry')===area).map(m => {
-        const u=store.getUser(m.id), s=store.serving(m.id);
-        return { id:m.id,area:m.area??'pantry',travel:m.travel??null,enteredAt:m.enteredAt??0,name:u.name,avatar:u.avatar,drink:u.drink,seat:m.seat,slot:m.slot,motion:m.motion,station:m.station,pantry:store.activities.public(m.id),connected:m.streams.size>0,
-          contact:m.contact&&m.contact.until>Date.now()?m.contact:null,action:m.action,actionAt:m.actionAt,food:s ? {state:s.state,open_progress:s.open_progress,bites:s.bites,portions:s.portions}:null };
-      }), fixtures:area==='pantry'?r.fixtures:{fridge:{open:false,owner:null,changedAt:0}},offers:area==='pantry'?store.offers(r.id,id):[], history:r.history.filter(h=>(h.area??'pantry')===area) } };
-  }
+  const snapshot=(r,id)=>roomSnapshot(store,r,id,version);
   function broadcast(r) {
     version++;
     for (const m of r.members.values()) {
@@ -135,11 +125,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
             for(const activeRoom of rooms.values())if(activeRoom.members.has(id))broadcast(activeRoom);
             send(res,200,{...result,state:snapshot(r,id)});return;
           }
-          if(m.area==='healing'&&['take','offer','sample','retract'].includes(input.type))throw new GameError('간식과 공용 시식은 탕비실에서 준비해 주세요.');
-          if(m.travel||sampleMotion(m,Date.now()).moving)throw new GameError('도착하면 이어서 할 수 있어요.');
-          if(input.type==='wave'&&heldName(store.activities.get(id)))throw new GameError('손에 든 물건을 내려놓고 컵을 들어 주세요.');
-          if(input.type==='wave'&&(sampleMotion(m,Date.now()).moving||store.activities.get(id).coffee.stage!=='carried'))throw new GameError('컵을 가져와 자리에 앉은 뒤 들어 주세요.');
-          if(input.type==='drink')throw new GameError('커피 머신이나 냉장고 앞으로 걸어가 음료를 준비해 주세요.');
+          validateSnackAction(store,m,input);
           const sampleRoom=input.type==='bite'?store.sampleOriginRoom(id):null;
           const result=store.act(id,roomId,input);
           if(!result.replay&&actions[input.type]) {

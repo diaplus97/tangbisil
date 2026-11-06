@@ -14,6 +14,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "check:runtime": "node scripts/check-runtime.mjs",
+    "build:cloudflare": "node scripts/build-cloudflare.mjs",
+    "test:cloudflare": "node scripts/check-cloudflare.mjs",
+    "dev:cloudflare": "wrangler dev --config wrangler.pantry.jsonc --local --port 8787 --persist-to data/cloudflare",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "verify:online": "node scripts/verify-online.mjs"
   },
@@ -35,6 +38,6 @@
     "tailwindcss": "^4.1.0",
     "typescript": "^5.8.0",
     "vite": "^7.0.0",
-    "wrangler": "^4.121.0"
+    "wrangler": "4.156.2"
   }
 }

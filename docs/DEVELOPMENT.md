@@ -57,9 +57,11 @@
 차의 물 붓기는 최대 약 3초, 색 번짐은 시간에 따라 진행하지만 강제 대기는 없다. 중지·즉시 가져오기·이탈 모두 현재 양을 보존한다. 마지막 연결이 종료되면 조작을 멈추고 개인 잔을 반환한다. 공용 점유에는 기존 연결 유예가 적용된다.
 
 ## 구현 구조와 운영
-React 18·TypeScript·Vite 7·Three.js, Node.js 24의 SQLite와 SSE를 사용한다. `shared/space.mjs`의 가구·좌표·경로를 서버와 화면이 공유한다. `shared/rest.mjs`는 손 점유와 시간 기반 차 상태를 계산하고, `server/rest-activities.mjs`는 조작·소유권·해제를 담당한다.
+React 18·TypeScript·Vite 7·Three.js를 사용한다. 로컬은 Node.js 24의 SQLite와 SSE, Cloudflare 테스트 배포는 Workers Static Assets·SQLite Durable Objects·휴면 WebSocket을 사용한다. `server/game-store.mjs`와 `server/room-view.mjs`의 저장·행동 검증·공개 상태 규칙을 두 서버가 공유한다. `shared/space.mjs`의 가구·좌표·경로를 서버와 화면이 공유한다. `shared/rest.mjs`는 손 점유와 시간 기반 차 상태를 계산하고, `server/rest-activities.mjs`는 조작·소유권·해제를 담당한다.
 
 개인 물건은 `pantry_items` JSON에 추가 필드와 기본값을 보충한다. SQLite의 기존 접시·앨범·시식 기록은 삭제하지 않는다. 과거 수령을 실제 맛봄으로 추정해 소급하지 않는다. 데이터는 `data/pantry.sqlite`, 방문자 토큰은 브라우저, 서버에는 토큰 해시만 보관한다. 브라우저 데이터 삭제 후 계정 복구/기기 간 동기화는 없다. 실행·LAN 접속·DB 백업 주의는 README를 따른다.
+
+Cloudflare는 방마다 `PantryRoom`, 개인 기록마다 `PantryVisitor`, 입장 제한용 고정 8개 `PantryGate`로 분리한다. 방의 개인 변경과 저장 대기 기록을 함께 확정하고 개인 객체에 버전 순서로 저장한 뒤 성공을 응답한다. 방 이동은 이전 방의 저장·쓰기 권한 반환 후 진행한다. 연결은 휴면 WebSocket과 자동 ping 응답을 사용하며 서버 반복 타이머는 없다. 이동·음료 완료·퇴장 유예·제한된 저장 재시도만 알람으로 처리한다. 새 저장소는 로컬 Node DB와 분리되며 기존 기록을 업로드하지 않는다. 새 설정은 `wrangler.pantry.jsonc`, 무료 한도·제한 값·검수 순서는 README를 따른다.
 
 ### 바다와 소리
 창밖은 생성 원경의 수면을 움직인 24초 WebM/MP4 시네마그래프다. 실사 촬영 영상이나 GIF가 아니다. 실패 시 정지 원경으로 이어가며 동작 감소, 비활성 탭, 모달, 화면 밖 중단을 지원한다. 단일 원경 평면의 깊이별 시차 한계는 남아 있다. 제작/원본 기록은 [LANDSCAPE_ASSET](LANDSCAPE_ASSET.md)에 보존한다.
@@ -67,7 +69,7 @@ React 18·TypeScript·Vite 7·Three.js, Node.js 24의 SQLite와 SSE를 사용한
 파도는 44초 실녹음 루프이며 영상과 별도로 켜고 끈다. 전체 기본 무음, 씹는 소리 기본 끄기, 개별 음량과 동료 소리 선택을 유지한다. 실녹음 편집을 우선하고 전체 6개/동료 2개 소리 상한을 둔다. 설정에서 무음/파도만/파도와 행동을 비교한다. 모래는 CC0 마찰 3구간(각 0.52초)과 돌 0.25초 구간을 사용한다. 드래그는 최대 두 개의 짧은 grain을 겹치고 속도에 따른 gain/rate를 제한한다. 손을 떼면 40ms fade, 움직임이 끊기면 100ms 이내 종료를 시작한다. 탭 비활성/연결 종료/방 전환도 정리한다. 말랑돌·잎 쓸기에는 가상 효과음을 새로 붙이지 않았다. 파일별 제작자·라이선스·링크·편집·해시는 `src/assets/audio/*CREDITS*`, `src/assets/environments/*CREDITS*`와 인접 JSON에 둔다. 수치 검사와 실제 청취 평가를 구분한다.
 
 ### 남아 있는 구버전 운영 파일
-현재 게임은 Node/SQLite 서버가 필요하다. 기존 Cloudflare Pages 정적 배포만으로 새 실시간 API가 실행되지는 않는다. `functions/api/chat.ts`, `supabase/schema.sql`, `wrangler.toml`, 이전 검증 스크립트는 구버전 호환 파일이며 새 서버의 설정법으로 혼동하지 않는다.
+현재 게임은 Node 서버 또는 새 Cloudflare Workers/DO 구성이 필요하다. 기존 Cloudflare Pages 정적 배포만으로 새 실시간 API가 실행되지는 않는다. `functions/api/chat.ts`, `supabase/schema.sql`, `wrangler.toml`, 이전 검증 스크립트는 구버전 호환 파일이며 새 서버의 설정법으로 혼동하지 않는다. 새 Worker `tangbisil-playtest`는 기존 Pages와 별도로 배포한다.
 
 - 구버전 NPC 키 `ANTHROPIC_API_KEY`는 서버 비밀 값(.dev.vars/호스트 secret)이며 VITE 변수나 브라우저에 넣지 않는다. 기존 Functions의 `nodejs_compat`·`BUDGET_KV` 설정을 배포 시 확인한다. KV가 없으면 현재 구버전 코드는 예산 제한 없이 경고 후 통과한다.
 - 구버전 Supabase를 운용할 경우 최신 저장소 스키마의 재실행 보호와 RLS를 사용한다. 예전 publication 중복 추가가 트랜잭션을 실패시킬 수 있으며, 모든 삭제를 허용하던 `public_all` 정책을 되살리지 않는다. 컵 정리는 `prune_old_cups`로 제한한다. VITE_SUPABASE 값은 빌드 시 공개 클라이언트 설정이다.
@@ -79,7 +81,7 @@ React 18·TypeScript·Vite 7·Three.js, Node.js 24의 SQLite와 SSE를 사용한
 3. 힐링방은 이번 승인 범위로 구현했다. 다른 방은 별도로 승인할 때 진행한다. 흡연실 문은 유지하고, 흡연실에서는 선택적으로 사념을 남기는 방향이다. 실시간 대화와 구분하며 일반실에 글·미리보기·새 글 배지를 가져오지 않는다. 글 길이·보관/만료·신고/숨김/본인 삭제·운영 정책은 미확정이다. 글을 보려고 흡연을 강요하지 않는다. Space 길게 누르기→놓으며 내쉬기는 후속 후보이며 글 입력과 충돌하지 않아야 한다.
 4. 힐링방의 실제 사용자 편안함·동료와 풍경의 구도를 검토한다. 꽃 한 송이와 모래 실녹음은 이번 범위로 연결했다. 청취/실물폰/첫 사용자 관찰 후 조정하며 추가 피젯/ASMR은 별도 범위로 남긴다.
 
-공개 출시에는 서버 배포·저장소·계정·보안·운영 관리의 별도 설계가 필요하다. 현재 로컬 실행 성공과 정식 서비스 준비를 구분한다.
+무료 공개 테스트를 위한 배포 구성과 로컬 런타임 검증을 마쳤다. 공개 HTTPS에서 두 방문자·재배포 후 기록·실물폰을 별도 검수하며, 계정 복구·백업/보존 정책·운영 관리·부하 검증을 마치기 전 정식 서비스 준비가 완료됐다고 보지 않는다. 유료 전환이 필요한 변경은 먼저 사용자에게 알린다.
 
 ## Git 준비 상태
 작업 브랜치는 `codex/shared-lemon-pie`, 기존 원격은 `github.com/diaplus97/tangbisil`이다. 기존 main을 덮어쓰거나 이력을 초기화하지 않는다. 구현/검증 후 현재 브랜치에 기록하며 원격 인증/업로드는 별도로 확인한다. `data/`(SQLite·방문자·원음), `test-results/`, 참고 자료·실행 로그·`.env`/`.dev.vars`는 제외한다. 기존 추적 `.env.production`에는 공개 Supabase URL과 publishable 클라이언트 키만 있고 이번 변경에는 포함하지 않는다. 비밀 값 패턴 검사는 현재 파일에 대한 보조 검사이며 이력 전체 보안 감사를 뜻하지 않는다.
