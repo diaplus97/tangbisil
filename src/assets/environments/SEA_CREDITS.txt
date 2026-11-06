@@ -1,0 +1,9 @@
+TANGBISIL — SEA AMBIENCE
+
+Video: original periodic water animation baked from pantry-sea-v1.jpg, an existing generated landscape. Not filmed footage. No external video-generation service was used.
+
+Audio: Waves at Baltic Sea shore.wav — pulswelle
+https://freesound.org/people/pulswelle/sounds/339517/
+CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
+Public HQ MP3 preview prefix edited 2026-11-05; not lossless source audio.
+48-second excerpt, filtered and stereo narrowed, four-second equal-power overlap, 44-second PCM loop. See sea-audio.json for full parameters and hashes.

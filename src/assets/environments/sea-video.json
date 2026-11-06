@@ -1,0 +1,27 @@
+{
+  "method": "Water-only periodic cinemagraph baked from the existing generated landscape; not filmed ocean footage. Static camera, sky, islands and shoreline.",
+  "source": {
+    "file": "pantry-sea-v1.jpg",
+    "sha256": "eea3d9e859890c1f6f5fced8ff04fce9df4e15a7101283ad2720fe863c1e60c9"
+  },
+  "width": 1280,
+  "height": 640,
+  "fps": 24,
+  "seconds": 24,
+  "silent": true,
+  "periodic_frame_max_delta": 1.0,
+  "last_to_first_mean_delta": 0.12973917643229166,
+  "ordinary_step_mean_delta": 0.12925740559895835,
+  "files": [
+    {
+      "file": "pantry-sea-loop.mp4",
+      "bytes": 4870393,
+      "sha256": "b314d5554ec5d48678d324af45d58710c68e4a7acb977bec14e6d1b44d492c90"
+    },
+    {
+      "file": "pantry-sea-loop.webm",
+      "bytes": 1405022,
+      "sha256": "e7ac6e7a281119e9ac8667b56981980d2b003f80cb59e4cf2cfccfae153fb240"
+    }
+  ]
+}

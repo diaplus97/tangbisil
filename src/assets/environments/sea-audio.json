@@ -1,0 +1,35 @@
+{
+  "file": "sea-waves.wav",
+  "source": {
+    "title": "Waves at Baltic Sea shore.wav",
+    "author": "pulswelle",
+    "page": "https://freesound.org/people/pulswelle/sounds/339517/",
+    "download": "https://cdn.freesound.org/previews/339/339517_2367966-hq.mp3",
+    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "retrieved": "2026-11-05",
+    "format": "Downloaded prefix of public HQ MP3 preview, not original lossless WAV",
+    "sha256": "917e8f3c02db910f0cb6d5f6d141474c5a2f6d70e854690f1ebf36f920894fbc"
+  },
+  "edit": {
+    "start_seconds": 12,
+    "input_seconds": 48,
+    "loop_seconds": 44.0,
+    "overlap_seconds": 4,
+    "sample_rate": 32000,
+    "channels": 2,
+    "highpass_hz": 85,
+    "lowpass_hz": 4800,
+    "stereo_width": 0.6,
+    "soft_clip": "tanh at five times RMS, then peak normalization to -8 dBFS",
+    "crossfade": "Equal power last four seconds into first four seconds; starts after head overlap, continuous sample boundary."
+  },
+  "measured": {
+    "rms_dbfs": -23.152,
+    "peak_dbfs": -8.0,
+    "clipped_samples": 0,
+    "seam_step_dbfs": -37.132,
+    "bytes": 5632044,
+    "sha256": "e7931213720c046826d2cc201357ad486f321cc850e74595e96883aa4e8859b9"
+  },
+  "verification": "Numerical edit and browser audio-graph validation; no claim of headphone listening."
+}

@@ -1,0 +1,53 @@
+TANGBISIL / RECORDED FOLEY
+All sources: CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
+Retrieved 2026-11-04. Public high-quality MP3 previews were used; these are not lossless originals.
+No account, payment, voice generation or synthesized noise was used.
+Source selection and edits were checked numerically. Headphone listening is still required.
+
+rustle-a.wav
+plastic packaging crinkles.wav — howardai
+https://freesound.org/people/howardai/sounds/561036/
+Public preview: https://cdn.freesound.org/previews/561/561036_5600420-hq.mp3
+Cut 1.25s + 1.00s; mono 44.1kHz PCM16; highpass 150Hz; lowpass 6200Hz; soft peak compression; post-filter; 12ms/45ms fades; peak -11dBFS.
+
+rustle-b.wav
+plastic packaging crinkles.wav — howardai
+https://freesound.org/people/howardai/sounds/561036/
+Public preview: https://cdn.freesound.org/previews/561/561036_5600420-hq.mp3
+Cut 4.10s + 1.10s; mono 44.1kHz PCM16; highpass 150Hz; lowpass 6200Hz; soft peak compression; post-filter; 12ms/45ms fades; peak -11dBFS.
+
+rustle-c.wav
+plastic packaging crinkles.wav — howardai
+https://freesound.org/people/howardai/sounds/561036/
+Public preview: https://cdn.freesound.org/previews/561/561036_5600420-hq.mp3
+Cut 6.65s + 1.05s; mono 44.1kHz PCM16; highpass 150Hz; lowpass 6200Hz; soft peak compression; post-filter; 12ms/45ms fades; peak -11dBFS.
+
+foil-touch.wav
+Wrapper Touch/Open — shutuplaika
+https://freesound.org/people/shutuplaika/sounds/714213/
+Public preview: https://cdn.freesound.org/previews/714/714213_14229614-hq.mp3
+Cut 4.44s + 0.72s; mono 44.1kHz PCM16; highpass 150Hz; lowpass 6000Hz; soft peak compression; post-filter; 12ms/45ms fades; peak -13dBFS.
+
+wrapper-open.wav
+SFX_STICKERRIPPER_candyWrapper_20.wav — MrFossy
+https://freesound.org/people/MrFossy/sounds/590195/
+Public preview: https://cdn.freesound.org/previews/590/590195_129727-hq.mp3
+Cut 0.43s + 0.34s; mono 44.1kHz PCM16; highpass 120Hz; lowpass 6500Hz; soft peak compression; post-filter; 12ms/45ms fades; peak -13dBFS.
+
+cup-down.wav
+Cup and Saucer — bowlingballout
+https://freesound.org/people/bowlingballout/sounds/568757/
+Public preview: https://cdn.freesound.org/previews/568/568757_485650-hq.mp3
+Cut 0.00s + 0.39s; mono 44.1kHz PCM16; highpass 130Hz; lowpass 5800Hz; soft peak compression; post-filter; 12ms/45ms fades; peak -14dBFS.
+
+tea-pour.wav
+Tea Pouring — mdayalan
+https://freesound.org/people/mdayalan/sounds/240125/
+Public preview: https://cdn.freesound.org/previews/240/240125_1061768-hq.mp3
+Cut 0.42s + 2.15s; mono 44.1kHz PCM16; highpass 150Hz; lowpass 6500Hz; soft peak compression; post-filter; 12ms/45ms fades; peak -15dBFS.
+
+biscuit-bite.wav
+Eating Biscuit — WasabiWielder
+https://freesound.org/people/WasabiWielder/sounds/334210/
+Public preview: https://cdn.freesound.org/previews/334/334210_4290188-hq.mp3
+Cut 0.72s + 0.46s; mono 44.1kHz PCM16; highpass 170Hz; lowpass 5000Hz; soft peak compression; post-filter; 12ms/45ms fades; peak -16dBFS.

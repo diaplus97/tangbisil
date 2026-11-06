@@ -1,5 +1,9 @@
 node_modules/
 dist/
+data/
+art/references/
+art/experiments/
+test-results/
 *.log
 .DS_Store
 

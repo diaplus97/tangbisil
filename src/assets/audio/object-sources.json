@@ -1,0 +1,104 @@
+{
+  "verification": "Numerical and browser timing only. No subjective headphone listening claimed.",
+  "files": [
+    {
+      "file": "coffee-machine.wav",
+      "source": {
+        "title": "Nespresso machine making coffee",
+        "author": "bassimat",
+        "page": "https://freesound.org/people/bassimat/sounds/823844/",
+        "download": "https://cdn.freesound.org/previews/823/823844_15636277-hq.mp3",
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "retrieved": "2026-11-05",
+        "format": "Public HQ MP3 preview, not lossless original",
+        "sha256": "df1b3e8cc5dacefb330d9782abc5a5286ce42f5ec2959b3310948b671018698b"
+      },
+      "edit": {
+        "start": 1.1,
+        "seconds": 4.499977324263039,
+        "mono_hz": 44100,
+        "highpass": 100,
+        "lowpass": 5000,
+        "soft_compression": "tanh at 5x RMS, min .005",
+        "fade_ms": [
+          25,
+          80
+        ],
+        "peak_dbfs": -18
+      },
+      "measured": {
+        "rms_dbfs": -32.99,
+        "clipped_samples": 0,
+        "first_sample": 0,
+        "last_sample": 0,
+        "sha256": "49d217daf2d44e3acc116aa737b99b5f55b0fc4571b2663dec52572d015c1de5"
+      }
+    },
+    {
+      "file": "fridge-open.wav",
+      "source": {
+        "title": "Fridge - Open:Close 1.wav",
+        "author": "MWsfx",
+        "page": "https://freesound.org/people/MWsfx/sounds/573696/",
+        "download": "https://cdn.freesound.org/previews/573/573696_12956274-hq.mp3",
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "retrieved": "2026-11-05",
+        "format": "Public HQ MP3 preview, not lossless original",
+        "sha256": "33d776a502dddb7da0bcee6ad6871f75211c5bc87bfa1c049a694ac6e51280e4"
+      },
+      "edit": {
+        "start": 0,
+        "seconds": 0.65,
+        "mono_hz": 44100,
+        "highpass": 100,
+        "lowpass": 5000,
+        "soft_compression": "tanh at 5x RMS, min .005",
+        "fade_ms": [
+          25,
+          80
+        ],
+        "peak_dbfs": -17
+      },
+      "measured": {
+        "rms_dbfs": -32.63,
+        "clipped_samples": 0,
+        "first_sample": 0,
+        "last_sample": 0,
+        "sha256": "c8a448f5ecf3face14a287c38be1b2fbf621afff748924acee2f0e17ea3ea594"
+      }
+    },
+    {
+      "file": "fridge-close.wav",
+      "source": {
+        "title": "Fridge - Open:Close 1.wav",
+        "author": "MWsfx",
+        "page": "https://freesound.org/people/MWsfx/sounds/573696/",
+        "download": "https://cdn.freesound.org/previews/573/573696_12956274-hq.mp3",
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "retrieved": "2026-11-05",
+        "format": "Public HQ MP3 preview, not lossless original",
+        "sha256": "33d776a502dddb7da0bcee6ad6871f75211c5bc87bfa1c049a694ac6e51280e4"
+      },
+      "edit": {
+        "start": 6.42,
+        "seconds": 0.48,
+        "mono_hz": 44100,
+        "highpass": 100,
+        "lowpass": 5000,
+        "soft_compression": "tanh at 5x RMS, min .005",
+        "fade_ms": [
+          25,
+          80
+        ],
+        "peak_dbfs": -17
+      },
+      "measured": {
+        "rms_dbfs": -32.88,
+        "clipped_samples": 0,
+        "first_sample": 0,
+        "last_sample": 0,
+        "sha256": "88b708f57926e4d248bbe33386ba0e2f3c8b26f1091ef3e5075da6b1e862f0db"
+      }
+    }
+  ]
+}

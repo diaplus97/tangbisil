@@ -1,0 +1,27 @@
+TANGBISIL / OBJECT FOLEY
+All recordings CC0 1.0. Public HQ MP3 previews, retrieved 2026-11-05.
+Numeric edits verified; headphone listening remains required.
+
+coffee-machine.wav
+Nespresso machine making coffee — bassimat
+https://freesound.org/people/bassimat/sounds/823844/
+https://creativecommons.org/publicdomain/zero/1.0/
+https://cdn.freesound.org/previews/823/823844_15636277-hq.mp3
+{"start": 1.1, "seconds": 4.499977324263039, "mono_hz": 44100, "highpass": 100, "lowpass": 5000, "soft_compression": "tanh at 5x RMS, min .005", "fade_ms": [25, 80], "peak_dbfs": -18}
+
+fridge-open.wav
+Fridge - Open:Close 1.wav — MWsfx
+https://freesound.org/people/MWsfx/sounds/573696/
+https://creativecommons.org/publicdomain/zero/1.0/
+https://cdn.freesound.org/previews/573/573696_12956274-hq.mp3
+{"start": 0, "seconds": 0.65, "mono_hz": 44100, "highpass": 100, "lowpass": 5000, "soft_compression": "tanh at 5x RMS, min .005", "fade_ms": [25, 80], "peak_dbfs": -17}
+
+fridge-close.wav
+Fridge - Open:Close 1.wav — MWsfx
+https://freesound.org/people/MWsfx/sounds/573696/
+https://creativecommons.org/publicdomain/zero/1.0/
+https://cdn.freesound.org/previews/573/573696_12956274-hq.mp3
+{"start": 6.42, "seconds": 0.48, "mono_hz": 44100, "highpass": 100, "lowpass": 5000, "soft_compression": "tanh at 5x RMS, min .005", "fade_ms": [25, 80], "peak_dbfs": -17}
+
+Candy wrapper: existing rustle-a/b/c and foil-touch CC0 recordings; shorter 0.15s grains at 1.22 playback rate and lower gain distinguish the small wrapper from lemon pie.
+Cup contact: existing cup-down.wav. Source/edit information is in CREDITS.txt.

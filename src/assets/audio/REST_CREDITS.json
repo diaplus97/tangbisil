@@ -1,0 +1,176 @@
+{
+  "file": "plant-spray.wav",
+  "title": "Spray Bottle",
+  "author": "OwlStorm / Ashe Kirk",
+  "source": "https://freesound.org/people/OwlStorm/sounds/212178/",
+  "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "download": "https://cdn.freesound.org/previews/212/212178_140737-hq.mp3",
+  "retrieved": "2026-11-06",
+  "format": "Public HQ MP3 preview, not lossless original",
+  "source_sha256": "338cb47d02951aa78e7dbf08e56704f942233eb8181712c99f647f329a938455",
+  "edit": {
+    "start_seconds": 0.61,
+    "duration": 0.48,
+    "mono_hz": 44100,
+    "highpass_hz": 120,
+    "lowpass_hz": 6500,
+    "soft_compression": "tanh at 4x RMS",
+    "fade_ms": [
+      12,
+      80
+    ],
+    "peak_dbfs": -19
+  },
+  "verification": {
+    "clipped_samples": 0,
+    "endpoints": [
+      0,
+      0
+    ],
+    "sha256": "07da32cdd390ce5ac113920be1a1d695c1d364330b8d8e2c4b095e351e699a44",
+    "headphone_listening": "Not performed"
+  },
+  "sand_recordings": [
+    {
+      "file": "sand-a.wav",
+      "title": "scrabble and soft sand pour.mp3",
+      "author": "mariethompson",
+      "source": "https://freesound.org/people/mariethompson/sounds/516923/",
+      "download": "https://cdn.freesound.org/previews/516/516923_2094018-hq.mp3",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "retrieved": "2026-11-06",
+      "format": "Public HQ MP3 preview; not the lossless original",
+      "source_sha256": "6e3975681aaced11a62070db06b1472765dbf9804a50b98b3be9ed4d709c99af",
+      "edit": {
+        "start_seconds": 2.4,
+        "duration": 0.52,
+        "mono_hz": 44100,
+        "highpass_hz": 160,
+        "lowpass_hz": 4600,
+        "compression": "tanh at 3x RMS",
+        "gain_after_compression": 79.29106367756792,
+        "fade_ms": [
+          18,
+          65
+        ]
+      },
+      "verification": {
+        "duration": 0.52,
+        "peak_dbfs": -23.0,
+        "rms_dbfs": -36.77,
+        "endpoints": [
+          0,
+          0
+        ],
+        "clipped_samples": 0,
+        "sha256": "099c9c6aaddf1e18e0393e8cac2116d97e040063dfbffe5052803a58538acd91"
+      }
+    },
+    {
+      "file": "sand-b.wav",
+      "title": "scrabble and soft sand pour.mp3",
+      "author": "mariethompson",
+      "source": "https://freesound.org/people/mariethompson/sounds/516923/",
+      "download": "https://cdn.freesound.org/previews/516/516923_2094018-hq.mp3",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "retrieved": "2026-11-06",
+      "format": "Public HQ MP3 preview; not the lossless original",
+      "source_sha256": "6e3975681aaced11a62070db06b1472765dbf9804a50b98b3be9ed4d709c99af",
+      "edit": {
+        "start_seconds": 5.6,
+        "duration": 0.52,
+        "mono_hz": 44100,
+        "highpass_hz": 160,
+        "lowpass_hz": 4600,
+        "compression": "tanh at 3x RMS",
+        "gain_after_compression": 2.3438900312062185,
+        "fade_ms": [
+          18,
+          65
+        ]
+      },
+      "verification": {
+        "duration": 0.52,
+        "peak_dbfs": -23.0,
+        "rms_dbfs": -38.21,
+        "endpoints": [
+          0,
+          0
+        ],
+        "clipped_samples": 0,
+        "sha256": "aa0744443160a4be5ca8be0abaec1d66f94753a99f4f8fd9ebca1b3c22f2a22f"
+      }
+    },
+    {
+      "file": "sand-c.wav",
+      "title": "scrabble and soft sand pour.mp3",
+      "author": "mariethompson",
+      "source": "https://freesound.org/people/mariethompson/sounds/516923/",
+      "download": "https://cdn.freesound.org/previews/516/516923_2094018-hq.mp3",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "retrieved": "2026-11-06",
+      "format": "Public HQ MP3 preview; not the lossless original",
+      "source_sha256": "6e3975681aaced11a62070db06b1472765dbf9804a50b98b3be9ed4d709c99af",
+      "edit": {
+        "start_seconds": 11.2,
+        "duration": 0.52,
+        "mono_hz": 44100,
+        "highpass_hz": 160,
+        "lowpass_hz": 4600,
+        "compression": "tanh at 3x RMS",
+        "gain_after_compression": 4.923629092276903,
+        "fade_ms": [
+          18,
+          65
+        ]
+      },
+      "verification": {
+        "duration": 0.52,
+        "peak_dbfs": -23.0,
+        "rms_dbfs": -34.42,
+        "endpoints": [
+          0,
+          0
+        ],
+        "clipped_samples": 0,
+        "sha256": "b5ae9165276f171ce8e60c04d86783e9a71cdcc110bbac98c941f43dedc48497"
+      }
+    },
+    {
+      "file": "sand-stone.wav",
+      "title": "stone_slab2.wav",
+      "author": "NistuGgner",
+      "source": "https://freesound.org/people/NistuGgner/sounds/700536/",
+      "download": "https://cdn.freesound.org/previews/700/700536_13373037-hq.mp3",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "retrieved": "2026-11-06",
+      "format": "Public HQ MP3 preview; not the lossless original",
+      "source_sha256": "ed1d11092a68ec9ebb243fa1da10b0ca9c83bf86c440790dbd4ce24327fba205",
+      "edit": {
+        "start_seconds": 0.02,
+        "duration": 0.25,
+        "mono_hz": 44100,
+        "highpass_hz": 160,
+        "lowpass_hz": 4600,
+        "compression": "tanh at 3x RMS",
+        "gain_after_compression": 8.15553738493316,
+        "fade_ms": [
+          5,
+          85
+        ]
+      },
+      "verification": {
+        "duration": 0.25,
+        "peak_dbfs": -26.0,
+        "rms_dbfs": -41.09,
+        "endpoints": [
+          0,
+          0
+        ],
+        "clipped_samples": 0,
+        "sha256": "096bd99d25a742bc7995a1994a2c0e211fa01a3cd4722d2d7d598fbe6de07269"
+      }
+    }
+  ],
+  "listening": "Numerical/timing checks only; subjective listening not performed."
+}

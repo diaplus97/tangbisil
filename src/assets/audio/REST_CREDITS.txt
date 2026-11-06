@@ -1,0 +1,37 @@
+TANGBISIL / REST OBJECTS
+Spray Bottle — OwlStorm / Ashe Kirk
+https://freesound.org/people/OwlStorm/sounds/212178/
+https://creativecommons.org/publicdomain/zero/1.0/
+https://cdn.freesound.org/previews/212/212178_140737-hq.mp3
+Public HQ MP3 preview, retrieved 2026-11-06.
+Cut 0.61–1.09s, mono 44.1kHz PCM16, HP120 / LP6500 Hz, soft compression, fades12/80ms, peak-19dBFS.
+Numerical and browser timing verification; no subjective headphone listening claimed.
+
+Tea uses existing tea-pour.wav and cup-down.wav; tea bag uses a short low-gain segment of foil-touch.wav. Original sources and edits: CREDITS.txt.
+Stone and leaf-stroke deliberately have no artificial sound.
+
+SAND RECORDINGS
+sand-a.wav — scrabble and soft sand pour.mp3 / mariethompson
+https://freesound.org/people/mariethompson/sounds/516923/
+https://creativecommons.org/publicdomain/zero/1.0/
+https://cdn.freesound.org/previews/516/516923_2094018-hq.mp3
+{"start_seconds": 2.4, "duration": 0.52, "mono_hz": 44100, "highpass_hz": 160, "lowpass_hz": 4600, "compression": "tanh at 3x RMS", "gain_after_compression": 79.29106367756792, "fade_ms": [18, 65]}
+
+sand-b.wav — scrabble and soft sand pour.mp3 / mariethompson
+https://freesound.org/people/mariethompson/sounds/516923/
+https://creativecommons.org/publicdomain/zero/1.0/
+https://cdn.freesound.org/previews/516/516923_2094018-hq.mp3
+{"start_seconds": 5.6, "duration": 0.52, "mono_hz": 44100, "highpass_hz": 160, "lowpass_hz": 4600, "compression": "tanh at 3x RMS", "gain_after_compression": 2.3438900312062185, "fade_ms": [18, 65]}
+
+sand-c.wav — scrabble and soft sand pour.mp3 / mariethompson
+https://freesound.org/people/mariethompson/sounds/516923/
+https://creativecommons.org/publicdomain/zero/1.0/
+https://cdn.freesound.org/previews/516/516923_2094018-hq.mp3
+{"start_seconds": 11.2, "duration": 0.52, "mono_hz": 44100, "highpass_hz": 160, "lowpass_hz": 4600, "compression": "tanh at 3x RMS", "gain_after_compression": 4.923629092276903, "fade_ms": [18, 65]}
+
+sand-stone.wav — stone_slab2.wav / NistuGgner
+https://freesound.org/people/NistuGgner/sounds/700536/
+https://creativecommons.org/publicdomain/zero/1.0/
+https://cdn.freesound.org/previews/700/700536_13373037-hq.mp3
+{"start_seconds": 0.02, "duration": 0.25, "mono_hz": 44100, "highpass_hz": 160, "lowpass_hz": 4600, "compression": "tanh at 3x RMS", "gain_after_compression": 8.15553738493316, "fade_ms": [5, 85]}
+HQ previews, retrieved 2026-11-06. Source/output hashes and numerical results: REST_CREDITS.json. No subjective listening claimed.

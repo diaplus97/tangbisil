@@ -1,0 +1,318 @@
+{
+  "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "method": "Edited real recordings from public high-quality MP3 previews, not original lossless masters. Objective analysis only; headphone listening still needed.",
+  "files": [
+    {
+      "file": "rustle-a.wav",
+      "source": {
+        "id": "561036",
+        "author": "howardai",
+        "title": "plastic packaging crinkles.wav",
+        "page": "https://freesound.org/people/howardai/sounds/561036/",
+        "download": "https://cdn.freesound.org/previews/561/561036_5600420-hq.mp3",
+        "license": "CC0-1.0",
+        "retrieved": "2026-11-04",
+        "source": "Public high-quality MP3 preview; original WAV/MP3 download requires login",
+        "bytes": 322368,
+        "sha256": "c7a89bf00796286e451b7e27171176ee12ac1de69dfc0d20261b38ae29b18c16"
+      },
+      "edit": {
+        "start_seconds": 1.25,
+        "duration_seconds": 1.0,
+        "mono_hz": 44100,
+        "highpass_hz": 150,
+        "lowpass_hz": 6200,
+        "post_compression_lowpass_passes": 2,
+        "soft_peak_compression": "tanh, threshold 5x RMS, minimum .005",
+        "fade_in_ms": 12,
+        "fade_out_ms": 45,
+        "peak_target_dbfs": -11
+      },
+      "measured": {
+        "peak_dbfs": -11.0,
+        "rms_dbfs": -31.03,
+        "first_sample": 0,
+        "last_sample": 0,
+        "clipped_samples": 0,
+        "frames_below_minus_55_db": 13,
+        "total_10ms_frames": 100,
+        "energy_above_8khz_percent": 0.032,
+        "bytes": 88244,
+        "sha256": "c2b4174410ff18285f4ffb2a1e6fcbc7198c5672cb25a7d8b1a5af050cb34449"
+      }
+    },
+    {
+      "file": "rustle-b.wav",
+      "source": {
+        "id": "561036",
+        "author": "howardai",
+        "title": "plastic packaging crinkles.wav",
+        "page": "https://freesound.org/people/howardai/sounds/561036/",
+        "download": "https://cdn.freesound.org/previews/561/561036_5600420-hq.mp3",
+        "license": "CC0-1.0",
+        "retrieved": "2026-11-04",
+        "source": "Public high-quality MP3 preview; original WAV/MP3 download requires login",
+        "bytes": 322368,
+        "sha256": "c7a89bf00796286e451b7e27171176ee12ac1de69dfc0d20261b38ae29b18c16"
+      },
+      "edit": {
+        "start_seconds": 4.1,
+        "duration_seconds": 1.1,
+        "mono_hz": 44100,
+        "highpass_hz": 150,
+        "lowpass_hz": 6200,
+        "post_compression_lowpass_passes": 2,
+        "soft_peak_compression": "tanh, threshold 5x RMS, minimum .005",
+        "fade_in_ms": 12,
+        "fade_out_ms": 45,
+        "peak_target_dbfs": -11
+      },
+      "measured": {
+        "peak_dbfs": -11.0,
+        "rms_dbfs": -29.79,
+        "first_sample": 0,
+        "last_sample": 0,
+        "clipped_samples": 0,
+        "frames_below_minus_55_db": 6,
+        "total_10ms_frames": 110,
+        "energy_above_8khz_percent": 0.036,
+        "bytes": 97064,
+        "sha256": "8c7433fa98ca8574803c4506c966ad6649ad6fda847578a535c2cebf5228e01e"
+      }
+    },
+    {
+      "file": "rustle-c.wav",
+      "source": {
+        "id": "561036",
+        "author": "howardai",
+        "title": "plastic packaging crinkles.wav",
+        "page": "https://freesound.org/people/howardai/sounds/561036/",
+        "download": "https://cdn.freesound.org/previews/561/561036_5600420-hq.mp3",
+        "license": "CC0-1.0",
+        "retrieved": "2026-11-04",
+        "source": "Public high-quality MP3 preview; original WAV/MP3 download requires login",
+        "bytes": 322368,
+        "sha256": "c7a89bf00796286e451b7e27171176ee12ac1de69dfc0d20261b38ae29b18c16"
+      },
+      "edit": {
+        "start_seconds": 6.65,
+        "duration_seconds": 1.05,
+        "mono_hz": 44100,
+        "highpass_hz": 150,
+        "lowpass_hz": 6200,
+        "post_compression_lowpass_passes": 2,
+        "soft_peak_compression": "tanh, threshold 5x RMS, minimum .005",
+        "fade_in_ms": 12,
+        "fade_out_ms": 45,
+        "peak_target_dbfs": -11
+      },
+      "measured": {
+        "peak_dbfs": -11.0,
+        "rms_dbfs": -29.74,
+        "first_sample": 0,
+        "last_sample": 0,
+        "clipped_samples": 0,
+        "frames_below_minus_55_db": 4,
+        "total_10ms_frames": 105,
+        "energy_above_8khz_percent": 0.037,
+        "bytes": 92654,
+        "sha256": "62436710a465efda0af5578618319ec7257b0af3d7c4723d1233093ec5d942a4"
+      }
+    },
+    {
+      "file": "foil-touch.wav",
+      "source": {
+        "id": "714213",
+        "author": "shutuplaika",
+        "title": "Wrapper Touch/Open",
+        "page": "https://freesound.org/people/shutuplaika/sounds/714213/",
+        "download": "https://cdn.freesound.org/previews/714/714213_14229614-hq.mp3",
+        "license": "CC0-1.0",
+        "retrieved": "2026-11-04",
+        "source": "Public high-quality MP3 preview; original WAV/MP3 download requires login",
+        "bytes": 825359,
+        "sha256": "692b17bec0132d7c1cf113ef5b32d442a67178552f0e4ca30026ce0726d72ea4"
+      },
+      "edit": {
+        "start_seconds": 4.44,
+        "duration_seconds": 0.72,
+        "mono_hz": 44100,
+        "highpass_hz": 150,
+        "lowpass_hz": 6000,
+        "post_compression_lowpass_passes": 2,
+        "soft_peak_compression": "tanh, threshold 5x RMS, minimum .005",
+        "fade_in_ms": 12,
+        "fade_out_ms": 45,
+        "peak_target_dbfs": -13
+      },
+      "measured": {
+        "peak_dbfs": -13.0,
+        "rms_dbfs": -32.93,
+        "first_sample": 0,
+        "last_sample": 0,
+        "clipped_samples": 0,
+        "frames_below_minus_55_db": 26,
+        "total_10ms_frames": 72,
+        "energy_above_8khz_percent": 0.055,
+        "bytes": 63548,
+        "sha256": "2ac180de95305f46c13d03035cdfc67ed973e5b27c9d4e630783c97e78a23feb"
+      }
+    },
+    {
+      "file": "wrapper-open.wav",
+      "source": {
+        "id": "590195",
+        "author": "MrFossy",
+        "title": "SFX_STICKERRIPPER_candyWrapper_20.wav",
+        "page": "https://freesound.org/people/MrFossy/sounds/590195/",
+        "download": "https://cdn.freesound.org/previews/590/590195_129727-hq.mp3",
+        "license": "CC0-1.0",
+        "retrieved": "2026-11-04",
+        "source": "Public high-quality MP3 preview; original download requires login",
+        "bytes": 27608,
+        "sha256": "7166e92f3f01bcc191be61c7703c52fbd1922271d96ec57a03a9947e8737c7bd"
+      },
+      "edit": {
+        "start_seconds": 0.43,
+        "duration_seconds": 0.34,
+        "mono_hz": 44100,
+        "highpass_hz": 120,
+        "lowpass_hz": 6500,
+        "post_compression_lowpass_passes": 2,
+        "soft_peak_compression": "tanh, threshold 5x RMS, minimum .005",
+        "fade_in_ms": 12,
+        "fade_out_ms": 45,
+        "peak_target_dbfs": -13
+      },
+      "measured": {
+        "peak_dbfs": -13.0,
+        "rms_dbfs": -34.22,
+        "first_sample": 0,
+        "last_sample": 0,
+        "clipped_samples": 0,
+        "frames_below_minus_55_db": 19,
+        "total_10ms_frames": 34,
+        "energy_above_8khz_percent": 0.257,
+        "bytes": 30032,
+        "sha256": "ec6d46e5c7370e41b1ae8237035a7b74393d183e9a5940f9a389f00e0ef411e1"
+      }
+    },
+    {
+      "file": "cup-down.wav",
+      "source": {
+        "id": "568757",
+        "author": "bowlingballout",
+        "title": "Cup and Saucer",
+        "page": "https://freesound.org/people/bowlingballout/sounds/568757/",
+        "download": "https://cdn.freesound.org/previews/568/568757_485650-hq.mp3",
+        "license": "CC0-1.0",
+        "retrieved": "2026-11-04",
+        "source": "Public high-quality MP3 preview; original WAV/MP3 download requires login",
+        "bytes": 12360,
+        "sha256": "40f9156302915f6f8ae5d501e1ce3d613cf4b14e0c658380ac6e63ecaaad018c"
+      },
+      "edit": {
+        "start_seconds": 0,
+        "duration_seconds": 0.39,
+        "mono_hz": 44100,
+        "highpass_hz": 130,
+        "lowpass_hz": 5800,
+        "post_compression_lowpass_passes": 2,
+        "soft_peak_compression": "tanh, threshold 5x RMS, minimum .005",
+        "fade_in_ms": 12,
+        "fade_out_ms": 45,
+        "peak_target_dbfs": -14
+      },
+      "measured": {
+        "peak_dbfs": -14.0,
+        "rms_dbfs": -31.62,
+        "first_sample": 0,
+        "last_sample": 0,
+        "clipped_samples": 0,
+        "frames_below_minus_55_db": 13,
+        "total_10ms_frames": 39,
+        "energy_above_8khz_percent": 0.001,
+        "bytes": 34442,
+        "sha256": "0ed6c5f631ee0489919287939e8635d0f5b4e1b90d256c482d65f3a39348c7b0"
+      }
+    },
+    {
+      "file": "tea-pour.wav",
+      "source": {
+        "id": "240125",
+        "author": "mdayalan",
+        "title": "Tea Pouring",
+        "page": "https://freesound.org/people/mdayalan/sounds/240125/",
+        "download": "https://cdn.freesound.org/previews/240/240125_1061768-hq.mp3",
+        "license": "CC0-1.0",
+        "retrieved": "2026-11-04",
+        "source": "Public high-quality MP3 preview; original WAV/MP3 download requires login",
+        "bytes": 236256,
+        "sha256": "9bf4c4f0ed24a629846933c43ffe1f59f91942b51cf946af8ce37bf6a6d0e44a"
+      },
+      "edit": {
+        "start_seconds": 0.42,
+        "duration_seconds": 2.15,
+        "mono_hz": 44100,
+        "highpass_hz": 150,
+        "lowpass_hz": 6500,
+        "post_compression_lowpass_passes": 2,
+        "soft_peak_compression": "tanh, threshold 5x RMS, minimum .005",
+        "fade_in_ms": 12,
+        "fade_out_ms": 45,
+        "peak_target_dbfs": -15
+      },
+      "measured": {
+        "peak_dbfs": -15.0,
+        "rms_dbfs": -31.11,
+        "first_sample": 0,
+        "last_sample": 0,
+        "clipped_samples": 0,
+        "frames_below_minus_55_db": 1,
+        "total_10ms_frames": 215,
+        "energy_above_8khz_percent": 0.014,
+        "bytes": 189674,
+        "sha256": "0b2c552c1f89af2f4a1f08ecaeb7e01a223072eb8bc48ec0317dc51e4532833f"
+      }
+    },
+    {
+      "file": "biscuit-bite.wav",
+      "source": {
+        "id": "334210",
+        "author": "WasabiWielder",
+        "title": "Eating Biscuit",
+        "page": "https://freesound.org/people/WasabiWielder/sounds/334210/",
+        "download": "https://cdn.freesound.org/previews/334/334210_4290188-hq.mp3",
+        "license": "CC0-1.0",
+        "retrieved": "2026-11-04",
+        "source": "Public high-quality MP3 preview; original WAV/MP3 download requires login",
+        "bytes": 70992,
+        "sha256": "2ac300b866cd95684755385d33877dbe3b93f809af9ac990dd2327621887ef34"
+      },
+      "edit": {
+        "start_seconds": 0.72,
+        "duration_seconds": 0.46,
+        "mono_hz": 44100,
+        "highpass_hz": 170,
+        "lowpass_hz": 5000,
+        "post_compression_lowpass_passes": 2,
+        "soft_peak_compression": "tanh, threshold 5x RMS, minimum .005",
+        "fade_in_ms": 12,
+        "fade_out_ms": 45,
+        "peak_target_dbfs": -16
+      },
+      "measured": {
+        "peak_dbfs": -16.0,
+        "rms_dbfs": -29.61,
+        "first_sample": 0,
+        "last_sample": 0,
+        "clipped_samples": 0,
+        "frames_below_minus_55_db": 1,
+        "total_10ms_frames": 46,
+        "energy_above_8khz_percent": 0.0,
+        "bytes": 40616,
+        "sha256": "2050ca84ebd871dfd4ba060af87f7db6230a89688daa30eb3d35b36a8c49c1d5"
+      }
+    }
+  ]
+}
