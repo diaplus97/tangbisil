@@ -12,7 +12,7 @@ export function validateSnackAction(store,m,input){
 }
 export function roomSnapshot(store,r,id,version,connected=m=>m.streams.size>0){
   const area=r.members.get(id)?.area??'pantry',members=[...r.members.values()],counts={pantry:members.filter(m=>(m.area??'pantry')==='pantry').length,healing:members.filter(m=>m.area==='healing').length};
-  return {version,serverTime:Date.now(),self:store.self(id),room:{id:r.id,area,total:members.length,counts,name:area==='healing'?'힐링방':r.id==='window'?'창가 탕비실':'우리 탕비실',
+  return {version,serverTime:Date.now(),self:store.self(id),room:{id:r.id,area,media:r.media??null,total:members.length,counts,name:area==='healing'?'힐링방':r.id==='window'?'창가 탕비실':'우리 탕비실',
     members:members.filter(m=>(m.area??'pantry')===area).map(m=>{
       const u=store.getUser(m.id),s=store.serving(m.id);
       return {id:m.id,area:m.area??'pantry',travel:m.travel??null,enteredAt:m.enteredAt??0,name:u.name,avatar:u.avatar,drink:u.drink,seat:m.seat,slot:m.slot,motion:m.motion,station:m.station,pantry:store.activities.public(m.id),connected:connected(m),contact:m.contact&&m.contact.until>Date.now()?m.contact:null,action:m.action,actionAt:m.actionAt,food:s?{state:s.state,open_progress:s.open_progress,bites:s.bites,portions:s.portions}:null};

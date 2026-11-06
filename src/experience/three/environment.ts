@@ -1,6 +1,6 @@
 import * as T from 'three';
 import {Workshop} from './assets';
-import {windowView} from './windowView';
+import {windowView,windowViews,type WindowView} from './windowView';
 import {windowOpening} from './layout';
 import {createSeaPlayback,type SeaPlaybackStatus} from './seaPlayback';
 
@@ -9,8 +9,9 @@ export type LandscapeStatus='loading'|'ready'|'fallback';
 // A window portal keeps the panorama inside the opening. In perspective views,
 // rays meet a virtual background farther behind the wall, rather than a poster
 // on the glass. The retained orthographic study uses the whole panorama.
-export function windowLandscape(kit:Workshop,scene:T.Scene,onStatus:(status:LandscapeStatus)=>void,video:HTMLVideoElement,onPlayback:(status:SeaPlaybackStatus)=>void,opening=windowOpening){
-  let disposed=false,videoReady=false;
+export function windowLandscape(kit:Workshop,scene:T.Scene,onStatus:(status:LandscapeStatus)=>void,video:HTMLVideoElement,onPlayback:(status:SeaPlaybackStatus)=>void,opening=windowOpening,initialView:WindowView=windowViews.sea){
+  let disposed=false,videoReady=false,generation=0,wanted=false,active=true;
+  let texture:T.Texture|null=null,playback:ReturnType<typeof createSeaPlayback>|null=null;
   const material=new T.ShaderMaterial({
     uniforms:{landscape:{value:null as T.Texture|null},loaded:{value:0},videoSource:{value:0},warmth:{value:0},perspective:{value:0},
       viewCenter:{value:new T.Vector2(...windowView.center)},viewSize:{value:new T.Vector2(...windowView.size)},
@@ -48,24 +49,32 @@ export function windowLandscape(kit:Workshop,scene:T.Scene,onStatus:(status:Land
   });
   const mesh=kit.mesh(scene,new T.PlaneGeometry(opening.width,opening.height),material,0,opening.y,opening.z);
   mesh.castShadow=false;mesh.receiveShadow=false;
-  onStatus('loading');
-  const texture=new T.TextureLoader().load(windowView.url,loaded=>{
-    if(disposed){loaded.dispose();return;}
-    if(!videoReady){material.uniforms.landscape.value=loaded;material.uniforms.loaded.value=1;onStatus('ready');}
-  },undefined,()=>{if(!disposed&&!videoReady)onStatus('fallback');});
-  texture.colorSpace=T.SRGBColorSpace;texture.anisotropy=4;kit.textures.add(texture);
   const videoTexture=new T.VideoTexture(video);videoTexture.colorSpace=T.SRGBColorSpace;
-  const playback=createSeaPlayback(video,()=>{
-    if(disposed)return;videoReady=true;material.uniforms.landscape.value=videoTexture;material.uniforms.videoSource.value=1;material.uniforms.loaded.value=1;onStatus('ready');
-  },status=>{
-    if(status==='fallback'){videoReady=false;material.uniforms.videoSource.value=0;if(texture.image){material.uniforms.landscape.value=texture;material.uniforms.loaded.value=1;}}
-    onPlayback(status);
-  });
+  function select(view:WindowView){
+    const ticket=++generation;playback?.dispose();if(texture){kit.textures.delete(texture);texture.dispose();}videoReady=false;
+    material.uniforms.landscape.value=null;material.uniforms.loaded.value=0;material.uniforms.videoSource.value=0;
+    material.uniforms.fallbackLow.value.set(view.fallbackLow);material.uniforms.fallbackHigh.value.set(view.fallbackHigh);onStatus('loading');
+    material.uniforms.viewCenter.value.set(...view.center);material.uniforms.viewSize.value.set(...view.size);
+    texture=new T.TextureLoader().load(view.url,loaded=>{
+      if(disposed||ticket!==generation){loaded.dispose();return;}
+      if(!videoReady){material.uniforms.landscape.value=loaded;material.uniforms.loaded.value=1;onStatus('ready');}
+    },undefined,()=>{if(!disposed&&ticket===generation&&!videoReady)onStatus('fallback');});
+    texture.colorSpace=T.SRGBColorSpace;texture.anisotropy=4;kit.textures.add(texture);
+    playback=createSeaPlayback(video,()=>{
+      if(disposed||ticket!==generation)return;videoReady=true;material.uniforms.landscape.value=videoTexture;material.uniforms.videoSource.value=1;material.uniforms.loaded.value=1;onStatus('ready');
+    },status=>{
+      if(disposed||ticket!==generation)return;
+      if(status==='fallback'){videoReady=false;material.uniforms.videoSource.value=0;if(texture?.image){material.uniforms.landscape.value=texture;material.uniforms.loaded.value=1;}}
+      onPlayback(status);
+    },view);playback.active(active);playback.motion(wanted);
+  }
+  select(initialView);
   return {
-    motion:playback.motion,
-    active:playback.active,
+    select,
+    motion(on:boolean){wanted=on;playback?.motion(on);},
+    active(on:boolean){active=on;playback?.active(on);},
     lighting(warm:boolean){material.uniforms.warmth.value=warm?1:0;},
     interior(enabled:boolean){material.uniforms.perspective.value=enabled?1:0;},
-    dispose(){disposed=true;playback.dispose();videoTexture.dispose();material.dispose();},
+    dispose(){disposed=true;playback?.dispose();videoTexture.dispose();material.dispose();},
   };
 }

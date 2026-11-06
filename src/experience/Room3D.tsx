@@ -1,4 +1,5 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState,type ReactNode} from 'react';
+import type {LandscapeId} from '../../shared/room-media.mjs';
 import * as T from 'three';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {makeRenderer} from './three/assets';
@@ -6,7 +7,7 @@ import {anchors,createRoomScene} from './three/roomScene';
 import {isWalkable,getSpace,seatedView,stations as pantryStations,type Area,type StationId} from '../../shared/space.mjs';
 import type {SeaPlaybackStatus} from './three/seaPlayback';
 import type {LandscapeStatus} from './three/environment';
-import {windowView} from './three/windowView';
+import {windowViews} from './three/windowView';
 import {tableCenter} from './three/layout';
 import {createExploreCamera} from './three/exploreCamera';
 import {createFirstPersonCamera,type Eye} from './three/firstPersonCamera';
@@ -14,11 +15,11 @@ import {useInputMethod} from './useInputMethod';
 import ExploreDestinations from './ExploreDestinations';
 import type {Snapshot} from './types';
 
-type Props={onTravel:(to:Area)=>Promise<unknown>;onToolsMount:(element:HTMLDivElement|null)=>void;onApproach:(station:StationId)=>Promise<unknown>;seaMotion:boolean;waves:boolean;onWaves:()=>void;state:Snapshot|null;debug:boolean;movementMode:boolean;foodInHand:boolean;onFinishMove:()=>void;sampleAvailable:boolean;sampleLabel:string;onShelf:()=>void;onPlate:()=>void;onDrink:()=>void;disabled:boolean;onFallback:()=>void;onMove:(x:number,z:number)=>Promise<unknown>;onSit:(seat:number)=>Promise<unknown>;onStand:()=>Promise<unknown>};
+type Props={landscapeId:LandscapeId;tvOpen:boolean;windowContent?:ReactNode;onTv?:()=>void;onTravel:(to:Area)=>Promise<unknown>;onToolsMount:(element:HTMLDivElement|null)=>void;onApproach:(station:StationId)=>Promise<unknown>;seaMotion:boolean;waves:boolean;onWaves:()=>void;state:Snapshot|null;debug:boolean;movementMode:boolean;foodInHand:boolean;onFinishMove:()=>void;sampleAvailable:boolean;sampleLabel:string;onShelf:()=>void;onPlate:()=>void;onDrink:()=>void;disabled:boolean;onFallback:()=>void;onMove:(x:number,z:number)=>Promise<unknown>;onSit:(seat:number)=>Promise<unknown>;onStand:()=>Promise<unknown>};
 type Study='diorama'|'inside'|'table'|'lounge'|'map'|'third';
 type Framing=Study|'seated'|'walking'|'activity';
 const frames:Record<Study,string>={inside:'입구 시점',table:'테이블 시점',lounge:'창가 자리',diorama:'전체 배치',map:'개발용 평면',third:'이전 3인칭'};
-export default function Room3D({onTravel,onToolsMount,onApproach,seaMotion,waves,onWaves,state,debug,movementMode,foodInHand,onFinishMove,sampleAvailable,sampleLabel,onShelf,onPlate,onDrink,disabled,onFallback,onMove,onSit,onStand}:Props){
+export default function Room3D({landscapeId,tvOpen,windowContent,onTv,onTravel,onToolsMount,onApproach,seaMotion,waves,onWaves,state,debug,movementMode,foodInHand,onFinishMove,sampleAvailable,sampleLabel,onShelf,onPlate,onDrink,disabled,onFallback,onMove,onSit,onStand}:Props){
   const input=useInputMethod();
   const area=state?.room.area??'pantry',map=getSpace(area),seats=map.seats,stations=map.stations as typeof pantryStations;
   const portal=map.portal;
@@ -34,7 +35,7 @@ export default function Room3D({onTravel,onToolsMount,onApproach,seaMotion,waves
   const moving=Boolean(me?.travel||me?.motion&&me.motion.id!==arrived&&state&&me.motion.endsAt>state.serverTime);
   const framing:Framing=debug?study:moving||me&&me.seat==null&&!me.station?'walking':me?.station?'activity':'seated';
   const framingRef=useRef(framing),foodRef=useRef(foodInHand),seaMotionRef=useRef(seaMotion);
-  latest.current=state;framingRef.current=framing;foodRef.current=foodInHand;seaMotionRef.current=seaMotion;
+  latest.current=state;framingRef.current=framing;foodRef.current=foodInHand||tvOpen;seaMotionRef.current=seaMotion;
   const cameraUpdate=useRef<((f:Framing)=>void)|null>(null),lookAtSea=useRef<(()=>void)|null>(null);
   const originOwner=state?.room.members.find(m=>m.seat===origin.current&&m.id!==state.self.id);
   async function chooseSeat(index:number){
@@ -58,14 +59,16 @@ export default function Room3D({onTravel,onToolsMount,onApproach,seaMotion,waves
   useEffect(()=>{if(!moving){setTarget(null);setObjectTarget(null);}},[moving]);
   useEffect(()=>{world.current?.sync(state);},[state]);
   useEffect(()=>{origin.current=null;setTarget(null);setObjectTarget(null);setWalkHint('');},[area]);
-  useEffect(()=>{world.current?.lighting(warm);},[warm]);
+  useEffect(()=>{world.current?.lighting(warm||landscapeId==='fire');},[warm,landscapeId]);
+  useEffect(()=>{world.current?.landscape(windowViews[landscapeId]);},[landscapeId]);
+  useEffect(()=>{if(tvOpen)lookAtSea.current?.();},[tvOpen]);
   useEffect(()=>{world.current?.seaMotion(seaMotion);},[seaMotion]);
   useEffect(()=>{setHovered(null);cameraUpdate.current?.(framing);},[framing,seat,me?.station,me?.motion?.id]);
   useEffect(()=>{
     let renderer:T.WebGLRenderer;
     try{renderer=makeRenderer(canvas.current!);}catch{setError('이 브라우저에서 3D 화면을 열지 못했어요.');return;}
     renderer.toneMapping=T.NeutralToneMapping;renderer.toneMappingExposure=1;renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-    const room=createRoomScene(setLandscape,seaVideo.current!,setPlayback,area);world.current=room;room.sync(latest.current);room.seaMotion(seaMotionRef.current);
+    const room=createRoomScene(setLandscape,seaVideo.current!,setPlayback,area,windowViews[landscapeId]);world.current=room;room.sync(latest.current);room.seaMotion(seaMotionRef.current);room.lighting(landscapeId==='fire');
     const studio=new RoomEnvironment(),pmrem=new T.PMREMGenerator(renderer),reflection=pmrem.fromScene(studio,.04);
     room.scene.environment=reflection.texture;room.scene.environmentIntensity=.35;studio.dispose();pmrem.dispose();
     let camera:T.OrthographicCamera|T.PerspectiveCamera,first:ReturnType<typeof createFirstPersonCamera>|null=null,third:ReturnType<typeof createExploreCamera>|null=null;
@@ -201,11 +204,11 @@ export default function Room3D({onTravel,onToolsMount,onApproach,seaMotion,waves
   const ref=(key:string)=>(el:HTMLElement|null)=>{if(el)labels.current.set(key,el);else labels.current.delete(key);};
   const hoverStation=hovered?.startsWith('station-')?hovered.slice(8) as StationId:null,hoverSeat=hovered?.startsWith('seat-')?Number(hovered.slice(5)):null;
   const hoverOwner=state?.room.members.find(m=>hoverStation?m.station===hoverStation:hoverSeat!=null&&m.seat===hoverSeat);
-  const hoverText=hovered==='portal'?portal.name+(area==='healing'&&(state?.self.pantry.rest.sand?.held||state?.self.pantry.rest.vase?.held)?' · 내 휴식 도구는 여기에 보관돼요':' · 눌러서 이동'):hovered?(hoverStation?stations[hoverStation].name:`${(hoverSeat??0)+1}번 자리`)+(hoverOwner?' · 이용 중':' · 눌러서 이동'):input==='touch'?'손가락으로 밀어 둘러보기':input==='keyboard'?'방향키로 둘러보기 · Home은 바다':'드래그로 둘러보기';
+  const hoverText=hovered==='portal'?portal.name+(area==='healing'&&(state?.self.pantry.rest.sand?.held||state?.self.pantry.rest.vase?.held)?' · 내 휴식 도구는 여기에 보관돼요':' · 눌러서 이동'):hovered?(hoverStation?stations[hoverStation].name:`${(hoverSeat??0)+1}번 자리`)+(hoverOwner?' · 이용 중':' · 눌러서 이동'):input==='touch'?'손가락으로 밀어 둘러보기':input==='keyboard'?'방향키로 둘러보기 · Home은 풍경':'드래그로 둘러보기';
   const destination=me?.travel?portal.name:objectTarget?stations[objectTarget].name:target!=null?`${target+1}번 자리`:null;
   return <>
     <div className={`room-frame room-three framing-${framing} ${warm?'late-light':''}`} ref={container}>
-      <canvas ref={canvas} className="room-three-canvas" tabIndex={0} role="img" aria-label={input==='touch'?'내 눈높이의 휴식 공간. 손가락으로 밀어 둘러보고 사물을 톡 누르면 이동해요.':input==='keyboard'?'내 눈높이의 탕비실. 방향키로 둘러보고 Home으로 바다를 봅니다.':'내 눈높이의 탕비실. 드래그로 둘러보고 사물을 누르면 이동합니다.'} data-ready={ready} data-landscape={landscape} data-playback={playback} data-view={windowView.id}/>
+      <canvas ref={canvas} className="room-three-canvas" tabIndex={0} role="img" aria-label={input==='touch'?'내 눈높이의 휴식 공간. 손가락으로 밀어 둘러보고 사물을 톡 누르면 이동해요.':input==='keyboard'?'내 눈높이의 탕비실. 방향키로 둘러보고 Home으로 풍경을 봅니다.':'내 눈높이의 탕비실. 드래그로 둘러보고 사물을 누르면 이동합니다.'} data-ready={ready} data-landscape={landscape} data-playback={playback} data-view={landscapeId}/>
       <video ref={seaVideo} className="sea-video-source" muted playsInline preload="none" aria-hidden="true" tabIndex={-1}/>
       <div className="scene-toolbar"><div className="scene-label">{moving?(destination?destination+' · 이동 중':'이동 중'):me?.station?stations[me.station].name:map.name}{debug&&<span className="scene-label-sub">{frames[study]}</span>}</div><button className="sea-sound-toggle" aria-pressed={waves} onClick={onWaves}>{waves?'파도 소리 끄기':'파도 소리 켜기'}</button></div>
       {playback==='fallback'&&<span className="sea-playback-note" role="status">지금은 고요한 풍경으로 쉬어가요.</span>}
@@ -214,11 +217,13 @@ export default function Room3D({onTravel,onToolsMount,onApproach,seaMotion,waves
         {debug&&<><button ref={ref('shelf')} className="hotspot three-hotspot" onClick={onShelf} disabled={disabled}>오늘의 레몬파이</button><button ref={ref('drink')} className="hotspot three-hotspot" onClick={onDrink} disabled={disabled}>한 잔</button></>}
         {state?.room.members.filter(m=>debug||m.id!==state.self.id).map(m=><div ref={ref(m.id)} key={m.id} className={`visitor-name three-name ${!m.connected?'reconnecting':''}`}><span className="presence-dot"/>{m.name}</div>)}
       </>}
+      {onTv&&!tvOpen&&<button className="tv-entry" disabled={disabled||moving||me?.seat==null} onClick={onTv}>TV 함께 보기</button>}
+      {windowContent}
       {debug&&<div className="camera-switch" role="group" aria-label="개발용 시점">{(Object.keys(frames) as Study[]).map(f=><button key={f} aria-pressed={study===f} onClick={()=>setStudy(f)}>{frames[f]}</button>)}</div>}
       {debug&&<button className="light-switch" onClick={()=>setWarm(v=>!v)}>조명 비교</button>}
     </div>
-    <div className={"room-navigation"+(foodInHand?" food-navigation":"")}>{!debug&&<div className="look-controls"><p>{walkHint||hoverText}</p><button onClick={()=>lookAtSea.current?.()}>바다 보기</button></div>}
-    {state&&!foodInHand&&<ExploreDestinations onTravel={choosePortal} state={state} disabled={disabled} showSeats={movementMode} onClose={onFinishMove} onSeat={chooseSeat} onObject={chooseObject} onSea={()=>lookAtSea.current?.()} waves={waves} onWaves={onWaves}/>}<div className="mobile-tools-slot" ref={debug?undefined:onToolsMount}/></div>
+    <div className={"room-navigation"+(foodInHand?" food-navigation":"")}>{!debug&&<div className="look-controls"><p>{walkHint||hoverText}</p><button onClick={()=>lookAtSea.current?.()}>풍경 보기</button></div>}
+    {state&&!foodInHand&&!tvOpen&&<ExploreDestinations onTravel={choosePortal} state={state} disabled={disabled} showSeats={movementMode} onClose={onFinishMove} onSeat={chooseSeat} onObject={chooseObject} onSea={()=>lookAtSea.current?.()} waves={waves} onWaves={onWaves}/>}<div className="mobile-tools-slot" ref={debug?undefined:onToolsMount}/></div>
     {sampleAvailable&&!moving&&<button className="shared-sample-action secondary" onClick={onPlate} disabled={disabled}>{sampleLabel}</button>}
     {!debug&&moving&&<div className="walk-actions" role="group" aria-label="이동 중"><button className="secondary" disabled={disabled} onClick={()=>{setTarget(null);setObjectTarget(null);void onStand();}}>멈추기</button>{origin.current!=null&&!originOwner&&<button className="secondary" disabled={disabled} onClick={()=>void chooseSeat(origin.current!)}>원래 자리로</button>}</div>}
   </>;

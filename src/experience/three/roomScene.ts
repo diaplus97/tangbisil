@@ -15,13 +15,14 @@ import type {SeaPlaybackStatus} from './seaPlayback';
 import {createRestStations} from './restStations';
 import {stoneModel,teaModel} from './restModels';
 import {createStations,candyModel,bottleModel} from './stations';
+import {windowViews,type WindowView} from './windowView';
 
 export const anchors={shelf:new T.Vector3(-4.15+pantryOffset.x,2.15,.9+pantryOffset.z),drink:new T.Vector3(-4.05+pantryOffset.x,1.85,-1.25+pantryOffset.z),plate:new T.Vector3(sharedPlate.x,1.27,sharedPlate.z)};
 
-export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void,video:HTMLVideoElement,onPlayback:(status:SeaPlaybackStatus)=>void,area:Area='pantry'){
+export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void,video:HTMLVideoElement,onPlayback:(status:SeaPlaybackStatus)=>void,area:Area='pantry',view:WindowView=windowViews.sea){
   const map=getSpace(area),{seats}=map,healing=area==='healing';
   const kit=new Workshop(),scene=new T.Scene();
-  const architecture=healing?createHealingArchitecture(kit,scene):createArchitecture(kit,scene),lights=createLighting(scene),landscape=windowLandscape(kit,scene,onLandscapeStatus,video,onPlayback,healing?{width:9.72,height:2.76,y:1.66,z:-4.59}:undefined);
+  const architecture=healing?createHealingArchitecture(kit,scene):createArchitecture(kit,scene),lights=createLighting(scene),landscape=windowLandscape(kit,scene,onLandscapeStatus,video,onPlayback,healing?{width:9.72,height:2.76,y:1.66,z:-4.59}:undefined,view);
   const objects=createStations(kit,scene,!healing),restObjects=createRestStations(kit,scene,!healing);
   const people=new Map<string,ReturnType<typeof createCharacter>>();
   const trays=new Map<string,{group:T.Group;cup:T.Group;key:string;tea?:ReturnType<typeof teaModel>}>();
@@ -95,5 +96,5 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
     steam.visible=false;
   }
   function lighting(warm:boolean){lights.setWarm(warm);architecture.lighting(warm);landscape.lighting(warm);}
-  return {scene,sync,tick,lighting,reveal:architecture.reveal,seaMotion:landscape.motion,active:landscape.active,seatTargets,objectTargets,portalTargets:architecture.portalTargets,foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null){const r=state?.self.pantry.rest;objects.foreground(camera,state,show&&!r?.sprayer&&!r?.stone?.held&&!r?.tea?.held,pull);restObjects.foreground(camera,state,show);},pose,firstPerson(id:string|null,foodInHand=false){firstPerson=id;holding=foodInHand;},labelPosition(id:string){const p=pose(id);return p?people.get(id)?.labelPosition(p):undefined;},interior(enabled:boolean,perspective=enabled){architecture.interior(enabled);landscape.interior(perspective);},dispose(){for(const p of people.values())p.dispose();objects.dispose();restObjects.dispose();for(const tray of trays.values())tray.tea?.dispose();landscape.dispose();kit.dispose();steamMaterial.dispose();hitMaterial.dispose();markerMaterial.dispose();}};
+  return {scene,sync,tick,lighting,landscape:landscape.select,reveal:architecture.reveal,seaMotion:landscape.motion,active:landscape.active,seatTargets,objectTargets,portalTargets:architecture.portalTargets,foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null){const r=state?.self.pantry.rest;objects.foreground(camera,state,show&&!r?.sprayer&&!r?.stone?.held&&!r?.tea?.held,pull);restObjects.foreground(camera,state,show);},pose,firstPerson(id:string|null,foodInHand=false){firstPerson=id;holding=foodInHand;},labelPosition(id:string){const p=pose(id);return p?people.get(id)?.labelPosition(p):undefined;},interior(enabled:boolean,perspective=enabled){architecture.interior(enabled);landscape.interior(perspective);},dispose(){for(const p of people.values())p.dispose();objects.dispose();restObjects.dispose();for(const tray of trays.values())tray.tea?.dispose();landscape.dispose();kit.dispose();steamMaterial.dispose();hitMaterial.dispose();markerMaterial.dispose();}};
 }

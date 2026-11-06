@@ -7,3 +7,35 @@ https://freesound.org/people/pulswelle/sounds/339517/
 CC0 1.0 — https://creativecommons.org/publicdomain/zero/1.0/
 Public HQ MP3 preview prefix edited 2026-11-05; not lossless source audio.
 48-second excerpt, filtered and stereo narrowed, four-second equal-power overlap, 44-second PCM loop. See sea-audio.json for full parameters and hashes.
+
+ADDITIONAL LANDSCAPES — reviewed and edited 2026-11-06
+
+Forest: A serene scene of the forest landscape full of mossy — Mixkit 50854.
+Individual cinematographer is not identified on the item page.
+https://mixkit.co/free-stock-video/a-serene-scene-of-the-forest-landscape-full-of-mossy-50854/
+Mixkit Stock Video Free License: https://mixkit.co/license/#videoFree
+Terms: https://mixkit.co/terms/
+Filmed footage; small camera drift stabilized, zoomed/cropped, audio removed,
+1280x640 at 24 fps, 1-second overlap dissolve, 9-second H.264/VP9 loop.
+
+Fire: Mesmerizing Campfire Flames at Night — Joshua Woroniecki, Pexels 30669823.
+https://www.pexels.com/video/mesmerizing-campfire-flames-at-night-30669823/
+Pexels License: https://www.pexels.com/license/
+Filmed footage; audio removed, 1280x640 crop at 24 fps,
+1-second overlap dissolve, 13-second H.264/VP9 loop.
+
+Posters use the first edited frame. landscape-video.json records source URLs,
+original/output SHA256, file sizes, and edits. Licenses permit use in this game;
+they do not mean that the source footage is public domain or may be resold as stock.
+
+OPTIONAL SHARED TV — official YouTube embeds, reviewed 2026-11-06
+Sea otter life in the bay | #shorts — Monterey Bay Aquarium
+https://www.youtube.com/watch?v=-eNe1OmbbXc
+Happy World Jellyfish Day! — Monterey Bay Aquarium
+https://www.youtube.com/watch?v=KRi9yVx4uu0
+NASA | Earth at Night — NASA Goddard
+https://www.youtube.com/watch?v=Q3YYwIsMHzw
+Videos are streamed by the official player after opt-in, not downloaded or
+redistributed by this game. Embedding availability and platform ads can change.
+YouTube Terms: https://www.youtube.com/t/terms
+Google Privacy Policy: https://policies.google.com/privacy

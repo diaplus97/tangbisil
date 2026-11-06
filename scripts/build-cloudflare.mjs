@@ -11,7 +11,7 @@ const mediaSizes={};
 for(const name of await readdir(join(root,'dist-cf/assets'))){
   const size=(await stat(join(root,'dist-cf/assets',name))).size;
   if(size>25*1024*1024)throw Error('Static asset exceeds 25 MiB: '+name);
-  if(name.startsWith('pantry-sea-loop-'))mediaSizes['/assets/'+name]=size;
+  if(/^pantry-(sea|forest|fire)-loop-/.test(name))mediaSizes['/assets/'+name]=size;
 }
 await writeFile(join(root,'dist-cf/media-manifest.json'),JSON.stringify(mediaSizes));
 for(const folder of ['audio','environments']){

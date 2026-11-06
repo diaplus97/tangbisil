@@ -12,7 +12,7 @@
     "directory": "./dist-cf",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/assets/pantry-sea-loop-*"]
+    "run_worker_first": ["/api/*", "/assets/pantry-sea-loop-*", "/assets/pantry-forest-loop-*", "/assets/pantry-fire-loop-*"]
   },
   "durable_objects": { "bindings": [
     { "name": "ROOMS", "class_name": "PantryRoom" },

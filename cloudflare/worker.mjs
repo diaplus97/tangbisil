@@ -19,7 +19,7 @@ export default {
     try{
       if(!url.pathname.startsWith('/api/')){
         const response=await env.ASSETS.fetch(request);
-        return url.pathname.startsWith('/assets/pantry-sea-loop-')?mediaResponse(request,response,mediaSizes[url.pathname]):response;
+        return /^\/assets\/pantry-(sea|forest|fire)-loop-/.test(url.pathname)?mediaResponse(request,response,mediaSizes[url.pathname]):response;
       }
       const origin=request.headers.get('Origin');if(origin&&origin!==url.origin)return json({error:'같은 주소에서 접속해 주세요.'},403);
       if(url.pathname==='/api/health')return json({ok:true,app:'tangbisil',version:'0.4.0',transport:'websocket'});

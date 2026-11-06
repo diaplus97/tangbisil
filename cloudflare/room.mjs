@@ -8,6 +8,7 @@ import {moveVisitor} from '../server/movement.mjs';
 import {completeTravel,reservedSeats} from '../server/travel.mjs';
 import {sandContact} from '../server/sand-contact.mjs';
 import {roomSnapshot,validateSnackAction,actionNames} from '../server/room-view.mjs';
+import {startRoomMedia,mediaAction} from '../shared/room-media.mjs';
 
 const fresh=id=>({id,members:[],history:[],fixtures:{fridge:{open:false,owner:null,changedAt:0}},version:0,pending:{},releases:[],tastes:[],tickets:{},quota:{day:0,count:0},retryAt:0,retries:0});
 export class PantryRoom extends DurableObject {
@@ -61,6 +62,7 @@ export class PantryRoom extends DurableObject {
   remove(m){
     this.store.activities.leave(m.id,this.r,m.station);this.queueUser(m);
     this.r.releases.push({key:m.key,epoch:m.epoch});this.r.members.delete(m.id);
+    if(!this.r.members.size&&this.r.media)this.r.media.emptyAt=Date.now();
     for(const [ticket,value] of Object.entries(this.r.tickets))if(value.id===m.id)delete this.r.tickets[ticket];
   }
   async advance(){
@@ -90,6 +92,7 @@ export class PantryRoom extends DurableObject {
     if(claimed.error||claimed.conflict)return {...claimed,status:claimed.status??409};
     this.atomic(()=>{
       this.r.id=room;
+      startRoomMedia(this.r);
       if(!m){
         restoreUser(this.db,claimed.checkpoint);
         const saved=this.store.location(identity.id,room),area=saved.area==='healing'?'healing':'pantry',occupied=reservedSeats(this.r,area,identity.id),seats=getSpace(area).seats;
@@ -151,7 +154,8 @@ export class PantryRoom extends DurableObject {
       // Persist usage separately so rejected game actions cannot roll it back.
       this.atomic(()=>this.consume(m));let result;
       this.atomic(()=>{
-        if(input.type==='sand-contact'){const changed=sandContact(m,this.store.activities.get(m.id).rest.sand,input,GameError);result={ok:true,replay:!changed};}
+        if(input.type==='tv-join'||input.type==='tv-next')result=mediaAction(this.r,m,input,GameError);
+        else if(input.type==='sand-contact'){const changed=sandContact(m,this.store.activities.get(m.id).rest.sand,input,GameError);result={ok:true,replay:!changed};}
         else if(['move','sit','stand','approach','travel'].includes(input.type)){
           const previous=m.station;result=moveVisitor(this.r,m,input);
           if(!result.replay){if(previous!==m.station){this.store.activities.leave(m.id,this.r,previous);m.readyAt=0;}m.contact=null;m.action='rest';m.actionAt=Date.now();m.arriveAt=(m.travel?.enterAt??m.motion?.endsAt??Date.now())+15;this.queueUser(m);}

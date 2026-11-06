@@ -8,16 +8,19 @@ import {completeTravel,reservedSeats} from './travel.mjs';
 import {moveVisitor} from './movement.mjs';
 import {serveStatic} from './static.mjs';
 import {getSpace} from '../shared/space.mjs';
+import {startRoomMedia,mediaAction} from '../shared/room-media.mjs';
 
 export function createPantryServer({ database='data/pantry.sqlite', staticDir='dist', middleware, graceMs=5000 }={}) {
   const store = createStore(database);
+  store.db.exec('CREATE TABLE IF NOT EXISTS room_media (id TEXT PRIMARY KEY, data TEXT NOT NULL)');
+  const saveMedia=r=>store.db.prepare('INSERT INTO room_media VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(r.id,JSON.stringify(r.media));
   const rooms = new Map();
   const rate = new Map();
   let version = 0;
   let closing = false;
   function room(id) {
     if (!/^[a-zA-Z0-9_-]{1,40}$/.test(id)) throw new GameError('방 주소를 확인해 주세요.',400);
-    if (!rooms.has(id)) rooms.set(id,{ id, members:new Map(), history:[],fixtures:{fridge:{open:false,owner:null,changedAt:0}} });
+    if (!rooms.has(id)) rooms.set(id,{ id, media:JSON.parse(store.db.prepare('SELECT data FROM room_media WHERE id=?').get(id)?.data??'null'), members:new Map(), history:[],fixtures:{fridge:{open:false,owner:null,changedAt:0}} });
     return rooms.get(id);
   }
   const snapshot=(r,id)=>roomSnapshot(store,r,id,version);
@@ -33,6 +36,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
     let m=r.members.get(id);
     if (!m) {
       if(r.members.size>=6)throw new GameError('이 방은 잠시 만석이에요. 다른 방 링크로 함께 들어와 주세요.',409);
+      startRoomMedia(r);saveMedia(r);
       const saved=store.location(id,roomId),area=saved.area==='healing'?'healing':'pantry',occupied=reservedSeats(r,area,id),seats=getSpace(area).seats;
       const seat=Number.isInteger(saved.seat)&&saved.seat>=0&&saved.seat<seats.length&&!occupied.has(saved.seat)?saved.seat:seats.map((_,i)=>i).find(n=>!occupied.has(n));
       if (seat === undefined) throw new GameError('이 방은 잠시 만석이에요. 다른 방 링크로 함께 들어와 주세요.',409);
@@ -58,7 +62,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
         if(m.travel){clearTimeout(m.arrival);moveVisitor(r,m,{type:'stand',requestId:'disconnect-'+Date.now()});}
         if(m.station==='tea'||m.station==='plant'){store.activities.leave(id,r,m.station);clearTimeout(m.brewTimer);}
         broadcast(r);
-        m.timer=setTimeout(()=>{ if (!m.streams.size) {clearTimeout(m.arrival);clearTimeout(m.brewTimer);store.activities.leave(id,r,m.station);r.members.delete(id);broadcast(r);} },graceMs);
+        m.timer=setTimeout(()=>{ if (!m.streams.size) {clearTimeout(m.arrival);clearTimeout(m.brewTimer);store.activities.leave(id,r,m.station);r.members.delete(id);if(!r.members.size){r.media.emptyAt=Date.now();saveMedia(r);}broadcast(r);} },graceMs);
         m.timer.unref();
       }
     });
@@ -105,6 +109,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
           const r=room(roomId), m=r.members.get(id);
           if(!m?.streams.size)throw new GameError('방에 연결하고 있어요. 잠시 후 다시 눌러 주세요.',409);
           const input=await body(req);
+          if(input.type==='tv-join'||input.type==='tv-next'){const result=mediaAction(r,m,input,GameError);if(!result.replay){saveMedia(r);broadcast(r);}send(res,200,{...result,state:snapshot(r,id)});return;}
           if(input.type==='sand-contact'){const changed=sandContact(m,store.activities.get(id).rest.sand,input,GameError);if(changed)broadcast(r);send(res,200,{ok:true});return;}
           if(['move','sit','stand','approach','travel'].includes(input.type)){
             const previousStation=m.station;

@@ -3,7 +3,7 @@ export {portals};
 // One authoritative map for furniture, destinations and timed movement.
 export const tables=[
  {id:'together',name:'함께 앉는 테이블',x:-2.25,z:1,y:1.14,width:1.83,length:3.0},
- {id:'window',name:'바다 앞 테이블',x:2.35,z:-3,y:1.14,width:1.65,length:1.7},
+ {id:'window',name:'창가 테이블',x:2.35,z:-3,y:1.14,width:1.65,length:1.7},
  {id:'quiet',name:'조용한 테이블',x:3.2,z:2.4,y:1.14,width:1.65,length:1.7},
 ];
 export const tableCenter=tables[0];

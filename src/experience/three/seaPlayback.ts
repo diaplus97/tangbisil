@@ -1,12 +1,12 @@
-import {windowView} from './windowView';
+import {windowView,type WindowView} from './windowView';
 
 export type SeaPlaybackStatus='loading'|'playing'|'paused'|'blocked'|'fallback';
 
 // A real silent media loop. Playback policy is independent of room/game state.
-export function createSeaPlayback(video:HTMLVideoElement,onFrame:()=>void,onStatus:(status:SeaPlaybackStatus)=>void){
+export function createSeaPlayback(video:HTMLVideoElement,onFrame:()=>void,onStatus:(status:SeaPlaybackStatus)=>void,view:Pick<WindowView,'mp4'|'webm'>=windowView){
   let disposed=false,wanted=false,visible=true,loaded=false,pending=false,failed=false,blocked=false;
   let sourceIndex=0,attempt=0;
-  const sources=video.canPlayType('video/webm; codecs="vp9"')?[windowView.webm,windowView.mp4]:[windowView.mp4];
+  const sources=video.canPlayType('video/webm; codecs="vp9"')?[view.webm,view.mp4]:[view.mp4];
   video.muted=true;video.defaultMuted=true;video.loop=true;video.playsInline=true;
   video.preload='none';
   const allowed=()=>wanted&&visible&&!document.hidden&&!disposed;

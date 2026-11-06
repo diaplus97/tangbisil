@@ -1,0 +1,70 @@
+{
+  "prepared": "2026-11-06",
+  "items": [
+    {
+      "id": "forest",
+      "creator": "Mixkit; individual cinematographer not identified on the item page",
+      "license": "Mixkit Stock Video Free License",
+      "licenseUrl": "https://mixkit.co/license/#videoFree",
+      "termsUrl": "https://mixkit.co/terms/",
+      "sourcePage": "https://mixkit.co/free-stock-video/a-serene-scene-of-the-forest-landscape-full-of-mossy-50854/",
+      "sourceFile": "https://assets.mixkit.co/videos/50854/50854-720.mp4",
+      "originalSha256": "40bedb97d847444afbef74a61196f28a18bfaedee2cc755552963ec3cb3ec337",
+      "edits": [
+        "virtual tripod stabilization of small camera movement, static zoom and crop; no fabricated foliage motion",
+        "audio removed",
+        "24 fps",
+        "1280x640 centre crop",
+        "1 second overlap dissolve at loop boundary",
+        "H.264 and VP9; still poster from the first output frame"
+      ],
+      "durationSeconds": 9,
+      "assets": {
+        "pantry-forest-loop.mp4": {
+          "sha256": "ae4c7fb77ef93f53b09fb3eab98df344c598c24cb97633344d0d280543dc419a",
+          "bytes": 3929769
+        },
+        "pantry-forest-loop.webm": {
+          "sha256": "8c863339bd6ce608b7b4d2fe28cb56acb7c669925935b8e653429e1e08f256e7",
+          "bytes": 2995911
+        },
+        "pantry-forest-v1.jpg": {
+          "sha256": "a5393df808c2e157ba3a961aa66525058b500bbbd861af83978295c09ffceb14",
+          "bytes": 252439
+        }
+      }
+    },
+    {
+      "id": "fire",
+      "creator": "Joshua Woroniecki",
+      "license": "Pexels License",
+      "licenseUrl": "https://www.pexels.com/license/",
+      "termsUrl": "https://www.pexels.com/terms-of-service/",
+      "sourcePage": "https://www.pexels.com/video/mesmerizing-campfire-flames-at-night-30669823/",
+      "sourceFile": "https://videos.pexels.com/video-files/30669823/13124179_3840_2160_30fps.mp4",
+      "originalSha256": "70a0995867d51e5ceaf596077b7b32e7c062d42a2a9a798383ac49eba6b15f65",
+      "edits": [
+        "audio removed",
+        "24 fps",
+        "1280x640 centre crop",
+        "1 second overlap dissolve at loop boundary",
+        "H.264 and VP9; still poster from the first output frame"
+      ],
+      "durationSeconds": 13,
+      "assets": {
+        "pantry-fire-loop.mp4": {
+          "sha256": "ba2f5617d4e8b9db129577c22a5cef4b5d7b20d2fe55b84c4f00b1e0182c458c",
+          "bytes": 4167910
+        },
+        "pantry-fire-loop.webm": {
+          "sha256": "fe937238472c4eb35edc6e58991c78b2bcbb97be6728d067fd12831ef0b24155",
+          "bytes": 3390265
+        },
+        "pantry-fire-v1.jpg": {
+          "sha256": "7366a5e3d5fd8b2d0b036c3445eb186993e8cb941e4e3099954b27823de0b9a8",
+          "bytes": 80628
+        }
+      }
+    }
+  ]
+}

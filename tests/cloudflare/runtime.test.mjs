@@ -6,9 +6,36 @@ import {readFile} from 'node:fs/promises';
 import {createHash,randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {flowers} from '../../shared/vase.mjs';
+import {tvQueue} from '../../shared/room-media.mjs';
 const require=createRequire(import.meta.url),fromWrangler=createRequire(require.resolve('wrangler/package.json'));
 const {Miniflare,convertV4MiniflareOptions}=fromWrangler('miniflare');
 const config=JSON.parse((await readFile(new URL('../../wrangler.pantry.jsonc',import.meta.url),'utf8')).replace(/^\s*\/\/.*$/gm,''));
+test('Cloudflare room scenery and TV queue survive hibernation without waking alarms', {timeout:60000},async t=>{
+  const {mf,visitor,connect,storage}=await setup(t),a=await visitor('TV A'),b=await visitor('TV B'),first=await connect(a),second=await connect(b);
+  assert.deepEqual(first.state.room.media,second.state.room.media);
+  const session=first.state.room.media.sessionId;
+  assert.equal((await first.act('tv-join')).status,409);
+  await Promise.all([first.act('travel',{to:'healing'}),second.act('travel',{to:'healing'})]);
+  await Promise.all([first.arrive(),second.arrive()]);
+  assert.equal((await first.act('tv-join')).status,200);await second.wait(()=>second.state.room.media.tv);
+  assert.equal((await second.act('tv-join')).data.replay,true);
+  const before=structuredClone(first.state.self);
+  // Move only the shared content clock forward; no personal checkpoint changes.
+  const sql=await storage('PantryRoom','window'),saved=JSON.parse((await sql.exec("SELECT value FROM cf_json WHERE key='room'"))[0].value);
+  saved.media.tv.startedAt-=10000;
+  await sql.exec("UPDATE cf_json SET value=? WHERE key='room'",JSON.stringify(saved));
+  await mf.unsafeEvictDurableObject('pantry-test','PantryRoom',{name:'window',webSockets:'hibernate'});
+  first.ws.send('ping');await first.wait(()=>first.messages.includes('pong'));
+  const request={sessionId:session,expectedVersion:1};
+  const results=await Promise.all([first.act('tv-next',request),second.act('tv-next',request)]);
+  assert.equal(results.filter(r=>r.data.replay).length,1);
+  assert.equal(first.state.room.media.tv.version,2);assert.equal(first.state.room.media.tv.videoId,tvQueue[1].id);
+  assert.equal(second.state.room.media.tv.videoId,first.state.room.media.tv.videoId);
+  assert.deepEqual(first.state.self,before);
+  await mf.unsafeEvictDurableObject('pantry-test','PantryRoom',{name:'window',webSockets:'hibernate'});
+  assert.equal((await first.act('tv-join')).data.state.room.media.tv.version,2);
+  const third=await connect(a);assert.equal(third.state.room.media.tv.version,2);assert.equal(third.state.room.media.sessionId,session);
+});
 async function setup(t,overrides={}){
   const mf=new Miniflare(convertV4MiniflareOptions({name:'pantry-test',modules:true,scriptPath:fileURLToPath(new URL('../../test-results/cf-bundle/worker.js',import.meta.url)),
     compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,cf:false,unsafeInspectDurableObjects:true,
