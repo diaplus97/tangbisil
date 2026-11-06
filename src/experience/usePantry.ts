@@ -94,5 +94,5 @@ export function usePantry(){
     if(usesSocket.current)return;
     void fetch(`/api/action?room=${roomId}`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({type:'sand-contact',...extra}),keepalive:!extra.active}).catch(()=>{});
   },[token,status]);
-  return{contact,state,status,error,busy,enter,act,retry,clearError:()=>setError('')};
+  return{inputReady:()=>!lock.current,contact,state,status,error,busy,enter,act,retry,clearError:()=>setError('')};
 }

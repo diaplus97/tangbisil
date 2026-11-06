@@ -1,4 +1,6 @@
 import * as T from 'three';
+import {createCameraCollision} from './cameraCollision';
+import {createDestinationMarker} from './destinationMarker';
 import {Workshop,mug,packet,pie,consolidate} from './assets';
 import type {Snapshot} from '../types';
 import {windowLandscape,type LandscapeStatus} from './environment';
@@ -37,19 +39,12 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
   const plateHit=hit(shared,'shared',0,0,0,2.4,1.3,1.7);
   const objectTargets=healing?Object.entries(map.stations).map(([id,station])=>{const hit=kit.mesh(scene,new T.BoxGeometry(1.8,1.2,.7),hitMaterial,station!.x,.6,station!.z);hit.userData.station=id;hit.castShadow=false;hit.receiveShadow=false;return hit;}):objects.hits;
   const seatTargets=seats.map(([x,z],index)=>{const mesh=kit.mesh(scene,new T.BoxGeometry(.8,1.25,.8),hitMaterial,x,.65,z);mesh.castShadow=false;mesh.receiveShadow=false;mesh.userData.seat=index;return mesh;});
-  const markerMaterial=new T.MeshBasicMaterial({color:'#789b8a',transparent:true,opacity:.55,depthWrite:false});
-  const marker=kit.mesh(scene,new T.RingGeometry(.16,.19,48),markerMaterial,0,-.018,0);marker.rotation.x=-Math.PI/2;marker.castShadow=false;marker.receiveShadow=false;marker.visible=false;
+  const destination=createDestinationMarker(kit,scene);
   const steam=new T.Group();scene.add(steam);
   const steamMaterial=new T.MeshBasicMaterial({color:'#faf2da',transparent:true,opacity:.28,depthWrite:false});
   for(let i=0;i<5;i++){const puff=kit.mesh(steam,new T.SphereGeometry(.025,6,4),steamMaterial,coffeePosition.x,1.7,coffeePosition.z);puff.castShadow=false;puff.scale.set(1,2,1);}
   const handPosition=new T.Vector3(),tablePosition=new T.Vector3();
-  const cameraRay=new T.Raycaster(),cameraSolids:T.Mesh[]=[];for(const root of scene.children)if(root!==dynamic)root.traverse(o=>{if(o instanceof T.Mesh)cameraSolids.push(o);});
-  scene.updateMatrixWorld(true);
-  function constrainCamera(origin:T.Vector3,desired:T.Vector3,ignoreNear=.2){
-    const delta=desired.clone().sub(origin),length=delta.length();cameraRay.set(origin,delta.normalize());cameraRay.far=length+.24;
-    const obstruction=cameraRay.intersectObjects(cameraSolids,false).find(h=>{let node:T.Object3D|null=h.object;while(node){if(!node.visible)return false;node=node.parent;}if(!(h.object instanceof T.Mesh))return false;const mat=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex??0]:h.object.material;return mat.visible&&(!mat.transparent||mat.opacity>.9)&&h.distance>ignoreNear;});
-    if(obstruction&&obstruction.distance<length+.24)desired.copy(origin).addScaledVector(delta,Math.max(.45,obstruction.distance-.24));
-  }
+  const constrainCamera=createCameraCollision(area);
   function pose(id:string){const m=current?.room.members.find(m=>m.id===id);return m?sampleMotion(m,Date.now()+clockOffset):null;}
   function sync(state:Snapshot|null){
     current=state;if(state)clockOffset=state.serverTime-Date.now();
@@ -112,9 +107,9 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
       p.group.visible=firstPerson!==m.id;
     }
     const me=state?.room.members.find(m=>m.id===state.self.id),myPose=me?sampleMotion(me,now):null;
-    marker.visible=Boolean(me?.motion&&myPose?.moving);if(me?.motion){const end=me.motion.points.at(-1)!;marker.position.set(end.x,-.018,end.z);}
+    destination.tick(time,Boolean(myPose?.moving),reduced);
     steam.visible=false;
   }
   function lighting(warm:boolean){lights.setWarm(warm);architecture.lighting(warm);landscape.lighting(warm);}
-  return {scene,sync,tick,lighting,constrainCamera,now:()=>Date.now()+clockOffset,interactionTargets(){return [...objects.interactionTargets,...restObjects.interactionTargets,...(shelfHit?[shelfHit]:[]),...(shared.visible?[plateHit]:[]),...(current&&trays.get(current.self.id)?[trays.get(current.self.id)!.group]:[])];},landscape:landscape.select,reveal:architecture.reveal,seaMotion:landscape.motion,active:landscape.active,seatTargets,objectTargets,portalTargets:architecture.portalTargets,foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null,reduced=false){const r=state?.self.pantry.rest;objects.foreground(camera,state,show&&!r?.sprayer&&!r?.stone?.held&&!r?.tea?.held,pull,reduced,Date.now()+clockOffset);restObjects.foreground(camera,state,show);},cupPosition(){const tray=current&&trays.get(current.self.id);return tray?.group.visible?tray.group.localToWorld(new T.Vector3(-.23,.20,0)):null;},snackPosition(){const tray=current&&trays.get(current.self.id);return tray?.group.visible?tray.group.localToWorld(new T.Vector3(.16,.20,0)):null;},pose,firstPerson(id:string|null,foodInHand=false){firstPerson=id;holding=foodInHand;},labelPosition(id:string){const p=pose(id);return p?people.get(id)?.labelPosition(p):undefined;},interior(enabled:boolean,perspective=enabled){architecture.interior(enabled);landscape.interior(perspective);},dispose(){for(const p of people.values())p.dispose();objects.dispose();restObjects.dispose();for(const tray of trays.values())tray.tea?.dispose();landscape.dispose();kit.dispose();steamMaterial.dispose();hitMaterial.dispose();markerMaterial.dispose();}};
+  return {scene,sync,tick,lighting,constrainCamera,destination,now:()=>Date.now()+clockOffset,interactionTargets(){return [...objects.interactionTargets,...restObjects.interactionTargets,...(shelfHit?[shelfHit]:[]),...(shared.visible?[plateHit]:[]),...(current&&trays.get(current.self.id)?[trays.get(current.self.id)!.group]:[])];},landscape:landscape.select,reveal:architecture.reveal,seaMotion:landscape.motion,active:landscape.active,seatTargets,objectTargets,portalTargets:architecture.portalTargets,foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null,reduced=false){const r=state?.self.pantry.rest;objects.foreground(camera,state,show&&!r?.sprayer&&!r?.stone?.held&&!r?.tea?.held,pull,reduced,Date.now()+clockOffset);restObjects.foreground(camera,state,show);},cupPosition(){const tray=current&&trays.get(current.self.id);return tray?.group.visible?tray.group.localToWorld(new T.Vector3(-.23,.20,0)):null;},snackPosition(){const tray=current&&trays.get(current.self.id);return tray?.group.visible?tray.group.localToWorld(new T.Vector3(.16,.20,0)):null;},pose,firstPerson(id:string|null,foodInHand=false){firstPerson=id;holding=foodInHand;},labelPosition(id:string){const p=pose(id);return p?people.get(id)?.labelPosition(p):undefined;},interior(enabled:boolean,perspective=enabled){architecture.interior(enabled);landscape.interior(perspective);},dispose(){for(const p of people.values())p.dispose();objects.dispose();restObjects.dispose();for(const tray of trays.values())tray.tea?.dispose();landscape.dispose();kit.dispose();steamMaterial.dispose();hitMaterial.dispose();destination.dispose();}};
 }

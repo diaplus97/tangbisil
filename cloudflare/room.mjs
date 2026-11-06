@@ -194,7 +194,7 @@ export class PantryRoom extends DurableObject {
     if(!m||this.sockets(m.id).some(socket=>socket!==ws))return;
     await this.flush();this.atomic(()=>{
       m.contact=null;m.departAt=Date.now()+5000;
-      if(m.travel){moveVisitor(this.r,m,{type:'stand',requestId:'disconnect-'+crypto.randomUUID()});m.arriveAt=0;}
+      if(m.travel||m.motion?.keyboard){moveVisitor(this.r,m,{type:'stand',requestId:'disconnect-'+crypto.randomUUID()});m.arriveAt=0;}
       if(m.station==='tea'||m.station==='plant'){this.store.activities.leave(m.id,this.r,m.station);m.readyAt=0;this.queueUser(m);}
       this.r.version++;
     });await this.flush();this.broadcast();await this.schedule();

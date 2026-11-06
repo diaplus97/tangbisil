@@ -1,10 +1,11 @@
 import {getSpace,isWalkable,planMotion,sampleMotion} from '../shared/space.mjs';
 import {reservedSeats} from './travel.mjs';
 import {GameError} from '../shared/errors.mjs';
+import {steeringTarget} from '../shared/steering.mjs';
 
 export function moveVisitor(room,member,input,now=Date.now()){
   if(typeof input.requestId!=='string'||!/^[\w-]{8,80}$/.test(input.requestId))throw new GameError('요청 번호를 확인해 주세요.',400);
-  const signature=JSON.stringify([input.type,input.x,input.z,input.seat,input.station,input.to]),old=member.moves.get(input.requestId);
+  const signature=JSON.stringify([input.type,input.x,input.z,input.seat,input.station,input.to,...(input.direction!==undefined?[input.direction]:[])]),old=member.moves.get(input.requestId);
   if(old){if(old!==signature)throw new GameError('같은 요청 번호의 내용이 달라요.',400);return{replay:true};}
   const area=member.area??'pantry',{seats,approaches,stations,portal}=getSpace(area);
   let seat=null,destination,station=null,travel=null;
@@ -28,12 +29,16 @@ export function moveVisitor(room,member,input,now=Date.now()){
     destination=approaches[seat];
   }else if(input.type==='stand'){
     const current=sampleMotion(member,now);destination=current.inSeat!=null?approaches[current.inSeat]:{x:current.x,z:current.z};
+  }else if(input.direction!==undefined){
+    destination=steeringTarget(member,input.direction,now);
+    if(!destination)throw new GameError('이동 방향을 다시 확인해 주세요.',400);
   }else{
     destination={x:input.x,z:input.z};
     if(!isWalkable(destination,area))throw new GameError('가구가 없는 바닥을 골라 주세요.',400);
   }
   const motion=planMotion(member,destination,seat,now,input.requestId);
   if(!motion)throw new GameError('그쪽으로는 지나가기 어려워요. 다른 바닥을 골라 주세요.');
+  if(input.direction!==undefined)motion.keyboard=true;
   member.travel=travel?{...travel,enterAt:motion.endsAt+420}:null;
   member.seat=seat;member.station=station;member.motion=motion;member.moves.set(input.requestId,signature);
   if(member.moves.size>64)member.moves.delete(member.moves.keys().next().value);

@@ -49,6 +49,19 @@ test('Cloudflare room scenery and TV queue survive hibernation without waking al
   assert.equal((await first.act('tv-join')).data.state.room.media.tv.version,2);
   const third=await connect(a);assert.equal(third.state.room.media.tv.version,2);assert.equal(third.state.room.media.sessionId,session);
 });
+test('Cloudflare keyboard intent synchronizes, releases without polling and stops on disconnect',{timeout:30000},async t=>{
+ const {visitor,connect}=await setup(t),a=await visitor('키보드 A'),b=await visitor('키보드 B'),first=await connect(a),second=await connect(b);
+ const id=a.user.id,member=c=>c.state.room.members.find(m=>m.id===id);
+ const move=await first.act('move',{direction:[0,1]});assert.equal(move.status,200);assert.equal(member(first).motion.keyboard,true);
+ await second.wait(()=>member(second)?.motion?.id===member(first).motion.id);
+ await delay(800);assert.equal((await first.act('stand')).status,200);
+ await second.wait(()=>member(second)?.motion?.id===member(first).motion.id);
+ assert.equal(member(first).motion.keyboard,undefined);assert.deepEqual(member(second).motion,member(first).motion);
+ assert.equal((await first.act('move',{direction:[1,0]})).status,200);first.ws.close();
+ await second.wait(()=>member(second)&&!member(second).connected&&!member(second).motion.keyboard);
+ const restored=await connect(a);assert.equal(member(restored).motion.keyboard,undefined);
+});
+
 async function setup(t,overrides={}){
   const mf=new Miniflare(convertV4MiniflareOptions({name:'pantry-test',modules:true,scriptPath:fileURLToPath(new URL('../../test-results/cf-bundle/worker.js',import.meta.url)),
     compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,cf:false,unsafeInspectDurableObjects:true,

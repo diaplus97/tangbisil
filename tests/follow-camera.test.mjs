@@ -2,7 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from 'three';
 import {createFollowCamera} from '../src/experience/three/followCamera.ts';
+import {createCameraCollision} from '../src/experience/three/cameraCollision.ts';
 import {seats,stations,planMotion,sampleMotion} from '../shared/space.mjs';
+
+test('standing uses a wider middle-distance view while the seated tray remains closer',()=>{
+ const view=createFollowCamera({x:0,z:0},Math.PI);view.resize(1280/720);view.follow({x:0,z:0,sit:1},1,true);
+ const seated=view.camera.position.length();view.follow({x:0,z:0,sit:0},1,true);
+ assert.ok(view.camera.position.length()>seated+.8);assert.equal(view.camera.fov,55);
+ const head=new T.Vector3(0,2,0).project(view.camera),feet=new T.Vector3(0,0,0).project(view.camera);
+ assert.ok((head.y-feet.y)/2<.36);
+});
+
+test('room-scale camera solids stop the lens at the overhead cabinet without triangle picking',()=>{
+ const clip=createCameraCollision('pantry'),origin=new T.Vector3(-5.85,2.05,-1.4),desired=new T.Vector3(-7.6,3,-1.4);
+ clip(origin,desired);assert.ok(desired.x>-7.13);assert.ok(desired.distanceTo(origin)>.5);
+ const open=new T.Vector3(2,2.5,4),expected=open.clone();clip(new T.Vector3(0,2.05,4),open);assert.deepEqual(open,expected);
+});
 
 test('low third person follows every seat route without resetting the chosen bearing',()=>{
  for(const [w,h]of [[1280,720],[390,844],[320,568]])for(let seat=0;seat<seats.length;seat++){

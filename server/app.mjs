@@ -60,7 +60,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
       if(closing)return;
       if (!m.streams.size) {
         m.contact=null;
-        if(m.travel){clearTimeout(m.arrival);moveVisitor(r,m,{type:'stand',requestId:'disconnect-'+Date.now()});}
+        if(m.travel||m.motion?.keyboard){clearTimeout(m.arrival);moveVisitor(r,m,{type:'stand',requestId:'disconnect-'+Date.now()});}
         if(m.station==='tea'||m.station==='plant'){store.activities.leave(id,r,m.station);clearTimeout(m.brewTimer);}
         broadcast(r);
         m.timer=setTimeout(()=>{ if (!m.streams.size) {clearTimeout(m.arrival);clearTimeout(m.brewTimer);store.activities.leave(id,r,m.station);r.members.delete(id);if(!r.members.size){r.media.emptyAt=Date.now();saveMedia(r);}broadcast(r);} },graceMs);
