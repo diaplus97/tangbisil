@@ -69,27 +69,29 @@ npm start
 
 다른 PC는 호스트 PC의 LAN 주소로 접속하며 포트 접근이 허용되어 있어야 합니다. 휴대폰의 UUID·클립보드 기능까지 시험하려면 아래 HTTPS 배포 주소를 사용합니다. 이전 Cloudflare Pages 정적 배포만으로 현재 Node/SQLite/SSE API가 실행되지는 않습니다.
 
-## Railway 공개 테스트 배포
-저장소 루트의 `Dockerfile`을 사용합니다. Node 24에서 `npm ci` → Vite 빌드를 수행하고, 실행 단계에는 `dist`·서버·공용 모듈·자산 출처만 복사합니다. `.dockerignore`는 필요한 입력만 허용하며 로컬 DB·환경 파일·인증 정보·원본 참고자료·QA 결과를 제외합니다. 서버는 Node 내장 모듈만 사용하므로 실행 이미지에 `node_modules`가 필요 없습니다.
+## Render 공개 테스트 배포
+저장소 루트의 `render.yaml`을 Blueprint로 연결합니다. 배포 담당은 비용을 확인한 뒤 서비스와 디스크를 생성하고 HTTPS 주소를 발급합니다. 설정 파일 추가만으로 서비스가 생성되지는 않습니다. 자동 배포는 꺼 두었으므로 이후 갱신도 수동으로 배포합니다.
 
 | 배포 설정 | 값 |
 | --- | --- |
-| 소스 | `diaplus97/tangbisil`, `codex/shared-lemon-pie`, 루트 `/` |
-| 빌드/시작 | 루트 `Dockerfile` 자동 감지, 별도 명령 덮어쓰기 없음. 시작은 `node server/start.mjs` |
-| 실행 환경 | `HOST=0.0.0.0`, `PANTRY_DB=/data/pantry.sqlite`, `NODE_ENV=production` (이미지 기본값) |
-| 포트 | Railway가 제공하는 `PORT` 사용. 이미지의 로컬 기본값은 `4317` |
-| 영속 볼륨 | 서비스에 **`/data`** 연결. 첫 실행 전에 연결하며 새 온라인 DB로 시작 |
-| 상태 확인 | `/api/health`, 시작 확인 제한 60초 |
-| 프로세스/지역 | **1개 인스턴스·1개 지역**, 복제/다중 지역/클러스터 모드 사용 안 함 |
-| 공개 주소 | Railway HTTPS 도메인, 프록시 대상 포트는 서비스 `PORT`와 일치 |
+| 소스 | `diaplus97/tangbisil`, `codex/shared-lemon-pie`, 저장소 루트 |
+| 빌드/시작 | `runtime: docker`, 루트 `Dockerfile`, 별도 명령 덮어쓰기 없음 |
+| 서버 | `0.5c-512mb` (이전 Starter), Singapore, **인스턴스 1개** |
+| 실행 환경 | `HOST=0.0.0.0`, `NODE_ENV=production`, `PANTRY_DB=/var/data/pantry.sqlite` |
+| 포트 | Render가 제공하는 `PORT` 사용, Blueprint에서 고정하지 않음 |
+| 영속 디스크 | **1GB**, `/var/data`, 첫 실행부터 연결하고 새 온라인 DB로 시작 |
+| 상태 확인 | `/api/health` |
+| 자동 배포 | `autoDeployTrigger: 'off'`, 자동 확장/미리보기 서비스 없음 |
 
-방·자리·실시간 연결은 프로세스 메모리에 있으므로 인스턴스를 늘리면 서로 다른 방 상태가 됩니다. [Railway 볼륨](https://docs.railway.com/volumes/reference)은 여러 복제본에서 공유할 수 없고 재배포 때 잠시 연결이 끊깁니다. 클라이언트는 재접속하며 확인된 개인 기록은 `/data`에서 복구합니다. 기본 이미지 사용자는 root로, Railway 볼륨의 쓰기 권한과 맞춥니다. 볼륨 없이 실행한 기록은 재배포 때 사라집니다. 로컬 DB 업로드나 pre-deploy DB 명령은 필요 없습니다.
+2026-11-06 확인한 [공식 요금](https://render.com/pricing?trk=public_profile__reactions-text)은 서버 $7/월 + 디스크 1GB $0.25/월, 기본 합계 **$7.25/월**이다. 추가 사용량·워크스페이스 요금·세금은 별도이므로 월 $10 상한을 보장하는 설정은 아니다. [무료 서버에는 영속 디스크를 연결할 수 없다](https://render.com/docs/disks). 생성 화면의 비용과 사용량 설정은 배포 담당이 최종 확인한다. [현재 플랜 ID와 이전 이름의 대응](https://render.com/docs/compute-plans), [Blueprint 필드](https://render.com/docs/blueprint-spec)를 확인했다.
 
-`railway.json/toml`은 추가하지 않았습니다. 2026-11-06 확인한 [공식 문서](https://docs.railway.com/config-as-code/reference)에 해당 형식의 지원 종료가 안내되어 있어 위 값을 서비스 설정에 적용합니다. 외부 로그인·서비스/볼륨 생성·도메인 연결은 배포 단계에서 별도로 수행합니다.
+공용 Docker 구성은 Node 24에서 `npm ci` → Vite 빌드 후 `dist`·서버·공용 모듈·자산 출처만 복사한다. 실행 명령은 `node server/start.mjs`이며 서버는 Node 내장 모듈만 사용한다. `.dockerignore`는 필요한 입력만 허용하여 로컬 DB·환경 파일·인증 정보·원본 참고자료·QA 결과를 제외한다. 로컬 DB 업로드나 pre-deploy DB 명령은 필요 없다.
 
-SSE는 즉시 스냅샷과 10초 heartbeat를 전송하며 `no-cache, no-transform`·`X-Accel-Buffering: no`를 사용합니다. 추가 프록시를 붙일 때는 스트리밍 버퍼링을 끄고 공개 `Host`와 `Origin`을 유지합니다. 초대 링크는 현재 HTTPS 주소와 방 번호로 생성됩니다. 방문자 정보는 해당 브라우저에 귀속되므로 PC 기록이 휴대폰으로 자동 이전되지는 않습니다.
+방·자리·실시간 연결은 프로세스 메모리에 있으므로 복제본이나 다중 지역을 추가하지 않는다. [디스크가 연결된 Render 서비스](https://render.com/docs/disks)는 한 인스턴스에서 실행하며 재배포 시 잠시 연결이 끊긴다. 클라이언트는 재접속하고 확인된 기록은 `/var/data`에서 복구한다. 다른 경로에 쓴 데이터는 영속 저장 대상이 아니다. Docker 자체 기본값 `/data/pantry.sqlite`는 Render의 환경 변수가 덮어쓴다. Railway로 배포할 경우 같은 이미지를 사용하고 영속 볼륨 `/data`·인스턴스 1개·플랫폼 `PORT`·`/api/health`를 서비스 설정에 적용한다.
 
-배포 전 `npm run build && npm run check:runtime`으로 독립 임시 폴더·새 DB에서 실행 파일 구성, 포트/호스트, 프록시 헤더, 두 방문자의 나눔/맛보기, SSE heartbeat·재접속, 프로세스 재시작 후 기록을 검사합니다. 로컬 DB와 현재 실행 서버는 건드리지 않습니다. 실제 Docker 빌드·Railway HTTPS 두 기기 접속·재배포 후 기록 보존은 별도 배포 검수입니다. 기존 `verify:deploy`·`verify:online`은 구 Cloudflare용이므로 이 배포에서 실행하지 않습니다.
+SSE는 즉시 스냅샷과 10초 heartbeat를 전송하며 `no-cache, no-transform`·`X-Accel-Buffering: no`를 사용한다. 추가 프록시에서는 스트리밍 버퍼링을 끄고 공개 `Host`와 `Origin`을 유지한다. 초대 링크는 현재 HTTPS 주소와 방 번호로 생성된다. 방문자 정보는 해당 브라우저에 귀속되므로 PC 기록이 휴대폰으로 자동 이전되지는 않는다.
+
+배포 전 `npm run build && npm run check:runtime`으로 독립 임시 폴더·새 DB에서 실행 구성, 포트/호스트, 프록시 헤더, 두 방문자의 나눔/맛보기, SSE heartbeat·재접속, 프로세스 재시작 후 기록을 검사한다. 로컬 DB와 현재 실행 서버는 유지한다. 실제 Docker 빌드 → 외부 `/api/health` → HTTPS 두 기기 접속 → 재배포 후 기록 보존은 별도 배포 검수다. 기존 `verify:deploy`·`verify:online`은 구 Cloudflare용이므로 실행하지 않는다.
 
 ## 주요 소스
 - `src/experience/`: 화면·3D·입력·실시간 연결

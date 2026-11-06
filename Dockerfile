@@ -12,7 +12,7 @@ RUN npm run build
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4317 PANTRY_DB=/data/pantry.sqlite
-# Railway mounts its persistent volume as root-owned. Mount /data before starting.
+# Hosts mount a persistent disk at PANTRY_DB's parent (/data by default).
 # No local database or seed is copied; the first start creates a new online DB.
 RUN mkdir -p /data
 COPY --from=build /app/dist ./dist

@@ -1,0 +1,25 @@
+# Paid persistent deployment; create only after reviewing the Render cost preview.
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+services:
+  - type: web
+    name: tangbisil
+    runtime: docker
+    repo: https://github.com/diaplus97/tangbisil
+    branch: codex/shared-lemon-pie
+    plan: 0.5c-512mb # Current ID for Starter: 512 MB, 0.5 CPU.
+    region: singapore
+    numInstances: 1
+    autoDeployTrigger: 'off'
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_ENV
+        value: production
+      - key: PANTRY_DB
+        value: /var/data/pantry.sqlite
+      # PORT is supplied by Render; use the Dockerfile CMD without overrides.
+    disk:
+      name: pantry-data
+      mountPath: /var/data
+      sizeGB: 1
