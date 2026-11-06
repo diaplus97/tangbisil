@@ -130,5 +130,5 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
     const lift=cup&&!reduced?1-T.MathUtils.smoothstep(now-me!.actionAt,0,CUP_LIFT_MS):0;
     hands.position.set(isCandy?0:.22,bottom-lift*.18,-.66-lift*.08).applyQuaternion(camera.quaternion).add(camera.position);hands.quaternion.copy(camera.quaternion);hands.scale.setScalar(.72);
   }
-  return{hits,interactionTargets:[hands,doorPieces,doorHit,bottleHit],tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
+  return{hits:visible?hits:[],interactionTargets:visible?[hands,doorPieces,doorHit,bottleHit]:[hands],tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
 }
