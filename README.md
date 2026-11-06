@@ -74,6 +74,8 @@ npm start
 ## Cloudflare 무료 테스트 배포
 [공개 탕비실 열기](https://tangbisil-playtest.diaplus93.workers.dev/?room=window). 2026-11-06 Workers Free로 배포했으며, 같은 주소를 PC와 휴대폰에서 열어 함께 입장할 수 있다. 공개 HTTPS에서 독립 방문자 두 명의 간식 나눔·맛봄·새로고침 후 기록 복구, 사탕·커피·냉장고 동기화와 바다 영상 재생을 확인했다. 320/390px 화면은 브라우저에서 검사했으며 실제 휴대폰·Safari·청취 검사는 아직 남아 있다. 자세한 증거와 한계는 [QA](docs/QA.md)를 따른다.
 
+같은 날 풍경 3종·선택형 공동 TV(`b2b688d`)를 기존 무료 서비스에 추가 배포했다. 해당 업데이트의 두 방문자 기록 보존·공동 TV 공개 재검수는 진행 중이다. 위 간식/생활 동기화의 공개 결과는 이전 배포에서 확인한 내용이다.
+
 현재 공개 테스트 경로는 **Workers Static Assets + SQLite Durable Objects**다. 기존 `wrangler.toml`은 구 Pages용이므로 사용하지 않는다. 새 `wrangler.pantry.jsonc`는 별도 Worker **`tangbisil-playtest`**를 대상으로 하며 기존 Pages를 덮어쓰지 않는다. 로컬 Node/SQLite/SSE 실행은 그대로 유지한다.
 
 ```sh
@@ -101,7 +103,7 @@ npm run dev:cloudflare
 
 2026-11-06 기준 [Workers Free](https://developers.cloudflare.com/workers/platform/pricing/)는 Worker 요청 100,000회/일, [DO Free](https://developers.cloudflare.com/durable-objects/platform/pricing/)는 요청 100,000회/일·13,000 GB-s/일·SQL 읽기 500만 행/일·쓰기 10만 행/일·총 저장 5GB 한도다. Free 한도 초과는 해당 작업의 제한으로 이어지며 유료로 자동 전환하는 코드는 없다. 서비스 카운터 외에도 인증·알람·DB 복구 등이 한도를 소비하므로 남은 무료 사용량은 운영 대시보드에서 확인한다. 실제 부하검사 전 지원 동접과 월요금을 단정하지 않는다.
 
-일반 [정적 자산 요청은 무료](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/)이며 API와 바다 영상 경로만 Worker를 거친다. 영상의 Range 요청은 빌드 시 만든 크기 목록으로 206/416·HEAD·suffix를 처리한다. 일부 Static Assets 응답에 `Content-Length`가 없어도 Safari의 MP4 탐색 요청이 동작한다. 영상 요청은 Worker 사용량에 포함된다. 빌드는 파일당 25MiB 제한을 검사하고 자산 출처를 `/credits`에 복사한다. 실제 iPhone Safari 검수는 별도다.
+일반 [정적 자산 요청은 무료](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/)이며 API와 바다·숲·모닥불 영상 경로만 Worker를 거친다. 영상의 Range 요청은 빌드 시 만든 크기 목록으로 206/416·HEAD·suffix를 처리한다. 일부 Static Assets 응답에 `Content-Length`가 없어도 Safari의 MP4 탐색 요청이 동작한다. 영상 요청은 Worker 사용량에 포함된다. 빌드는 파일당 25MiB 제한을 검사하고 자산 출처를 `/credits`에 복사한다. 실제 iPhone Safari 검수는 별도다.
 
 공개 배포의 health·두 방문자 나눔·새로고침 검수를 마쳤다. 시식을 든 방 이동/맛봄은 로컬 DO에서 검증했으며 공개 환경의 방 이동·재배포 후 개인 기록은 후속 검수 대상이다. 방문자 토큰은 해당 브라우저에 있으므로 PC 기록이 휴대폰으로 자동 이전되지는 않는다. 로컬 실행과 다른 주소에서는 새 방문자로 시작한다. 계정 복구·대규모 부하·운영 백업/보존 정책도 후속 검토 대상이다.
 
