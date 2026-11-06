@@ -1,6 +1,15 @@
 # 탕비실 검증 상태
 최종 갱신: 2026-11-06. 현재 구현은 [DEVELOPMENT](DEVELOPMENT.md), 실행법은 [README](../README.md)를 따른다. 기능 검사와 실제 사용성·청취 평가는 구분한다.
 
+## 공개 HTTPS 검수
+[공개 탕비실](https://tangbisil-playtest.diaplus93.workers.dev/?room=window)을 Workers Free로 배포하고 배포 담당이 독립 검수했다. Worker 버전은 `930e08c1-285b-4aaa-99f7-9f42f157ab30`이며 실행 소스·정적 자산 SHA256은 커밋 `e4de9d1`과 일치한다. 설정 차이는 Free CPU 설명 주석뿐이다.
+
+- **두 방문자:** health 200, 독립 브라우저 문맥 A/B 입장 → A 개봉·한입·나눔 → B 수령·먹기 → A의 tasted=1·개인 기록 분리 → 양쪽 새로고침 후 복구를 확인했다.
+- **생활 동기화:** B의 사탕 접근·개봉·먹기, 커피 놓기·추출·완료·가져오기, 냉장고 열기·병 꺼내기·닫기·자리 복귀를 수행했다. A 화면에서도 사탕·커피·문 상태 전달을 확인했다.
+- **영상·작은 화면:** MP4 bytes 0–63은 206/64바이트, 바다 영상 readyState=4와 재생 시간 진행을 확인했다. 390×844·320×568에서 페이지 스크롤 없이 표시된 하단 버튼이 모두 화면 안에 있고 높이는 44px였다.
+
+공개 검수 캡처는 배포 담당 작업 폴더 `C:/Users/민준12/Desktop/로컬/`의 `pantry-cloudflare-mobile-390.png`, `pantry-cloudflare-mobile-320.png`, `pantry-cloudflare-desktop.png`다. 실제 휴대폰·Safari·청취, 공개 환경의 방 이동·재배포 후 기록 유지, 지역 간 지연·부하·장시간 무료 사용량은 이번 공개 검사에 포함하지 않았다.
+
 ## Cloudflare 무료 경로 이식
 공통 저장·생활 오브젝트·이동·간식 검증/스냅샷 규칙을 Node와 DO에서 함께 사용한다. Node DB·4317 실행은 보존하고 별도 Cloudflare 저장소로 검사했다. 기존 Pages와 유료 서비스에는 배포하지 않았다.
 
@@ -12,7 +21,7 @@
 - **미디어:** 실제 Workers Assets에서 빠진 Content-Length 때문에 영상이 416으로 실패하는 것을 브라우저에서 재현·수정했다. 빌드 크기 목록을 적용한 MP4 0–1바이트는 206/2바이트이고 영상 readyState=4·재생 시간 진행을 확인했다. 범위/suffix/HEAD/잘못된 범위/If-Range/크기 헤더 없음의 자동 검사를 포함한다.
 - **실제 화면:** 로컬 CF의 독립 A(390/320px 터치 Chromium)·B(1280px)에서 나눔 → 시식 → 먹기 → 새로고침 후 shared 발견·빈 접시·예산 50을 확인했다. 파도 켜기 뒤 WAV 요청과 WebAudio 시작을 계측했고 끄기 버튼을 실행했다. 320px에서 가로 넘침이 없었다. 만원 안내의 작은 화면 검수는 409 응답을 고정한 화면 검사이며, 실제 정원 검사는 별도 DO 테스트다.
 
-증거는 `test-results/cf-mobile-320.png`, `cf-mobile-390.png`, `cf-full-320.png`와 CF 자동 검사다. 간식 캡처는 지연 로딩이 끝나 실제 접시·음식·동료가 보이는 상태로 갱신했다. 실제 iPhone/Safari, 공개 HTTPS, 외부 두 휴대폰·지역 간 지연, 재배포, 부하·장시간 무료 사용량 검수는 배포 담당이 이어서 확인한다. 청취감이나 동접 수를 수치 검사로 단정하지 않는다.
+로컬 증거는 `test-results/cf-mobile-320.png`, `cf-mobile-390.png`, `cf-full-320.png`와 CF 자동 검사다. 간식 캡처는 지연 로딩이 끝나 실제 접시·음식·동료가 보이는 상태로 갱신했다. 공개 HTTPS 결과와 남은 검수는 위 절에 구분했다. 청취감이나 동접 수를 수치 검사로 단정하지 않는다.
 
 검사 순서: `npm run build:cloudflare` → `npm run test:cloudflare` (외부 배포 없는 bundle dry-run + DO/Range 검사). Wrangler 4.156.2와 Miniflare 5 런타임이 재현되도록 npm/pnpm 잠금 파일을 맞췄다. Node용 `npm run check:runtime`의 두 방문자·프록시·새 DB 재시작 검사도 유지한다. Docker는 이 PC에 없어 실제 이미지 실행은 미검증이다.
 

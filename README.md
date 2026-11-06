@@ -70,6 +70,8 @@ npm start
 다른 PC는 호스트 PC의 LAN 주소로 접속하며 포트 접근이 허용되어 있어야 합니다. 휴대폰의 UUID·클립보드 기능까지 시험하려면 아래 HTTPS 배포 주소를 사용합니다. 이전 Cloudflare Pages 정적 배포만으로 현재 Node/SQLite/SSE API가 실행되지는 않습니다.
 
 ## Cloudflare 무료 테스트 배포
+[공개 탕비실 열기](https://tangbisil-playtest.diaplus93.workers.dev/?room=window). 2026-11-06 Workers Free로 배포했으며, 같은 주소를 PC와 휴대폰에서 열어 함께 입장할 수 있다. 공개 HTTPS에서 독립 방문자 두 명의 간식 나눔·맛봄·새로고침 후 기록 복구, 사탕·커피·냉장고 동기화와 바다 영상 재생을 확인했다. 320/390px 화면은 브라우저에서 검사했으며 실제 휴대폰·Safari·청취 검사는 아직 남아 있다. 자세한 증거와 한계는 [QA](docs/QA.md)를 따른다.
+
 현재 공개 테스트 경로는 **Workers Static Assets + SQLite Durable Objects**다. 기존 `wrangler.toml`은 구 Pages용이므로 사용하지 않는다. 새 `wrangler.pantry.jsonc`는 별도 Worker **`tangbisil-playtest`**를 대상으로 하며 기존 Pages를 덮어쓰지 않는다. 로컬 Node/SQLite/SSE 실행은 그대로 유지한다.
 
 ```sh
@@ -99,7 +101,7 @@ npm run dev:cloudflare
 
 일반 [정적 자산 요청은 무료](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/)이며 API와 바다 영상 경로만 Worker를 거친다. 영상의 Range 요청은 빌드 시 만든 크기 목록으로 206/416·HEAD·suffix를 처리한다. 일부 Static Assets 응답에 `Content-Length`가 없어도 Safari의 MP4 탐색 요청이 동작한다. 영상 요청은 Worker 사용량에 포함된다. 빌드는 파일당 25MiB 제한을 검사하고 자산 출처를 `/credits`에 복사한다. 실제 iPhone Safari 검수는 별도다.
 
-공개 배포 후에는 `/api/health` → HTTPS 두 방문자의 간식 나눔 → 새로고침 → 시식을 든 방 이동/맛봄 → 재배포 후 개인 기록 순으로 확인한다. 방문자 토큰은 해당 브라우저에 있으므로 PC 기록이 휴대폰으로 자동 이전되지는 않는다. 로컬 실행과 다른 주소에서는 새 방문자로 시작한다. 계정 복구·대규모 부하·운영 백업/보존 정책은 후속 검토 대상이다.
+공개 배포의 health·두 방문자 나눔·새로고침 검수를 마쳤다. 시식을 든 방 이동/맛봄은 로컬 DO에서 검증했으며 공개 환경의 방 이동·재배포 후 개인 기록은 후속 검수 대상이다. 방문자 토큰은 해당 브라우저에 있으므로 PC 기록이 휴대폰으로 자동 이전되지는 않는다. 로컬 실행과 다른 주소에서는 새 방문자로 시작한다. 계정 복구·대규모 부하·운영 백업/보존 정책도 후속 검토 대상이다.
 
 선택 배포용 Docker와 `render.yaml`은 유지한다. Node 24 단일 서버, `HOST=0.0.0.0`, 플랫폼 `PORT`, `/api/health`, 영속 DB 경로가 필요하다. Render는 `/var/data/pantry.sqlite`와 1GB 디스크, Railway는 `/data/pantry.sqlite`와 해당 볼륨을 사용한다. 유료 서비스 생성은 보류한다. `npm run check:runtime`은 별도 임시 폴더/DB에서 Node 배포 구성을 검사한다. 구 Cloudflare용 `verify:deploy`·`verify:online`은 실행하지 않는다.
 
