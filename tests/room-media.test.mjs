@@ -1,9 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {recommendedLandscape,startRoomMedia,mediaAction,tvQueue,tvJoinSeconds} from '../shared/room-media.mjs';
+import {recommendedLandscape,startRoomMedia,mediaAction,tvQueue,tvQueueVersion,tvJoinSeconds,migrateTvQueue} from '../shared/room-media.mjs';
 import {GameError} from '../shared/errors.mjs';
 const room=()=>({id:'window',members:new Map()});
 const seated={area:'healing',seat:0,travel:null,motion:null};
+test('queue replacement advances once, fences old requests and preserves the room session',()=>{
+ const r=room();startRoomMedia(r,1000);const session=r.media.sessionId,landscape=r.media.landscape;
+ r.media.tv={queueVersion:'previous-queue',index:2,videoId:'old-video',startedAt:2000,version:7};
+ assert.equal(migrateTvQueue(r,30000),true);assert.equal(r.media.tv.version,8);
+ assert.equal(r.media.tv.videoId,tvQueue[0].id);assert.equal(r.media.tv.queueVersion,tvQueueVersion);assert.equal(r.media.tv.startedAt,30000);
+ assert.equal(r.media.sessionId,session);assert.equal(r.media.landscape,landscape);
+ assert.equal(migrateTvQueue(r,40000),false);
+ assert.equal(mediaAction(r,seated,{type:'tv-next',sessionId:session,expectedVersion:7},GameError,50000).replay,true);
+ assert.equal(r.media.tv.version,8);
+});
+test('a retained video keeps its content clock when the curated queue is reordered',()=>{
+ const r=room();startRoomMedia(r,1000);r.media.tv={queueVersion:'previous-queue',index:99,videoId:tvQueue[1].id,startedAt:2000,version:4};
+ assert.equal(migrateTvQueue(r,5000),true);assert.equal(r.media.tv.index,1);assert.equal(r.media.tv.startedAt,2000);assert.equal(r.media.tv.version,5);
+ assert.equal(migrateTvQueue(r,6000),false);
+});
 test('Seoul recommendation boundaries and day choices use an explicit timezone',()=>{
   assert.equal(recommendedLandscape('window',Date.parse('2026-11-06T08:59:59Z'))==='fire',false);
   assert.equal(recommendedLandscape('window',Date.parse('2026-11-06T09:00:00Z')),'fire');

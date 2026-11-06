@@ -61,6 +61,60 @@ async function setup(t,overrides={}){
   const storage=(className,name)=>mf.unsafeGetDurableObjectStorage('pantry-test',className,{name});
   return {mf,visitor,connect,storage};
 }
+test('Cloudflare tickets reject cross-origin, cross-room, expiry and replay', {timeout:30000},async t=>{
+ const {mf,visitor,connect,storage}=await setup(t),a=await visitor('권한검사');
+ const request=(path,options={})=>mf.dispatchFetch('http://example.test'+path,options);
+ assert.equal((await request('/api/me',{headers:{Authorization:'Bearer '+a.user.id}})).status,401);
+ assert.equal((await request('/api/connect',{method:'POST',headers:{Authorization:'Bearer '+a.token,Origin:'https://other.test'}})).status,403);
+ const grant=await(await request('/api/connect',{method:'POST',headers:{Authorization:'Bearer '+a.token}})).json();
+ const socket=(ticket,room='window',origin)=>request('/api/socket?room='+room,{headers:{Upgrade:'websocket','Sec-WebSocket-Protocol':'pantry.v1, ticket.'+ticket,...(origin?{Origin:origin}:{})}});
+ assert.equal((await socket(grant.ticket,'window','https://other.test')).status,403);
+ assert.equal((await socket(grant.ticket,'quiet')).status,401);
+ assert.equal((await socket(randomUUID())).status,401);
+ const upgraded=await socket(grant.ticket);assert.equal(upgraded.status,101);upgraded.webSocket.accept();t.after(()=>{try{upgraded.webSocket.close();}catch{}});
+ assert.equal((await socket(grant.ticket)).status,401);
+ upgraded.webSocket.close();await delay(100);
+ const expired=await(await request('/api/connect',{method:'POST',headers:{Authorization:'Bearer '+a.token}})).json();
+ const sql=await storage('PantryRoom','window'),record=JSON.parse((await sql.exec("SELECT value FROM cf_json WHERE key='room'"))[0].value);
+ record.tickets[expired.ticket].until=Date.now()-1;
+ await sql.exec("UPDATE cf_json SET value=? WHERE key='room'",JSON.stringify(record));
+ await mf.unsafeEvictDurableObject('pantry-test','PantryRoom',{name:'window',webSockets:'hibernate'});
+ assert.equal((await socket(expired.ticket)).status,401);
+ const rejoined=await connect(a);assert.equal(rejoined.status,200);
+});
+test('Cloudflare rejects malformed frames and isolates another visitor’s food and records', {timeout:30000},async t=>{
+ const {mf,visitor,connect}=await setup(t);
+ for(const value of [null,[],3,'name',{name:['name']},{name:123}]){
+  const res=await mf.dispatchFetch('http://example.test/api/session',{method:'POST',body:JSON.stringify(value)});assert.equal(res.status,400);
+ }
+ const xss=await mf.dispatchFetch('http://example.test/api/session',{method:'POST',body:JSON.stringify({name:'<svg>'})});assert.equal(xss.status,400);
+ const large=await mf.dispatchFetch('http://example.test/api/session',{method:'POST',body:'x'.repeat(8193)});assert.equal(large.status,413);
+ const a=await visitor('별명 “A”'),b=await visitor('별명 B'),first=await connect(a),second=await connect(b);
+ const taken=await first.act('take'),id=taken.data.state.self.serving.id;
+ assert.equal((await second.act('open',{servingId:id,userId:a.user.id})).status,409);
+ assert.equal((await second.act('take',{},'<bad>')).status,400);
+ assert.equal((await second.act({nested:'take'})).status,400);
+ assert.equal((await first.act('unwrap',{servingId:id,progress:.42},'receipt-check')).status,200);
+ assert.equal((await first.act('unwrap',{servingId:id,progress:.9},'receipt-check')).status,409);
+ await second.wait(()=>second.state.room.members.find(m=>m.id===a.user.id)?.food?.open_progress===.42);
+ const peer=second.state.room.members.find(m=>m.id===a.user.id),serialized=JSON.stringify(second.state);
+ for(const privateValue of [a.token,createHash('sha256').update(a.token).digest('hex'),id])assert.equal(serialized.includes(privateValue),false);
+ assert.equal('discoveries' in peer,false);assert.equal('coins' in peer,false);assert.equal(second.state.self.serving,null);
+ const closed=new Promise(resolve=>{second.ws.addEventListener('close',event=>resolve(event.code),{once:true});setTimeout(()=>resolve('no close'),1000);});
+ second.ws.send('null');assert.equal(await closed,1008);
+ assert.equal((await first.act('open',{servingId:id})).status,200);
+});
+test('Cloudflare migrates an occupied old TV queue once without changing personal records', {timeout:30000},async t=>{
+ const {mf,visitor,connect,storage}=await setup(t),a=await visitor('목록교체'),c=await connect(a);
+ await c.act('take');const before=structuredClone(c.state.self),session=c.state.room.media.sessionId;
+ const sql=await storage('PantryRoom','window'),saved=JSON.parse((await sql.exec("SELECT value FROM cf_json WHERE key='room'"))[0].value);
+ saved.media.tv={queueVersion:'old',index:2,videoId:'retired-clip',startedAt:Date.now()-10000,version:9};
+ await sql.exec("UPDATE cf_json SET value=? WHERE key='room'",JSON.stringify(saved));
+ await mf.unsafeEvictDurableObject('pantry-test','PantryRoom',{name:'window',webSockets:'hibernate'});
+ const refreshed=await connect(a);assert.equal(refreshed.state.room.media.tv.videoId,tvQueue[0].id);assert.equal(refreshed.state.room.media.tv.version,10);
+ assert.equal(refreshed.state.room.media.sessionId,session);assert.deepEqual(refreshed.state.self,before);
+ await refreshed.act('wave');assert.equal(refreshed.state.room.media.tv.version,10);
+});
 test('Cloudflare two visitors share exactly once; hibernation and cross-room personal records survive', {timeout:60000},async t=>{
   const {mf,visitor,connect,storage}=await setup(t),a=await visitor('CF동료A'),b=await visitor('CF동료B'),first=await connect(a),second=await connect(b);
   await first.wait(()=>first.state.room.members.length===2);

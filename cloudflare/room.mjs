@@ -8,7 +8,8 @@ import {moveVisitor} from '../server/movement.mjs';
 import {completeTravel,reservedSeats} from '../server/travel.mjs';
 import {sandContact} from '../server/sand-contact.mjs';
 import {roomSnapshot,validateSnackAction,actionNames} from '../server/room-view.mjs';
-import {startRoomMedia,mediaAction} from '../shared/room-media.mjs';
+import {startRoomMedia,mediaAction,migrateTvQueue,needsTvQueueMigration} from '../shared/room-media.mjs';
+import {actionInput} from '../shared/requests.mjs';
 
 const fresh=id=>({id,members:[],history:[],fixtures:{fridge:{open:false,owner:null,changedAt:0}},version:0,pending:{},releases:[],tastes:[],tickets:{},quota:{day:0,count:0},retryAt:0,retries:0});
 export class PantryRoom extends DurableObject {
@@ -67,6 +68,7 @@ export class PantryRoom extends DurableObject {
   }
   async advance(){
     const recovering=Object.keys(this.r.pending).length>0;await this.flush();if(recovering)this.broadcast();const now=Date.now();let changed=false;
+    if(needsTvQueueMigration(this.r)){this.atomic(()=>{migrateTvQueue(this.r,now);this.r.version++;});this.broadcast();}
     const due=[...this.r.members.values()].some(m=>(m.departAt&&m.departAt<=now)||(m.arriveAt&&m.arriveAt<=now)||(m.readyAt&&m.readyAt<=now));
     if(due)this.atomic(()=>{
       for(const m of this.r.members.values()){
@@ -148,11 +150,12 @@ export class PantryRoom extends DurableObject {
     try{
       if(typeof message!=='string'||message.length>8192){ws.close(1009,'Message too large');return;}
       let frame;try{frame=JSON.parse(message);}catch{ws.close(1008,'Invalid message');return;}
-      if(frame.type!=='action'||!frame.input||typeof frame.input!=='object'){ws.close(1008,'Invalid action');return;}input=frame.input;
+      if(!frame||typeof frame!=='object'||Array.isArray(frame)||frame.type!=='action'||!frame.input||typeof frame.input!=='object'||Array.isArray(frame.input)){ws.close(1008,'Invalid action');return;}input=frame.input;
       await this.advance();const attachment=ws.deserializeAttachment(),m=this.r.members.get(attachment.id);
       if(!m||m.key!==attachment.key||m.epoch!==attachment.epoch)throw new GameError('자리를 다시 잡아 주세요.',401);
       // Persist usage separately so rejected game actions cannot roll it back.
       this.atomic(()=>this.consume(m));let result;
+      actionInput(input);
       this.atomic(()=>{
         if(input.type==='tv-join'||input.type==='tv-next')result=mediaAction(this.r,m,input,GameError);
         else if(input.type==='sand-contact'){const changed=sandContact(m,this.store.activities.get(m.id).rest.sand,input,GameError);result={ok:true,replay:!changed};}

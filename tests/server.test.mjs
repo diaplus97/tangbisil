@@ -50,8 +50,22 @@ async function setup(t) {
     }};
   }
   const act=(user,type,extra={},room='window')=>request(`/api/action?room=${room}`,user.token,{type,requestId:randomUUID(),...extra});
-  return {visitor,connect,act,request};
+  return {visitor,connect,act,request,base};
 }
+
+test('malformed JSON shapes and action IDs are rejected before touching visitor state',async t=>{
+ const {base,visitor,connect,request}=await setup(t),a=await visitor('입력검사');await connect(a);
+ for(const path of ['/api/session','/api/action'])for(const value of [null,[],3,'text']){
+  const response=await fetch(base+path,{method:'POST',headers:{Authorization:`Bearer ${a.token}`,'Content-Type':'application/json'},body:JSON.stringify(value)});
+  assert.equal(response.status,400,`${path} ${JSON.stringify(value)}`);
+ }
+ for(const input of [{type:'tv-join'},{type:{nested:'take'},requestId:randomUUID()},{type:'take',requestId:'<bad>'},{type:'sample',offerId:{},requestId:randomUUID()}]){
+  assert.equal((await request('/api/action',a.token,input)).status,400);
+ }
+ assert.equal((await request('/api/me',a.token)).data.self.serving,null);
+ for(const name of [['name'],123,'<svg>'])assert.equal((await request('/api/session',null,{name})).status,400);
+ const origin=await fetch(base+'/api/me',{headers:{Authorization:`Bearer ${a.token}`,Origin:'null'}});assert.equal(origin.status,403);
+});
 
 test('two authenticated streams share food state, isolate private data and update other room tabs',async t=>{
   const {visitor,connect,act,request}=await setup(t);

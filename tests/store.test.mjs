@@ -10,6 +10,13 @@ import {DatabaseSync} from 'node:sqlite';
 function setup(t){const store=createStore(':memory:');t.after(()=>store.close());const a=store.createUser('레몬',0),b=store.createUser('창가',1);return{store,a,b};}
 function act(s,u,type,extra={},requestId=randomUUID(),room='window'){return s.act(u.user.id,room,{type,requestId,...extra});}
 function open(s,u){act(s,u,'take');const food=s.serving(u.user.id);act(s,u,'open',{servingId:food.id});return food.id;}
+test('a reused snack request cannot silently accept a changed payload',t=>{
+ const{store:s,a}=setup(t);act(s,a,'take');const id=s.serving(a.user.id).id,request=randomUUID();
+ act(s,a,'unwrap',{servingId:id,progress:.42},request);
+ assert.throws(()=>act(s,a,'unwrap',{servingId:id,progress:.8},request),error=>error.status===409);
+ assert.equal(s.serving(a.user.id).open_progress,.42);
+ assert.equal(act(s,a,'unwrap',{progress:.42,servingId:id},request).replay,true);
+});
 test('sealed food cannot be eaten and a failed action never changes collection or budget',t=>{
  const{store:s,a}=setup(t);act(s,a,'take');const f=s.serving(a.user.id);
  assert.throws(()=>act(s,a,'bite',{servingId:f.id}),/포장을/);
@@ -117,7 +124,9 @@ test('adding shared tasting metadata preserves a pre-existing database and is re
   old.exec(`CREATE TABLE servings(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,snack_id TEXT NOT NULL,state TEXT NOT NULL,bites INTEGER NOT NULL DEFAULT 0,portions INTEGER NOT NULL DEFAULT 3,source TEXT NOT NULL,created_at INTEGER NOT NULL);
    CREATE TABLE claims(offer_id TEXT NOT NULL,user_id TEXT NOT NULL,PRIMARY KEY(offer_id,user_id));
    INSERT INTO servings VALUES('existing-plate','existing-visitor','lemon-sandwich-pie','open',1,3,'shelf',123);
-   INSERT INTO claims VALUES('existing-offer','existing-recipient');`);old.close();
-  for(let i=0;i<2;i++){s=createStore(file);assert.equal(s.serving('existing-visitor').id,'existing-plate');assert.equal(s.serving('existing-visitor').bites,1);assert.equal(s.serving('existing-visitor').offer_id,null);const claim=s.db.prepare('SELECT * FROM claims').get();assert.equal(claim.user_id,'existing-recipient');assert.equal(claim.tasted_at,null);s.close();s=null;}
+   INSERT INTO claims VALUES('existing-offer','existing-recipient');
+   CREATE TABLE receipts(user_id TEXT,request_id TEXT,action TEXT,result TEXT,PRIMARY KEY(user_id,request_id));
+   INSERT INTO receipts VALUES('existing-visitor','legacy-request','bite','{"ok":true}');`);old.close();
+  for(let i=0;i<2;i++){s=createStore(file);assert.equal(s.serving('existing-visitor').id,'existing-plate');assert.equal(s.serving('existing-visitor').bites,1);assert.equal(s.serving('existing-visitor').offer_id,null);const claim=s.db.prepare('SELECT * FROM claims').get();assert.equal(claim.user_id,'existing-recipient');assert.equal(claim.tasted_at,null);assert.equal(s.db.prepare('SELECT signature FROM receipts').get().signature,null);assert.equal(s.act('existing-visitor','window',{type:'bite',requestId:'legacy-request'}).replay,true);assert.equal(s.serving('existing-visitor').bites,1);s.close();s=null;}
  }finally{s?.close();assert.ok(resolve(dir).startsWith(resolve(tmpdir())+sep)&&basename(dir).startsWith('tangbisil-store-'));rmSync(dir,{recursive:true});}
 });

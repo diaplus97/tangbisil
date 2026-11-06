@@ -1,6 +1,7 @@
 import {createHash,randomBytes} from 'node:crypto';
 import {mediaResponse} from './range.mjs';
 import mediaSizes from '../dist-cf/media-manifest.json';
+import {objectInput} from '../shared/requests.mjs';
 export {PantryRoom} from './room.mjs';
 export {PantryVisitor} from './visitor.mjs';
 export {PantryGate} from './gate.mjs';
@@ -11,7 +12,7 @@ async function body(request){
   const chunks=[];let size=0;
   for(;;){const{done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>8192){await reader.cancel();throw Object.assign(Error('요청이 너무 커요.'),{status:413});}chunks.push(value);}
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
-  try{return JSON.parse(new TextDecoder().decode(bytes));}catch{throw Object.assign(Error('요청 형식을 확인해 주세요.'),{status:400});}
+  try{return objectInput(JSON.parse(new TextDecoder().decode(bytes)));}catch{throw Object.assign(Error('요청 형식을 확인해 주세요.'),{status:400});}
 }
 export default {
   async fetch(request,env){
@@ -30,7 +31,7 @@ export default {
         return env.GATES.get(env.GATES.idFromName('gate-'+shard)).allow(ip,kind);
       };
       if(url.pathname==='/api/session'&&request.method==='POST'){
-        const input=await body(request),name=String(input.name??'').trim();if(!name||[...name].length>12||/[\u0000-\u001f<>]/.test(name))return json({error:'이름은 1~12자로 적어 주세요.'},400);
+        const input=await body(request),name=typeof input.name==='string'?input.name.trim():'';if(!name||[...name].length>12||/[\u0000-\u001f<>]/.test(name))return json({error:'이름은 1~12자로 적어 주세요.'},400);
         const access=await gate('session');if(!access.ok)return json(access,access.status);
         const token=randomBytes(32).toString('hex'),home=env.VISITORS.get(env.VISITORS.idFromName(hash(token)));
         return json(await home.initialize(name,input.avatar===1?1:0,token),201);

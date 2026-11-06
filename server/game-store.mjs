@@ -39,6 +39,7 @@ export function createGameStore(db,{crossRoomOffers=false}={}) {
   // and receives a durable idempotent tasting message instead of a cross-DB FK.
   if(!db.prepare('PRAGMA table_info(servings)').all().some(c=>c.name==='offer_id'))db.exec('ALTER TABLE servings ADD COLUMN offer_id TEXT'+(crossRoomOffers?'':' REFERENCES offers(id)'));
   if(!db.prepare('PRAGMA table_info(claims)').all().some(c=>c.name==='tasted_at'))db.exec('ALTER TABLE claims ADD COLUMN tasted_at INTEGER');
+  if(!db.prepare('PRAGMA table_info(receipts)').all().some(c=>c.name==='signature'))db.exec('ALTER TABLE receipts ADD COLUMN signature TEXT');
   if(!db.prepare('PRAGMA table_info(servings)').all().some(c=>c.name==='open_progress')){
     db.exec("ALTER TABLE servings ADD COLUMN open_progress REAL NOT NULL DEFAULT 0; UPDATE servings SET open_progress=1 WHERE state!='sealed'");
   }
@@ -77,9 +78,11 @@ export function createGameStore(db,{crossRoomOffers=false}={}) {
   function act(id, roomId, input) {
     const { type, requestId } = input;
     if (typeof requestId !== 'string' || !/^[\w-]{8,80}$/.test(requestId)) throw new GameError('요청을 다시 시도해 주세요.',400);
-    const old = db.prepare('SELECT action,result FROM receipts WHERE user_id=? AND request_id=?').get(id,requestId);
+    const signature=JSON.stringify([type,input.servingId,input.progress,input.offerId,input.drink]);
+    const old = db.prepare('SELECT action,result,signature FROM receipts WHERE user_id=? AND request_id=?').get(id,requestId);
     if (old) {
       if (old.action !== type) throw new GameError('이미 사용한 요청입니다.',409);
+      if(old.signature!=null&&old.signature!==signature)throw new GameError('같은 요청 번호의 내용이 달라요.',409);
       return { ...JSON.parse(old.result), replay: true };
     }
     db.exec('BEGIN IMMEDIATE');
@@ -129,7 +132,7 @@ export function createGameStore(db,{crossRoomOffers=false}={}) {
         if (!['tea','coffee','water'].includes(input.drink)) throw new GameError('음료를 선택해 주세요.',400);
         db.prepare('UPDATE users SET drink=? WHERE id=?').run(input.drink,id);
       } else if (type !== 'wave') throw new GameError('알 수 없는 행동이에요.',400);
-      db.prepare('INSERT INTO receipts VALUES(?,?,?,?)').run(id,requestId,type,JSON.stringify(result));
+      db.prepare('INSERT INTO receipts(user_id,request_id,action,result,signature) VALUES(?,?,?,?,?)').run(id,requestId,type,JSON.stringify(result),signature);
       db.exec('COMMIT');
       return result;
     } catch (e) { db.exec('ROLLBACK'); throw e; }

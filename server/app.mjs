@@ -8,7 +8,8 @@ import {completeTravel,reservedSeats} from './travel.mjs';
 import {moveVisitor} from './movement.mjs';
 import {serveStatic} from './static.mjs';
 import {getSpace} from '../shared/space.mjs';
-import {startRoomMedia,mediaAction} from '../shared/room-media.mjs';
+import {startRoomMedia,mediaAction,migrateTvQueue} from '../shared/room-media.mjs';
+import {objectInput,actionInput} from '../shared/requests.mjs';
 
 export function createPantryServer({ database='data/pantry.sqlite', staticDir='dist', middleware, graceMs=5000 }={}) {
   const store = createStore(database);
@@ -21,7 +22,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
   function room(id) {
     if (!/^[a-zA-Z0-9_-]{1,40}$/.test(id)) throw new GameError('방 주소를 확인해 주세요.',400);
     if (!rooms.has(id)) rooms.set(id,{ id, media:JSON.parse(store.db.prepare('SELECT data FROM room_media WHERE id=?').get(id)?.data??'null'), members:new Map(), history:[],fixtures:{fridge:{open:false,owner:null,changedAt:0}} });
-    return rooms.get(id);
+    const r=rooms.get(id);if(migrateTvQueue(r)){saveMedia(r);broadcast(r);}return r;
   }
   const snapshot=(r,id)=>roomSnapshot(store,r,id,version);
   function broadcast(r) {
@@ -80,7 +81,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
   async function body(req) {
     let text='';
     for await (const chunk of req) {text+=chunk;if(Buffer.byteLength(text)>8192)throw new GameError('요청이 너무 커요.',413);}
-    try{return JSON.parse(text||'{}');}catch{throw new GameError('요청 형식이 올바르지 않아요.',400);}
+    try{return objectInput(JSON.parse(text||'{}'));}catch{throw new GameError('요청 형식이 올바르지 않아요.',400);}
   }
   const server=http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
@@ -88,7 +89,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
     try {
       const url=new URL(req.url,'http://localhost');
       if(url.pathname.startsWith('/api/')) {
-        if(req.headers.origin && new URL(req.headers.origin).host !== req.headers.host)throw new GameError('같은 주소에서 접속해 주세요.',403);
+        if(req.headers.origin){let origin;try{origin=new URL(req.headers.origin);}catch{throw new GameError('같은 주소에서 접속해 주세요.',403);}if(origin.host!==req.headers.host)throw new GameError('같은 주소에서 접속해 주세요.',403);}
         const ip=req.socket.remoteAddress;
         const usage=rate.get(ip)??{time:Date.now(),count:0};
         if(Date.now()-usage.time>60000){usage.time=Date.now();usage.count=0;}
@@ -96,7 +97,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
         if(usage.count>2000)throw new GameError('잠시 후 다시 시도해 주세요.',429);
         if(url.pathname==='/api/health'){send(res,200,{ok:true,app:'tangbisil',version:'0.4.0'});return;}
         if(url.pathname==='/api/session'&&req.method==='POST') {
-          const data=await body(req), name=String(data.name??'').trim();
+          const data=await body(req), name=typeof data.name==='string'?data.name.trim():'';
           if(!name||[...name].length>12||/[\u0000-\u001f<>]/.test(name))throw new GameError('이름은 1~12자로 적어 주세요.',400);
           send(res,201,store.createUser(name,data.avatar===1?1:0));return;
         }
@@ -106,9 +107,9 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
         const roomId=url.searchParams.get('room')??'window';
         if(url.pathname==='/api/events'&&req.method==='GET'){attach(id,roomId,res);return;}
         if(url.pathname==='/api/action'&&req.method==='POST') {
+          const input=actionInput(await body(req));
           const r=room(roomId), m=r.members.get(id);
           if(!m?.streams.size)throw new GameError('방에 연결하고 있어요. 잠시 후 다시 눌러 주세요.',409);
-          const input=await body(req);
           if(input.type==='tv-join'||input.type==='tv-next'){const result=mediaAction(r,m,input,GameError);if(!result.replay){saveMedia(r);broadcast(r);}send(res,200,{...result,state:snapshot(r,id)});return;}
           if(input.type==='sand-contact'){const changed=sandContact(m,store.activities.get(id).rest.sand,input,GameError);if(changed)broadcast(r);send(res,200,{ok:true});return;}
           if(['move','sit','stand','approach','travel'].includes(input.type)){

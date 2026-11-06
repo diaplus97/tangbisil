@@ -1,9 +1,9 @@
 // Curated official uploads only. The player streams directly from YouTube.
-export const tvQueueVersion='quiet-break-2026-11';
+export const tvQueueVersion='kr-curated-2026-11-06';
 export const tvQueue=[
-  {id:'-eNe1OmbbXc',title:'만에서 쉬는 해달',originalTitle:'Sea otter life in the bay | #shorts',channel:'Monterey Bay Aquarium',duration:49.081},
-  {id:'KRi9yVx4uu0',title:'물결 따라 해파리',originalTitle:'Happy World Jellyfish Day!',channel:'Monterey Bay Aquarium',duration:73.641},
-  {id:'Q3YYwIsMHzw',title:'밤의 지구를 천천히',originalTitle:'NASA | Earth at Night',channel:'NASA Goddard',duration:131.041},
+  {id:'09uPwjRm7PY',title:'끝까지 보는 게 챌린지',originalTitle:'끝까지 보는 게 챌린지',channel:'빠더너스BDNS',duration:15.721,publishedAt:'2026-11-02',verifiedOn:'2026-11-06',views:410936,likes:13909},
+  {id:'CB4Gize2K_g',title:'카톡 프사 있? 없?',originalTitle:'카톡 프사 있? 없?',channel:'채널십오야',duration:100.021,publishedAt:'2026-10-28',verifiedOn:'2026-11-06',views:1955363,likes:25355},
+  {id:'ms-6zao6oE0',title:'점점 말을 안 듣는다',originalTitle:'점점 말을 안 듣는다',channel:'haha ha',duration:168.661,publishedAt:'2026-10-20',verifiedOn:'2026-11-06',views:348884,likes:14802},
 ];
 export function recommendedLandscape(roomId,now=Date.now()){
   const seoul=new Date(now+9*3600000),hour=seoul.getUTCHours();
@@ -15,7 +15,20 @@ export function startRoomMedia(r,now=Date.now()){
   // Keep a short disconnect/reload in the same session. No timer is needed.
   if(!r.media||(!r.members.size&&r.media.emptyAt!=null&&now-r.media.emptyAt>60000))
     r.media={sessionId:String(now)+'-'+r.id,landscape:recommendedLandscape(r.id,now),startedAt:now,emptyAt:null,tv:null};
-  r.media.emptyAt=null;return r.media;
+  r.media.emptyAt=null;migrateTvQueue(r,now);return r.media;
+}
+// A deploy changes the shared queue once, without resetting personal playback.
+// Existing clients keep their local clip until it ends or they choose to rejoin.
+export function needsTvQueueMigration(r){
+  const tv=r.media?.tv;if(!tv)return false;
+  return tv.queueVersion!==tvQueueVersion||tvQueue[tv.index]?.id!==tv.videoId;
+}
+export function migrateTvQueue(r,now=Date.now()){
+  if(!needsTvQueueMigration(r))return false;const tv=r.media.tv;
+  const index=tvQueue.findIndex(item=>item.id===tv.videoId);
+  const retained=index>=0,next=retained?index:0;
+  r.media.tv={queueVersion:tvQueueVersion,index:next,videoId:tvQueue[next].id,startedAt:retained?tv.startedAt:now,version:tv.version+1};
+  return true;
 }
 export function mediaAction(r,m,input,GameError,now=Date.now()){
   if(m.area!=='healing'||m.travel||m.seat==null||m.motion?.endsAt>now)throw new GameError('힐링방에 앉으면 함께 볼 수 있어요.');

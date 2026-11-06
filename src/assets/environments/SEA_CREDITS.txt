@@ -28,14 +28,23 @@ Posters use the first edited frame. landscape-video.json records source URLs,
 original/output SHA256, file sizes, and edits. Licenses permit use in this game;
 they do not mean that the source footage is public domain or may be resold as stock.
 
-OPTIONAL SHARED TV — official YouTube embeds, reviewed 2026-11-06
-Sea otter life in the bay | #shorts — Monterey Bay Aquarium
-https://www.youtube.com/watch?v=-eNe1OmbbXc
-Happy World Jellyfish Day! — Monterey Bay Aquarium
-https://www.youtube.com/watch?v=KRi9yVx4uu0
-NASA | Earth at Night — NASA Goddard
-https://www.youtube.com/watch?v=Q3YYwIsMHzw
+OPTIONAL SHARED TV — Korean channel selection, checked 2026-11-06 KST
+Selection: recent official Korean-channel uploads with public cumulative response.
+These are not Korea-only audience counts or an official real-time popularity rank.
+The source pages and real youtube-nocookie IFrame playback were checked by the
+independent reviewer; the game then verified two-viewer playback locally.
+
+끝까지 보는 게 챌린지 — 빠더너스BDNS
+https://www.youtube.com/watch?v=09uPwjRm7PY
+Published 2026-11-02; 410,936 views / 13,909 likes at check; 15.721 seconds.
+카톡 프사 있? 없? — 채널십오야
+https://www.youtube.com/watch?v=CB4Gize2K_g
+Published 2026-10-28; 1,955,363 views / 25,355 likes at check; 100.021 seconds.
+점점 말을 안 듣는다 — haha ha
+https://www.youtube.com/watch?v=ms-6zao6oE0
+Published 2026-10-20; 348,884 views / 14,802 likes at check; 168.661 seconds.
+
 Videos are streamed by the official player after opt-in, not downloaded or
-redistributed by this game. Embedding availability and platform ads can change.
+redistributed by this game. Counts, embedding availability and platform ads can change.
 YouTube Terms: https://www.youtube.com/t/terms
 Google Privacy Policy: https://policies.google.com/privacy
