@@ -60,7 +60,8 @@
 .object-context{gap:8px}
 .object-options>summary{font-size:16px;padding:10px}
 .snack-world-hint{max-width:min(280px,calc(100% - 24px));position:absolute;z-index:8;border:2px solid #77916b;box-shadow:0 3px 16px #2b443826}
-.snack-world-hint::after{content:'';position:absolute;bottom:-9px;left:50%;width:14px;height:14px;transform:rotate(45deg);background:#f9f6ec;border-right:2px solid #77916b;border-bottom:2px solid #77916b}
+.shared-world-hint{position:absolute;z-index:8;max-width:calc(100% - 24px)}
+.snack-world-hint::after{content:'';position:absolute;bottom:-9px;left:var(--pointer-x,50%);width:14px;height:14px;transform:rotate(45deg);background:#f9f6ec;border-right:2px solid #77916b;border-bottom:2px solid #77916b}
 .direct-hint{font-size:18px;line-height:1.5;background:#f9f6ec;color:#314a40;max-width:calc(100% - 260px)}
 .room-assist.at-object{left:14px;right:auto}
 .room-assist.at-object .look-window{display:none}

@@ -97,7 +97,7 @@ export default function Experience(){
  function closeMenu(){if(menu.current)menu.current.open=false;}
  function openPanel(next:typeof panel){closeMenu();setPanel(next);setMovementMode(false);}
  function putDown(){playSound('putdown');setPanel(null);requestAnimationFrame(()=>document.getElementById('pick-up-snack')?.focus({preventScroll:true}));}
- async function sample(){if(!availableSample)return;if(me&&heldName(me.pantry)&&!await act('items-stow'))return;const r=await act('sample',{offerId:availableSample.id});if(r){setPanel('food');setMovementMode(false);playSound('cup');}}
+ async function sample(){if(!availableSample)return;closeMenu();if(me&&heldName(me.pantry)&&!await act('items-stow'))return;const r=await act('sample',{offerId:availableSample.id});if(r){setPanel('food');setMovementMode(false);playSound('cup');}}
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),4500);return()=>clearTimeout(t);},[toast]);
  useEffect(()=>{const outside=(e:PointerEvent)=>{if(menu.current&&!menu.current.contains(e.target as Node))menu.current.open=false;};document.addEventListener('pointerdown',outside);return()=>document.removeEventListener('pointerdown',outside);},[]);
  function explore(){closeMenu();setPanel(null);setMovementMode(true);}
@@ -125,6 +125,7 @@ export default function Experience(){
            {healing&&<button onClick={()=>openPanel('tv')}>TV 안내·영상 목록</button>}
            {me&&<><button disabled={!online||busy||walking||member?.seat==null} onClick={()=>{closeMenu();setPanel(null);void (async()=>{if(held&&!await act('items-stow'))return;await act('wave');})();}}><Icon name="cup"/>{held?held+' 내려놓고 컵 들기':trayOpen?'간식 내려놓고 컵 들기':'컵 들기'}</button>
              {view==='3d'&&<button disabled={!online} onClick={explore}>갈곳 찾기</button>}
+             {!healing&&availableSample&&<button disabled={!online||busy||walking||member?.seat==null} onClick={()=>void sample()}>{held?held+' 내려놓고 ':''}동료가 나눈 한 조각 맛보기</button>}
              {own&&<button disabled={!online||busy} onClick={()=>{closeMenu();void act('retract',{offerId:own.id});}}>나눈 간식 거두기</button>}
              <button onClick={()=>void copyInvite()}><Icon name="share"/>동료 초대</button></>}
            <button onClick={()=>openPanel('help')}><Icon name="help"/>이용 안내</button>

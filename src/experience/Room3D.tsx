@@ -43,21 +43,23 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
   latest.current=state;framingRef.current=framing;foodRef.current=foodInHand||tvOpen;seaMotionRef.current=seaMotion;
   const cameraUpdate=useRef<((f:Framing)=>void)|null>(null),lookAtSea=useRef<(()=>void)|null>(null);
   const originOwner=state?.room.members.find(m=>m.seat===origin.current&&m.id!==state.self.id);
+  function rememberSeat(){if(!moving&&me?.seat!=null)origin.current=me.seat;}
+  async function stand(){rememberSeat();return onStand();}
   async function chooseSeat(index:number){
     if(disabled||requesting.current)return;
-    if(!moving&&me?.seat!=null)origin.current=me.seat;requesting.current=true;
+    rememberSeat();requesting.current=true;
     try{if(await onSit(index)){setTarget(index);setObjectTarget(null);setWalkHint('');onFinishMove();}}finally{requesting.current=false;}
   }
   async function chooseObject(id:StationId){
     if(disabled||requesting.current)return;
     if(!moving&&me?.station===id){await onUse(id);return;}
-    if(!moving&&me?.seat!=null)origin.current=me.seat;requesting.current=true;
+    rememberSeat();requesting.current=true;
     try{if(await onApproach(id)){setObjectTarget(id);setTarget(null);setWalkHint('');onFinishMove();}}finally{requesting.current=false;}
   }
   async function choosePortal(){if(disabled||requesting.current)return;requesting.current=true;try{if(await onTravel(portal.to)){setTarget(null);setObjectTarget(null);onFinishMove();}}finally{requesting.current=false;}}
-  async function walkTo(x:number,z:number){if(disabled||requesting.current)return;dismissHint();if(await onMove(x,z)){setTarget(null);setObjectTarget(null);setWalkHint('');onFinishMove();}}
-  const actions=useRef({onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse,onStand,tvOpen,disabled,debug});
-  actions.current={onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse,onStand,tvOpen,disabled,debug};
+  async function walkTo(x:number,z:number){if(disabled||requesting.current)return;rememberSeat();dismissHint();if(await onMove(x,z)){setTarget(null);setObjectTarget(null);setWalkHint('');onFinishMove();}}
+  const actions=useRef({onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse,onStand:stand,tvOpen,disabled,debug});
+  actions.current={onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse,onStand:stand,tvOpen,disabled,debug};
   useEffect(()=>{
     if(!me?.motion||!state)return;
     const timer=setTimeout(()=>setArrived(me.motion!.id),Math.max(0,me.motion.endsAt-state.serverTime)+40);return()=>clearTimeout(timer);
@@ -69,7 +71,7 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
   useEffect(()=>{world.current?.landscape(windowViews[landscapeId]);},[landscapeId]);
   useEffect(()=>{if(tvOpen)lookAtSea.current?.();},[tvOpen]);
   useEffect(()=>{world.current?.seaMotion(seaMotion);},[seaMotion]);
-  useEffect(()=>{setHovered(null);cameraUpdate.current?.(framing);},[framing,seat,me?.station,me?.motion?.id]);
+  useEffect(()=>{setHovered(null);cameraUpdate.current?.(framing);},[framing,seat,me?.station,me?.motion?.id,state?.self.id]);
   useEffect(()=>{
     let renderer:T.WebGLRenderer;
     try{renderer=makeRenderer(canvas.current!);}catch{setError('이 브라우저에서 3D 화면을 열지 못했어요.');return;}
@@ -80,7 +82,7 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
     let camera:T.OrthographicCamera|T.PerspectiveCamera,first:ReturnType<typeof createFirstPersonCamera>|null=null,third:ReturnType<typeof createExploreCamera>|null=null;
     renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
     let labelTime=0,shadowTime=0,shadowState:Snapshot|null=null;
-    let previousFraming:Framing|undefined,previousMotion:string|undefined,previousSeat:number|null|undefined,raf=0,last=0,visible=true;
+    let previousFraming:Framing|undefined,previousMotion:string|undefined,previousSeat:number|null|undefined,previousOwner:string|undefined,raf=0,last=0,visible=true;
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     const isPersonal=(f:Framing)=>f==='seated'||f==='walking'||f==='activity';
     function eyeFor(f:Framing):Eye{
@@ -95,7 +97,7 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
       const snack=room.snackPosition();if(snack)points['my-snack']=snack;
       for(const m of latest.current?.room.members??[]){const point=room.labelPosition(m.id);if(point)points[m.id]=point;}
       const occupied:{x:number;y:number;w:number;h:number}[]=[];
-      const root=container.current!.getBoundingClientRect(),toolbarRects=[...container.current!.querySelectorAll<HTMLElement>('.scene-toolbar>*')].map(e=>{const a=e.getBoundingClientRect();return{x:a.left-root.left,y:a.top-root.top,w:a.width,h:a.height};});
+      const root=container.current!.getBoundingClientRect(),toolbarRects=[...container.current!.querySelectorAll<HTMLElement>('.scene-toolbar>*,.direct-hint,.room-assist,.object-context')].filter(e=>getComputedStyle(e).visibility!=='hidden').map(e=>{const a=e.getBoundingClientRect();return{x:a.left-root.left,y:a.top-root.top,w:a.width,h:a.height};}).filter(a=>a.w>0&&a.h>0);
       const m=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),station=m?.station&&stations[m.station];
       if(context.current&&station){const point=new T.Vector3(station.x,station.y,station.z).project(camera);const cw=context.current.offsetWidth;context.current.style.setProperty('--context-x',Math.max(12,Math.min(width-cw-12,(point.x+1)*width/2-cw/2))+'px');context.current.style.setProperty('--context-y',Math.max(80,Math.min(height-125,(1-point.y)*height/2+55))+'px');context.current.style.visibility=point.z>-1&&point.z<1&&Math.abs(point.x)<1.15&&Math.abs(point.y)<1.15?'visible':'hidden';}else if(context.current)context.current.style.visibility='visible';
       const right=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,0),entries=[...labels.current].filter(([id])=>points[id]).sort(([a],[b])=>camera.position.distanceToSquared(points[a])-camera.position.distanceToSquared(points[b]));
@@ -106,10 +108,11 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
         const intersects=(a:{x:number;y:number;w:number;h:number})=>x<a.x+a.w+8&&x+w>a.x-8&&y<a.y+a.h+6&&y+h>a.y-6;
         const overlap=occupied.some(intersects)||bodies.some(b=>b.distance<distance*.88&&intersects(b));
         const toolbar=toolbarRects.some(intersects);
-        const show=p.z> -1&&p.z<1&&x>=10&&x+w<=width-10&&y>=110&&y+h<=height-12&&!overlap&&!toolbar;
+        const show=p.z> -1&&p.z<1&&(id!=='my-snack'||Math.abs(p.x)<1)&&x>=10&&x+w<=width-10&&y>=110&&y+h<=height-12&&!overlap&&!toolbar;
+        if(id==='my-snack')el.style.setProperty('--pointer-x',Math.max(16,Math.min(w-28,(p.x+1)*width/2-x-7))+'px');
         el.style.visibility=show?'visible':'hidden';el.style.left=x+'px';el.style.top=y+'px';
         if(show)occupied.push(rect);
-        if(p.z>-1&&p.z<1&&id!=='my-snack'){
+        if(p.z>-1&&p.z<1&&id!=='my-snack'&&id!=='plate'){
           const edge=point.clone().addScaledVector(right,.34).project(camera),bottom=point.clone().add(new T.Vector3(0,-1.2,0)).project(camera),half=Math.abs(edge.x-p.x)*width/2;
           bodies.push({x:(p.x+1)*width/2-half,y,w:half*2,h:Math.max(h,(p.y-bottom.y)*height/2+h),distance});
         }
@@ -128,7 +131,9 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
     function setCamera(f:Framing){
       const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id),personal=isPersonal(f);
       if(personal){
-        const eye=eyeFor(f),fresh=!first;if(fresh)first=createFirstPersonCamera(eye);camera=first!.camera;first!.anchor(eye);
+        // The welcome camera has no owner. Adopt the assigned seat immediately;
+        // interpolating from seat 0 crosses the table and clips the first snack.
+        const eye=eyeFor(f),fresh=!first||current?.self.id!==previousOwner;if(fresh)first=createFirstPersonCamera(eye);camera=first!.camera;first!.anchor(eye);
         if(m?.motion?.id!==previousMotion)first!.beginMove();
         if(f!==previousFraming||m?.motion?.id!==previousMotion||m?.seat!==previousSeat){
           if(f==='walking'&&m?.motion){const destination=m.motion.points.at(-1)!,pose=room.pose(m.id);if(pose&&Math.hypot(destination.x-pose.x,destination.z-pose.z)>.05)first!.frame(Math.atan2(destination.x-pose.x,destination.z-pose.z),-.06);}
@@ -141,7 +146,7 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
         else if(f==='third'){third=createExploreCamera(m?room.pose(m.id)??{x:0,z:2}:{x:0,z:2});camera=third.camera;}
         else{camera=new T.PerspectiveCamera(60,1,.05,70);if(f==='inside'){camera.position.set(0,2,6.6);camera.lookAt(0,1.6,-4.4);}else if(f==='lounge'){camera.position.set(4.85,1.65,.2);camera.lookAt(3.1,1.05,-3.45);}else{camera.position.set(tableCenter.x,1.95,tableCenter.z+2.75);camera.lookAt(tableCenter.x,1.4,tableCenter.z-1.45);}}
       }
-      previousFraming=f;previousMotion=m?.motion?.id;previousSeat=m?.seat;
+      previousFraming=f;previousMotion=m?.motion?.id;previousSeat=m?.seat;previousOwner=current?.self.id;
       room.interior(f!=='diorama'&&f!=='map'&&f!=='third',f!=='diorama'&&f!=='map');
       room.firstPerson(personal?current?.self.id??null:null,foodRef.current);room.reveal(camera,null,true);room.tick(performance.now(),current,reduced);
       Object.assign(container.current!.dataset,{perspective:f,firstPerson:String(personal),cameraSeat:String(m?.seat??0),area});
@@ -223,6 +228,7 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
   const hoverOwner=state?.room.members.find(m=>m.id!==state.self.id&&(hoverStation?m.station===hoverStation:hoverSeat!=null&&m.seat===hoverSeat));
   const hoverText=hovered?.startsWith('action-')&&state?directAction(state,hovered.slice(7))?.label??'':hovered==='portal'?portal.name+(area==='healing'&&(state?.self.pantry.rest.sand?.held||state?.self.pantry.rest.vase?.held)?' · 내 휴식 도구는 여기에 보관돼요':' · 눌러서 이동'):hovered?(hoverStation?stations[hoverStation].name:`${(hoverSeat??0)+1}번 자리`)+(hoverOwner?' · 이용 중':(hoverStation===me?.station&&!moving?' · '+(state?directAction(state,hoverStation!)?.label??'천천히 기다려요':''):' · 눌러서 이동')):input==='touch'?'손가락으로 밀어 둘러보기':input==='keyboard'?'방향키로 둘러보기 · Home은 풍경':'드래그로 둘러보기';
   const destination=me?.travel?portal.name:objectTarget?stations[objectTarget].name:target!=null?`${target+1}번 자리`:null;
+  const showFloorHint=showHint&&Boolean(me)&&me?.seat==null&&!me?.station&&!moving;
   return <>
     <div className={`room-frame room-three framing-${framing} ${warm?'late-light':''}`} ref={container}>
       <canvas ref={canvas} className="room-three-canvas" tabIndex={0} role="img" aria-label={input==='touch'?'내 눈높이의 휴식 공간. 손가락으로 밀어 둘러보고 사물을 톡 누르면 이동해요.':input==='keyboard'?'내 눈높이의 탕비실. 방향키로 둘러보고 Home으로 풍경을 봅니다.':'내 눈높이의 탕비실. 드래그로 둘러보고 사물을 누르면 이동합니다.'} data-ready={ready} data-landscape={landscape} data-playback={playback} data-view={landscapeId}/>
@@ -233,6 +239,7 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
       {error?<div className="three-message" role="alert"><p>{error}</p><button className="primary" disabled={disabled} onClick={area==='healing'?()=>void choosePortal():onFallback}>{area==='healing'?'탕비실로 돌아가기':'도트로 이어가기'}</button></div>:<>
         {debug&&<><button ref={ref('shelf')} className="hotspot three-hotspot" onClick={onShelf} disabled={disabled}>오늘의 레몬파이</button><button ref={ref('drink')} className="hotspot three-hotspot" onClick={onDrink} disabled={disabled}>한 잔</button></>}
         {!debug&&state&&!tvOpen&&!foodInHand&&!moving&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-snack')} className="world-action snack-world-hint" disabled={disabled} onClick={onShelf}>{heldName(state.self.pantry)?heldName(state.self.pantry)+' 내려놓고 간식 집기':state.self.serving&&state.self.serving.state!=='empty'?'간식 집기':'간식을 눌러보세요'}</button>}
+        {!debug&&sampleAvailable&&!tvOpen&&!foodInHand&&!moving&&area==='pantry'&&<button ref={ref('plate')} className="world-action shared-world-hint" disabled={disabled} aria-label={sampleLabel} onClick={onPlate}>한 조각 맛보기</button>}
         {state?.room.members.filter(m=>debug||m.id!==state.self.id).map(m=><div ref={ref(m.id)} key={m.id} className={`visitor-name three-name ${!m.connected?'reconnecting':''}`}><span className="presence-dot"/>{m.name}</div>)}
       </>}
       {onTv&&!tvOpen&&<button className="tv-entry" disabled={disabled||moving||me?.seat==null} onClick={onTv}>TV 함께 보기</button>}
@@ -242,8 +249,8 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
         {!me?.station&&heldName(state.self.pantry)&&directAction(state,'held')&&<button className="world-action" disabled={disabled} onClick={()=>void onUse('held')}>{directAction(state,'held')!.label}</button>}
         {(me?.station||heldName(state.self.pantry)||state.self.pantry.rest.stone||state.self.pantry.rest.tea||state.self.pantry.rest.sand||state.self.pantry.rest.vase||state.self.pantry.candy&&state.self.pantry.candy.state!=='eaten'||state.self.pantry.bottle&&state.self.pantry.bottle.sips<3)&&<details className="object-options" onKeyDown={e=>{if(e.key==='Escape'){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();e.stopPropagation();}}} onToggle={e=>{if(e.currentTarget.open)dismissHint();}}><summary aria-label="이 물건의 다른 행동">{me?.station||heldName(state.self.pantry)?'더보기':'내 물건'}</summary><div className="object-options-panel">{contextContent}</div></details>}
       </div>}
-      {!debug&&!tvOpen&&!foodInHand&&<div className={'room-assist'+(me?.station?' at-object':'')}><button className="look-window" onClick={()=>lookAtSea.current?.()} aria-label="창밖 풍경 보기">풍경 보기</button>{moving&&<button disabled={disabled} onClick={()=>void onStand()}>멈추기</button>}{!moving&&me?.station&&<button disabled={disabled} onClick={()=>{const index=origin.current!=null&&!originOwner?origin.current:seats.findIndex((_,i)=>!state?.room.members.some(m=>m.seat===i));if(index>=0)void chooseSeat(index);else void onStand();}}>돌아가기</button>}{!moving&&me?.seat!=null&&<button disabled={disabled} onClick={()=>void onStand()}>일어나기</button>}</div>}
-      {!debug&&!tvOpen&&!foodInHand&&(showHint||walkHint||hovered)&&<div className="direct-hint" role="status">{walkHint||hovered&&hoverText||'바닥을 누르면 걸어가요'}{showHint&&!hovered&&<button aria-label="조작 안내 닫기" onClick={dismissHint}>×</button>}</div>}
+      {!debug&&!tvOpen&&!foodInHand&&<div className={'room-assist'+(me?.station?' at-object':'')}><button className="look-window" onClick={()=>lookAtSea.current?.()} aria-label="창밖 풍경 보기">풍경 보기</button>{moving&&<button disabled={disabled} onClick={()=>void stand()}>멈추기</button>}{!moving&&me?.station&&<button disabled={disabled} onClick={()=>{const index=origin.current!=null&&!originOwner?origin.current:seats.findIndex((_,i)=>!state?.room.members.some(m=>m.seat===i));if(index>=0)void chooseSeat(index);else void stand();}}>돌아가기</button>}{!moving&&me?.seat!=null&&<button disabled={disabled} onClick={()=>void stand()}>일어나기</button>}</div>}
+      {!debug&&!tvOpen&&!foodInHand&&(showFloorHint||walkHint||hovered&&hovered!=='action-snack')&&<div className="direct-hint" role="status">{walkHint||hovered&&hoverText||'바닥을 누르면 걸어가요'}{showFloorHint&&!hovered&&<button aria-label="조작 안내 닫기" onClick={dismissHint}>×</button>}</div>}
       {windowContent}
       {debug&&<div className="camera-switch" role="group" aria-label="개발용 시점">{(Object.keys(frames) as Study[]).map(f=><button key={f} aria-pressed={study===f} onClick={()=>setStudy(f)}>{frames[f]}</button>)}</div>}
       {debug&&<button className="light-switch" onClick={()=>setWarm(v=>!v)}>조명 비교</button>}
@@ -251,6 +258,6 @@ export default function Room3D({onUse,contextContent,landscapeId,tvOpen,windowCo
     <div className={"room-navigation"+(foodInHand?" food-navigation":"")}>{!debug&&<div className="look-controls"><p>{walkHint||hoverText}</p><button onClick={()=>lookAtSea.current?.()}>풍경 보기</button></div>}
     {state&&!foodInHand&&!tvOpen&&(debug||movementMode)&&<ExploreDestinations onTravel={choosePortal} state={state} disabled={disabled} showSeats={movementMode} onClose={onFinishMove} onSeat={chooseSeat} onObject={chooseObject} onSea={()=>lookAtSea.current?.()} waves={waves} onWaves={onWaves}/>}</div>
     {debug&&sampleAvailable&&!moving&&<button className="shared-sample-action secondary" onClick={onPlate} disabled={disabled}>{sampleLabel}</button>}
-    {debug&&moving&&<div className="walk-actions" role="group" aria-label="이동 중"><button className="secondary" disabled={disabled} onClick={()=>{setTarget(null);setObjectTarget(null);void onStand();}}>멈추기</button>{origin.current!=null&&!originOwner&&<button className="secondary" disabled={disabled} onClick={()=>void chooseSeat(origin.current!)}>원래 자리로</button>}</div>}
+    {debug&&moving&&<div className="walk-actions" role="group" aria-label="이동 중"><button className="secondary" disabled={disabled} onClick={()=>{setTarget(null);setObjectTarget(null);void stand();}}>멈추기</button>{origin.current!=null&&!originOwner&&<button className="secondary" disabled={disabled} onClick={()=>void chooseSeat(origin.current!)}>원래 자리로</button>}</div>}
   </>;
 }

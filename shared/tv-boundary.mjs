@@ -11,7 +11,10 @@ export function createTvBoundary(){
       if(!old)return false;
       const dt=(at-old.at)/1000,advance=dt*rate;
       if(dt<=0||dt>1.4||Math.abs(old.rate-rate)>.05||Math.abs(old.duration-duration)>.1){continuous=0;return false;}
-      const loop=continuous>=Math.min(3,duration*.3)&&old.time>=duration-.35&&time<1.2&&Math.abs(old.time+advance-duration-time)<.2;
+      // The previous poll can be more than .35s from the end at 2x speed or
+      // after a delayed poll. Bound it by the measured advance of this interval.
+      const remaining=duration-old.time;
+      const loop=continuous>=Math.min(3,duration*.3)&&remaining>=0&&remaining<=advance+.2&&time<1.2&&Math.abs(advance-remaining-time)<.2;
       if(loop){this.reset();return true;}
       // A seek, a long stall, or an inconsistent clock disarms this boundary.
       if(time<old.time-.03||Math.abs(time-old.time-advance)>.55)continuous=0;
