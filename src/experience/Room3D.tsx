@@ -9,11 +9,11 @@ import type {SeaPlaybackStatus} from './three/seaPlayback';
 import type {LandscapeStatus} from './three/environment';
 import {windowViews} from './three/windowView';
 import {tableCenter} from './three/layout';
-import {isVisibleInScene,stationInArea} from './three/sceneInteraction';
+import {isVisibleInScene,selectionSurfaces,stationInArea} from './three/sceneInteraction';
 import {createFollowCamera} from './three/followCamera';
 import {createExploreCamera} from './three/exploreCamera';
 import {createFirstPersonCamera,type Eye} from './three/firstPersonCamera';
-import {createKeyboardWalk,keyboardVector,movementCodes} from './keyboardWalk';
+import {createKeyboardWalk,keyboardVector,movementCodes,bearingChanged} from './keyboardWalk';
 import {useInputMethod} from './useInputMethod';
 import {directAction} from './directActions';
 import {coffeePhase} from '../../shared/coffee.mjs';
@@ -101,7 +101,6 @@ export default function Room3D({inputReady,keyboardEnabled,onSteer,onExplore,onU
     let camera:T.OrthographicCamera|T.PerspectiveCamera,first:ReturnType<typeof createFirstPersonCamera>|null=null,third:ReturnType<typeof createExploreCamera>|null=null;
     const raycaster=new T.Raycaster(),floor=new T.Plane(new T.Vector3(0,1,0),area==='healing'?-.008:.025);
     function visibleObject(o:T.Object3D):boolean{return isVisibleInScene(o,room.scene);}
-    function firstSurface(){return raycaster.intersectObjects(room.scene.children,true).find(h=>{if(!visibleObject(h.object)||!(h.object instanceof T.Mesh))return false;const material=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex??0]:h.object.material;return material?.visible&&(h.object.userData.blocksSelection||!material.transparent||material.opacity>=.9);});}
     renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
     let labelTime=0,shadowTime=0,shadowState:Snapshot|null=null;
     const labelCamera=new T.Matrix4();let labelSnapshot:Snapshot|null=null,labelCue='';
@@ -216,15 +215,42 @@ export default function Room3D({inputReady,keyboardEnabled,onSteer,onExplore,onU
     }
     cameraUpdate.current=setCamera;lookAtSea.current=()=>{basisDirty=true;follower?.aim(Math.PI,-.13);first?.aim(Math.PI,-.02);if(reduced)first?.update(1,true);};setCamera(framingRef.current);
     const element=canvas.current!;
-    let down:{x:number;y:number;lastX:number;lastY:number;id:number;dragged:boolean}|null=null;
+    let down:{x:number;y:number;lastX:number;lastY:number;id:number;slop:number;touch:boolean;dragged:boolean}|null=null;
     let lastHover=0,basisDirty=false;
-    function hitAt(x:number,y:number){if(!canvas.current)return;const rect=canvas.current.getBoundingClientRect();raycaster.setFromCamera(new T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),camera);const hits=raycaster.intersectObjects([...room.interactionTargets(),...room.portalTargets,...room.objectTargets.filter(o=>!(o.userData.station==='fridge'&&latest.current?.room.members.find(m=>m.id===latest.current?.self.id)?.station==='fridge')),...room.seatTargets],true);const surface=firstSurface();for(const hit of hits){if(!visibleObject(hit.object))continue;if(surface&&surface.distance<hit.distance-.045)continue;let o:T.Object3D|null=hit.object;while(o&&!o.userData.action&&!o.userData.station&&!o.userData.portal&&o.userData.seat==null)o=o.parent;if(o&&(!o.userData.station||stationInArea(area,o.userData.station)))return{...hit,object:o};}return undefined;}
-    const pointerDown=(e:PointerEvent)=>{if(e.button!==0||!e.isPrimary)return;element.focus({preventScroll:true});down={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,id:e.pointerId,dragged:false};element.setPointerCapture(e.pointerId);};
-    const pointerCancel=()=>{down=null;element.style.cursor='';};
+    function pickAt(x:number,y:number){
+      if(!canvas.current)return;
+      const rect=canvas.current.getBoundingClientRect();
+      raycaster.setFromCamera(new T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),camera);
+      const member=latest.current?.room.members.find(m=>m.id===latest.current?.self.id);
+      const objects=room.objectTargets.filter(o=>!(o.userData.station==='fridge'&&member?.station==='fridge'));
+      const hits=raycaster.intersectObjects([...room.interactionTargets(),...room.portalTargets,...objects,...room.seatTargets],true);
+      const {surface,canopyDistance}=selectionSurfaces(raycaster.intersectObjects(room.scene.children,true),room.scene);
+      for(const hit of hits){
+        if(!visibleObject(hit.object)||canopyDistance<hit.distance-.005||surface&&surface.distance<hit.distance-.045)continue;
+        let object:T.Object3D|null=hit.object;
+        while(object&&!object.userData.action&&!object.userData.station&&!object.userData.portal&&object.userData.seat==null)object=object.parent;
+        if(object&&(!object.userData.station||stationInArea(area,object.userData.station))){
+          return {hit:{...hit,object},surface};
+        }
+      }
+      return {hit:undefined,surface};
+    }
+    function hitAt(x:number,y:number){return pickAt(x,y)?.hit;}
+    const pointerDown=(e:PointerEvent)=>{
+      if(e.button!==0||!e.isPrimary)return;
+      element.focus({preventScroll:true});
+      const touch=e.pointerType==='touch';
+      down={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,id:e.pointerId,slop:touch?12:5,touch,dragged:false};
+      element.setPointerCapture(e.pointerId);
+    };
+    const pointerCancel=(e:PointerEvent)=>{
+      if(down?.id!==e.pointerId)return;
+      down=null;element.style.cursor='';
+    };
     const pointerMove=(e:PointerEvent)=>{
       const d=down;
       if(d&&d.id===e.pointerId){
-        if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>5)d.dragged=true;
+        if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>d.slop)d.dragged=true;
         if(d.dragged&&(follower||first)){const rect=element.getBoundingClientRect();(follower||first)!.drag(e.clientX-d.lastX,e.clientY-d.lastY,rect.width,rect.height);basisDirty=true;setHovered(null);element.style.cursor='grabbing';}
         d.lastX=e.clientX;d.lastY=e.clientY;return;
       }
@@ -234,10 +260,13 @@ export default function Room3D({inputReady,keyboardEnabled,onSteer,onExplore,onU
       setHovered(approach?'station-'+data.station:data?.action?'action-'+data.action:data?.portal?'portal':data?.station?'station-'+data.station:data?.seat!=null?'seat-'+data.seat:null);element.style.cursor=hit?'pointer':'grab';
     };
     const pointerUp=(e:PointerEvent)=>{
-      const start=down;down=null;element.style.cursor='grab';
+      const start=down;if(!start||start.id!==e.pointerId)return;
+      down=null;element.style.cursor='grab';
       if(element.hasPointerCapture(e.pointerId))element.releasePointerCapture(e.pointerId);
-      if(!start||start.id!==e.pointerId||start.dragged)return;
-      const hit=hitAt(e.clientX,e.clientY);
+      if(start.dragged||Math.hypot(e.clientX-start.x,e.clientY-start.y)>start.slop)return;
+      const pick=pickAt(start.touch?start.x:e.clientX,start.touch?start.y:e.clientY);
+      if(!pick)return;
+      const {hit,surface}=pick;
       if(actions.current.disabled&&hit?.object.userData.action!=='cup')return;
       if(hit?.object.userData.action){dismissHint();const data=hit.object.userData,m=latest.current?.room.members.find(m=>m.id===latest.current?.self.id);if(data.station&&(m?.station!==data.station||m&&room.pose(m.id)?.moving))void actions.current.chooseObject(data.station);else void actions.current.onUse(data.action);return;}
       if(hit?.object.userData.portal){void actions.current.choosePortal();return;}
@@ -246,12 +275,14 @@ export default function Room3D({inputReady,keyboardEnabled,onSteer,onExplore,onU
         if(latest.current?.room.members.some(m=>m.seat===index)){setWalkHint('이미 누군가 앉아 있는 자리예요.');return;}
         void actions.current.chooseSeat(index);return;
       }
-      // Only an un-dragged tap on a reachable floor point starts walking.
+      if(surface?.object.userData.walkSurface&&isWalkable(surface.point,area)){
+        void actions.current.onMove(surface.point.x,surface.point.z);
+        return;
+      }
       const p=raycaster.ray.intersectPlane(floor,new T.Vector3());
       if(p&&raycaster.ray.direction.y<-.025){
-        const surface=firstSurface();
-        if(isWalkable(p,area)&&surface&&Math.abs(surface.point.y+(area==='healing'?-.008:.025))<.06)void actions.current.onMove(p.x,p.z);
-        else{room.destination.set(p,'blocked');setWalkHint('여기는 지나가기 어려워요. 빈 바닥을 골라 주세요.');}
+        room.destination.set(p,'blocked');
+        setWalkHint('여기는 지나가기 어려워요. 빈 바닥을 골라 주세요.');
       }
     };
     const pointerLeave=(e:PointerEvent)=>{if(!down){if(!(e.relatedTarget instanceof Element&&e.relatedTarget.closest('.discovery-cue,.object-context')))setHovered(null);element.style.cursor='';}};
@@ -262,7 +293,7 @@ export default function Room3D({inputReady,keyboardEnabled,onSteer,onExplore,onU
       if(e.key==='Home'){e.preventDefault();controls.aim(Math.PI,-.13);basisDirty=true;return;}
       if(delta[e.key]){e.preventDefault();setHovered(null);controls.turn(...delta[e.key]);basisDirty=true;}
     };
-    const forward=new T.Vector3(),right=new T.Vector3();
+    const forward=new T.Vector3(),right=new T.Vector3(),visibleForward=new T.Vector3();
     const captureKeyboardBasis=()=>{camera.getWorldDirection(forward);right.setFromMatrixColumn(camera.matrixWorld,0);basisDirty=false;};captureKeyboardBasis();
     const keyboardBlocked=()=>!actions.current.keyboardEnabled||actions.current.tvOpen||document.hidden||Boolean(document.querySelector('dialog[open],details[open]'))||Boolean(document.activeElement?.closest('input,textarea,select,[contenteditable=true],[role=textbox]'));
     const keyboard=createKeyboardWalk({ready:()=>actions.current.inputReady(),direction:keys=>{if(keyboardBlocked())return null;return keyboardVector(keys,forward,right);},move:async direction=>{const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id);if(m?.seat!=null&&!room.pose(m.id)?.moving)origin.current=m.seat;room.destination.clear();return await actions.current.onSteer(direction);},stop:()=>actions.current.onStand()});
@@ -284,7 +315,10 @@ export default function Room3D({inputReady,keyboardEnabled,onSteer,onExplore,onU
         if(first&&isPersonal(f)){first.anchor(eyeFor(f));first.update(dt,reduced);}
         if(third&&f==='third'&&pose)third.follow(pose,dt,reduced);
         if(follower&&pose){const station=current?.room.members.find(m=>m.id===self)?.station;follower.follow({...pose,focus:station&&!pose.moving?stations[station]:null},dt,reduced);}
-        if(basisDirty)captureKeyboardBasis();void keyboard.tick(time);
+        if(basisDirty || (keyboard.keys.size && bearingChanged(forward,camera.getWorldDirection(visibleForward)))) {
+          captureKeyboardBasis();
+        }
+        void keyboard.tick(time);
         room.firstPerson(isPersonal(f)&&debug?self??null:null,foodRef.current);room.tick(time,current,reduced);
         room.reveal(camera,(follower||f==='third')&&pose?pose:null,reduced);
         room.foreground(camera,current,debug&&isPersonal(f)&&f!=='walking'&&!foodRef.current,null,reduced);

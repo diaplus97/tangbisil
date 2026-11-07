@@ -40,18 +40,19 @@ export class Workshop {
 export function consolidate(group:T.Group,kit:Workshop){
   group.updateMatrixWorld(true);
   const worldToGroup=group.matrixWorld.clone().invert();
-  const batches=new Map<string,{material:T.Material;geometries:T.BufferGeometry[];cast:boolean;receive:boolean;order:number}>(),originals=new Set<T.BufferGeometry>();
+  const batches=new Map<string,{material:T.Material;geometries:T.BufferGeometry[];cast:boolean;receive:boolean;order:number;floor:boolean}>(),originals=new Set<T.BufferGeometry>();
   group.traverse(o=>{if(o instanceof T.Mesh&&!Array.isArray(o.material)){
     originals.add(o.geometry);
-    const g=o.geometry.clone().applyMatrix4(worldToGroup.clone().multiply(o.matrixWorld)),key=[o.material.uuid,o.castShadow,o.receiveShadow,o.renderOrder].join(':');
-    const batch=batches.get(key)??{material:o.material,geometries:[] as T.BufferGeometry[],cast:o.castShadow,receive:o.receiveShadow,order:o.renderOrder};batch.geometries.push(g);batches.set(key,batch);
+    const floor=o.userData.walkSurface===true;
+    const g=o.geometry.clone().applyMatrix4(worldToGroup.clone().multiply(o.matrixWorld)),key=[o.material.uuid,o.castShadow,o.receiveShadow,o.renderOrder,floor].join(':');
+    const batch=batches.get(key)??{material:o.material,geometries:[] as T.BufferGeometry[],cast:o.castShadow,receive:o.receiveShadow,order:o.renderOrder,floor};batch.geometries.push(g);batches.set(key,batch);
   }});
   group.clear();
   originals.forEach(g=>{g.dispose();kit.geometries.delete(g);});
-  for(const {material,geometries,cast,receive,order} of batches.values()){
+  for(const {material,geometries,cast,receive,order,floor} of batches.values()){
     const expanded=geometries.map(g=>g.index?g.toNonIndexed():g);
     const merged=mergeGeometries(expanded,false);
-    if(merged){const mesh=kit.mesh(group,merged,material);mesh.castShadow=cast;mesh.receiveShadow=receive;mesh.renderOrder=order;}
+    if(merged){const mesh=kit.mesh(group,merged,material);mesh.castShadow=cast;mesh.receiveShadow=receive;mesh.renderOrder=order;if(floor)mesh.userData.walkSurface=true;}
     new Set([...geometries,...expanded]).forEach(g=>g.dispose());
   }
 }

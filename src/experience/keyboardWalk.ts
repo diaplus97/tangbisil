@@ -1,4 +1,9 @@
 export const movementCodes=new Set(['KeyW','KeyA','KeyS','KeyD']);
+const bearingThreshold = Math.cos(18 * Math.PI / 180);
+export function bearingChanged(a:{x:number;z:number}, b:{x:number;z:number}) {
+ const lengths = Math.hypot(a.x,a.z) * Math.hypot(b.x,b.z);
+ return lengths > .001 && a.x*b.x + a.z*b.z < lengths*bearingThreshold;
+}
 export function keyboardVector(keys:Set<string>,forward:{x:number;z:number},right:{x:number;z:number}):[number,number]|null{
  const f=Number(keys.has('KeyW'))-Number(keys.has('KeyS')),s=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
  if(!f&&!s)return null;

@@ -3,6 +3,7 @@ import {Workshop,consolidate,label,mug,packet} from './assets';
 import {roomSurfaces} from './surfaces';
 import {chair,beanbag,loungePillow} from './furniture';
 import {indoorTree} from './plants';
+import {createSightFade} from './sightFade';
 import {metricUvs,contactShadow} from './detailGeometry';
 import {seats,roomBounds,pantryOffset,sharedPlate} from './layout';
 
@@ -48,7 +49,7 @@ export function createArchitecture(kit:Workshop,scene:T.Scene){
   const wall='#faf6ed',trim='#eee9dd';
   const {width,depth,backZ,centerZ,ceilingY}=roomBounds;
   box(width+.1,.2,depth,0,-.14,centerZ,'#e8dfcd',.08);
-  const floor=kit.mesh(fixed,new T.PlaneGeometry(width,depth),s.terrazzo,0,-.025,centerZ);floor.rotation.x=-Math.PI/2;
+  const floor=kit.mesh(fixed,new T.PlaneGeometry(width,depth),s.terrazzo,0,-.025,centerZ);floor.rotation.x=-Math.PI/2;floor.userData.walkSurface=true;
   box(width,.25,.18,0,.125,backZ,wall);
   box(width,.38,.18,0,4.37,backZ,wall);
   for(const x of [-width/2+.375,width/2-.375])box(.75,3.95,.18,x,2.225,backZ,wall);
@@ -118,37 +119,18 @@ export function createArchitecture(kit:Workshop,scene:T.Scene){
   kit.cylinder(windowSeat,.11,.15,.7,1.45,.35,-2.7,'#d6b58c');
   kit.cylinder(windowSeat,.07,.09,.16,1.45,.83,-2.7,'#fff4d2');
   for(let i=0;i<3;i++)kit.tube(windowSeat,[new T.Vector3(1.45,.9,-2.7),new T.Vector3(1.4+i*.05,1.08,-2.7)],.005,'#7e9467');
-  indoorTree(kit,fixed,-6.8,-4.95,s,37);indoorTree(kit,fixed,6.7,-4.95,s,149);
+  const trees=[indoorTree(kit,fixed,scene,-6.8,-4.95,s,37),indoorTree(kit,fixed,scene,6.7,-4.95,s,149)];
   // Use a physical surface scale on cabinetry, timber and stone, not one stretched tile per object.
   for(const group of [fixed,shell])group.traverse(o=>{if(o instanceof T.Mesh&&[s.wood,s.table,s.terrazzoCounter,kit.mat(wall)].includes(o.material as T.MeshStandardMaterial))metricUvs(o.geometry);});
-  const fading=occluders.map(group=>{
-    fixed.remove(group);scene.add(group);consolidate(group,kit);
-    const materials=new Map<T.Material,T.Material>();const meshes:T.Mesh[]=[];
-    group.traverse(o=>{if(o instanceof T.Mesh&&!Array.isArray(o.material)){
-      o.userData.blocksSelection=true;const original=o.material;let material=materials.get(original);
-      if(!material){const clone:T.Material=original.clone();materials.set(original,clone);kit.materials.set('occlusion-'+clone.uuid,clone as T.MeshStandardMaterial);material=clone;}
-      o.material=material;meshes.push(o);
-    }});
-    group.updateMatrixWorld(true);
-    return{group,meshes,materials:[...materials.values()].map(material=>({material,opacity:material.opacity,transparent:material.transparent,depthWrite:material.depthWrite})),bounds:new T.Box3().setFromObject(group),opacity:1};
+  const furnitureFades=occluders.map(group=>{
+    scene.attach(group);
+    consolidate(group,kit);
+    return createSightFade(kit,group,false,.2);
   });
   consolidate(fixed,kit);consolidate(shell,kit);
-  const sight=new T.Ray(),direction=new T.Vector3(),intersection=new T.Vector3(),sample=new T.Vector3();
-  function reveal(camera:T.Camera,point:{x:number;z:number}|null,reduced:boolean){
-    let count=0;
-    for(const item of fading){
-      let blocks=false;
-      if(point)for(const y of[.55,1.25,1.85]){
-        sample.set(point.x,y,point.z);direction.copy(sample).sub(camera.position);const length=direction.length();
-        sight.set(camera.position,direction.normalize());
-        if(sight.intersectBox(item.bounds,intersection)&&intersection.distanceTo(camera.position)<length-.25){blocks=true;break;}
-      }
-      const target=blocks?.2:1;item.opacity=reduced||!point?target:T.MathUtils.lerp(item.opacity,target,.22);
-      if(Math.abs(item.opacity-target)<.01)item.opacity=target;
-      for(const base of item.materials){const material=base.material,transparent=base.transparent||item.opacity<.995;if(material.transparent!==transparent){material.transparent=transparent;material.needsUpdate=true;}material.opacity=base.opacity*item.opacity;material.depthWrite=base.depthWrite&&item.opacity>=.995;}
-      if(blocks)count++;
-    }
-    return count;
+  function reveal(camera:T.Camera,point:{x:number;z:number}|null,reduced:boolean,marker?:T.Vector3|null){
+    for(const fade of furnitureFades)fade(camera,point,reduced);
+    for(const fade of trees)fade(camera,point,reduced,marker);
   }
   return {portalTargets:[healingDoor.hit],tickDoor:healingDoor.tick,reveal,interior(enabled:boolean){shell.visible=enabled;},lighting(warm:boolean){s.cove.emissiveIntensity=warm?2:1.1;}};
 }

@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {createSightFade} from './sightFade';
 import {Workshop,mug,label,consolidate} from './assets';
 import {stations,type StationId} from '../../../shared/space.mjs';
 import type {Snapshot} from '../types';
@@ -89,6 +90,7 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   doorPieces.userData={action:'fridge-door',station:'fridge'};
   // Static batch excludes the articulated door and the bottle being picked.
   fridge.remove(hinge,pickupBottle);fixed.remove(fridge);consolidate(fridge,kit);consolidate(fixed,kit);scene.add(fridge);fridge.add(hinge,pickupBottle);
+  const reveal=visible?createSightFade(kit,fridge,false,.09):null;
   const lamp=new T.PointLight('#f1fff1',0,2.6,2);lamp.position.set(0,2.04,.2);fridge.add(lamp);
   const hands=new T.Group();hands.userData.action='held';foregroundScene.add(hands);let handKey='',handItem:T.Group|null=null;
   function held(kind:'candy'|'bottle'|'cup',progress:number,eaten:boolean,sips:number,drink:string){
@@ -130,5 +132,5 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
     const lift=cup&&!reduced?1-T.MathUtils.smoothstep(now-me!.actionAt,0,CUP_LIFT_MS):0;
     hands.position.set(isCandy?0:.22,bottom-lift*.18,-.66-lift*.08).applyQuaternion(camera.quaternion).add(camera.position);hands.quaternion.copy(camera.quaternion);hands.scale.setScalar(.72);
   }
-  return{hits:visible?hits:[],interactionTargets:visible?[hands,doorPieces,doorHit,bottleHit]:[hands],tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
+  return{reveal,hits:visible?hits:[],interactionTargets:visible?[hands,doorPieces,doorHit,bottleHit]:[hands],tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
 }

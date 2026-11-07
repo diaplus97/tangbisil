@@ -1,10 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createKeyboardWalk,keyboardVector} from '../src/experience/keyboardWalk.ts';
+import {bearingChanged,createKeyboardWalk,keyboardVector} from '../src/experience/keyboardWalk.ts';
 import {moveVisitor} from '../server/movement.mjs';
 import {sampleMotion,clearSegment,getSpace} from '../shared/space.mjs';
 import {randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
+
+test('only a meaningful horizontal camera correction changes a held direction',()=>{
+ const basis={x:0,z:-1},at=degrees=>({x:Math.sin(degrees*Math.PI/180)*.6,z:-Math.cos(degrees*Math.PI/180)*.6});
+ assert.equal(bearingChanged(basis,at(9)),false);
+ assert.equal(bearingChanged(basis,at(35)),true);
+ assert.equal(bearingChanged(basis,at(179)),true);
+});
 
 test('unrelated action latency preserves a held key, and hidden-tab stop retries without RAF',async()=>{
  let ready=false,moves=0,stops=0;

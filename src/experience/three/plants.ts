@@ -1,5 +1,6 @@
 import * as T from 'three';
-import {Workshop} from './assets';
+import {Workshop,consolidate} from './assets';
+import {createSightFade} from './sightFade';
 import {rod,contactShadow} from './detailGeometry';
 import type {RoomSurfaces} from './surfaces';
 
@@ -31,8 +32,9 @@ export function leafGeometry(){
   }
   const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geometry.setIndex(indices);geometry.computeVertexNormals();return geometry;
 }
-export function indoorTree(kit:Workshop,parent:T.Object3D,x:number,z:number,s:RoomSurfaces,seed=37){
+export function indoorTree(kit:Workshop,parent:T.Object3D,scene:T.Scene,x:number,z:number,s:RoomSurfaces,seed=37){
   const tree=new T.Group();tree.position.set(x,0,z);parent.add(tree);
+  const canopy=new T.Group();tree.add(canopy);
   const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
   const profile=[[0,-.024],[.25,-.024],[.265,.006],[.29,.075],[.34,.58],[.345,.62],[.33,.64],[.308,.63],[.302,.59],[.28,.12]].map(([r,y])=>new T.Vector2(r,y));
   kit.mesh(tree,new T.LatheGeometry(profile,64),s.ceramic);
@@ -53,18 +55,21 @@ export function indoorTree(kit:Workshop,parent:T.Object3D,x:number,z:number,s:Ro
     const a=branch*2.399+random()*.3,t=.28+branch*.062,start=trunk.getPoint(t),reach=.4+random()*.22;
     const end=start.clone().add(new T.Vector3(Math.cos(a)*reach,.32+random()*.17,Math.sin(a)*reach));
     const stem=new T.CatmullRomCurve3([start,start.clone().lerp(end,.45).add(new T.Vector3(0,.09,0)),end]);
-    kit.mesh(tree,new T.TubeGeometry(stem,15,.009+random()*.006,7,false),bark);
+    kit.mesh(canopy,new T.TubeGeometry(stem,15,.009+random()*.006,7,false),bark);
     for(let twig=0;twig<3;twig++){
       const base=stem.getPoint(.38+twig*.25),angle=a+(twig-1)*.75;
-      const tip=base.clone().add(new T.Vector3(Math.cos(angle)*.23,.14+random()*.08,Math.sin(angle)*.23));rod(kit,tree,base,tip,.006,.0025,bark);
+      const tip=base.clone().add(new T.Vector3(Math.cos(angle)*.23,.14+random()*.08,Math.sin(angle)*.23));rod(kit,canopy,base,tip,.006,.0025,bark);
       for(let k=0;k<4;k++){
         const node=base.clone().lerp(tip,.15+k*.25),side=k%2?1:-1,bearing=angle+side*(.55+random()*.35);
         const direction=new T.Vector3(Math.cos(bearing),.13+random()*.45,Math.sin(bearing)).normalize();
-        const root=node.clone().addScaledVector(direction,.05);rod(kit,tree,node,root,.002,.001,leafMats[1]);
-        const leaf=kit.mesh(tree,blade,leafMats[(branch+k)%3]);leaf.position.copy(root);leaf.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),direction);
+        const root=node.clone().addScaledVector(direction,.05);rod(kit,canopy,node,root,.002,.001,leafMats[1]);
+        const leaf=kit.mesh(canopy,blade,leafMats[(branch+k)%3]);leaf.position.copy(root);leaf.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),direction);
         leaf.rotateZ((random()-.5)*.7);leaf.scale.setScalar(.72+random()*.55);
       }
     }
   }
-  contactShadow(kit,tree,0,0,1.2,1.2,.4);return tree;
+  contactShadow(kit,tree,0,0,1.2,1.2,.4);
+  scene.attach(canopy);
+  consolidate(canopy,kit);
+  return createSightFade(kit,canopy,true,.08);
 }

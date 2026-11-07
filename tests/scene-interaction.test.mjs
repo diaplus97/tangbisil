@@ -1,7 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Scene,Group,Mesh,BoxGeometry,MeshBasicMaterial} from 'three';
-import {isVisibleInScene,stationInArea} from '../src/experience/three/sceneInteraction.ts';
+import {isVisibleInScene,selectionSurfaces,stationInArea} from '../src/experience/three/sceneInteraction.ts';
+
+test('a canopy can hide a station without consuming a floor tap; a faded cabinet stays solid',()=>{
+ const scene=new Scene(),leaf=new Mesh(),floor=new Mesh(),cabinet=new Mesh();
+ scene.add(leaf,cabinet,floor);
+ leaf.userData.decorativeCanopy=true;floor.userData.walkSurface=true;cabinet.userData.blocksSelection=true;
+ const hits=[{object:leaf,distance:1},{object:floor,distance:6}];
+ assert.deepEqual(selectionSurfaces(hits,scene),{surface:hits[1],canopyDistance:1});
+ leaf.material.opacity=.08;
+ assert.deepEqual(selectionSurfaces(hits,scene),{surface:hits[1],canopyDistance:Infinity});
+ cabinet.material.transparent=true;cabinet.material.opacity=.09;
+ hits.splice(1,0,{object:cabinet,distance:4});
+ assert.equal(selectionSurfaces(hits,scene).surface.object,cabinet);
+ for(const m of [leaf,cabinet,floor]){m.geometry.dispose();m.material.dispose();}
+});
 
 test('a fridge in the detached pantry helper scene is never a healing room target',()=>{
  const healing=new Scene(),pantryHelper=new Scene(),door=new Group(),surface=new Mesh(new BoxGeometry(),new MeshBasicMaterial());
