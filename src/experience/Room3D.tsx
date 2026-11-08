@@ -104,6 +104,8 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     function visibleObject(o:T.Object3D):boolean{return isVisibleInScene(o,room.scene);}
     renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
     let labelTime=0,shadowTime=0,shadowState:Snapshot|null=null;
+    const ribbons=area==='smoking'?room.scene.getObjectByName('terrace-ribbons'):null;
+    const ribbonBox=new T.Box3(),ribbonCorner=new T.Vector3();
     const labelCamera=new T.Matrix4();let labelSnapshot:Snapshot|null=null,labelCue='';
     let previousFraming:Framing|undefined,previousMotion:string|undefined,previousSeat:number|null|undefined,previousOwner:string|undefined,raf=0,last=0,visible=true;
     const frameInterval=1000/(matchMedia('(pointer:coarse)').matches?30:60);let nextFrame=0;
@@ -146,6 +148,16 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       const overlays=[...container.current!.querySelectorAll<HTMLElement>('.scene-toolbar>*,.direct-hint,.room-assist,.object-context,.tv-entry')];
       if(area==='smoking')overlays.push(...(container.current.closest('.game-space')?.querySelectorAll<HTMLElement>('.terrace-note,.thought-picker summary,.thought-picker[open]>div')??[]));
       const toolbarRects=overlays.filter(e=>getComputedStyle(e).visibility!=='hidden').map(e=>{const a=e.getBoundingClientRect();return{x:a.left-root.left,y:a.top-root.top,w:a.width,h:a.height};}).filter(a=>a.w>0&&a.h>0);
+      if(ribbons?.children.some(strip=>strip.visible)){
+        ribbonBox.setFromObject(ribbons);
+        let left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
+        for(const x of [ribbonBox.min.x,ribbonBox.max.x])for(const y of [ribbonBox.min.y,ribbonBox.max.y])for(const z of [ribbonBox.min.z,ribbonBox.max.z]){
+          const p=ribbonCorner.set(x,y,z).project(camera);if(p.z<=0||p.z>=1)continue;
+          const px=(p.x+1)*width*.5,py=(1-p.y)*height*.5;
+          left=Math.min(left,px);right=Math.max(right,px);top=Math.min(top,py);bottom=Math.max(bottom,py);
+        }
+        if(right>left)toolbarRects.push({x:left,y:top,w:right-left,h:bottom-top});
+      }
       const m=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),station=m?.station&&stations[m.station];
       if(context.current&&station){let point=new T.Vector3(station.x,station.y,station.z).project(camera);
         for(const [front,side,up]of [[0,0,0],[.3,0,.2],[.3,.3,.2],[.3,-.3,.2],[.2,0,.45]]){const candidate=new T.Vector3(station.x-Math.sin(station.yaw)*front+Math.cos(station.yaw)*side,station.y+up,station.z-Math.cos(station.yaw)*front-Math.sin(station.yaw)*side).project(camera);if(hitAt(root.left+(candidate.x+1)*width/2,root.top+(1-candidate.y)*height/2)?.object.userData.station===m?.station){point=candidate;break;}}

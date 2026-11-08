@@ -77,7 +77,7 @@ export function createSmokingArchitecture(kit:Workshop,scene:T.Scene){
  const vent=box(.085,.64,1.18,-4.55,2.34,1.3,'#b1bdb7');
  for(let i=0;i<9;i++)box(.025,.020,.96,vent.position.x+.052,2.12+i*.053,1.3,'#86968e',.006);
  const peg=box(.30,.043,.098,-1.51,2.5,-4.0,'#9e8360',.016);
- const linen=new T.Group();linen.position.set(peg.position.x,peg.position.y,-3.94);scene.add(linen);
+ const linen=new T.Group();linen.name='terrace-ribbons';linen.position.set(peg.position.x,peg.position.y,-3.94);scene.add(linen);
  const voice=linenRibbon(kit,linen,'#d6a44d','#aa783c'),echo=linenRibbon(kit,linen,'#548f85','#377169');
  voice.position.x=-.09;echo.position.set(.08,0,.035);echo.scale.set(.85,.78,1);
  let previous=0,changedAt=0;
