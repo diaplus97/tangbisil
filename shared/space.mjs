@@ -1,5 +1,10 @@
 import {healingSeats,healingTables,healingBounds,healingStations,portals} from './healing.mjs';
+import {smokingSeats,smokingBounds,smokingEntrance,smokingExit} from './smoking.mjs';
 export {portals};
+export function exitsFrom(area='pantry'){
+  if(area==='smoking')return [smokingExit];
+  return area==='healing'?[portals.healing]:[portals.pantry,smokingEntrance];
+}
 // One authoritative map for furniture, destinations and timed movement.
 export const tables=[
  {id:'together',name:'함께 앉는 테이블',x:-2.25,z:1,y:1.14,width:1.83,length:3.0},
@@ -40,7 +45,11 @@ const shapes=[
 export const obstacles=shapes.map(([minX,maxX,minZ,maxZ])=>({minX:minX-radius,maxX:maxX+radius,minZ:minZ-radius,maxZ:maxZ+radius}));
 const healingObstacles=[...healingTables.map(t=>[t.x-t.width/2,t.x+t.width/2,t.z-t.length/2,t.z+t.length/2]),...healingSeats.map(([x,z],i)=>[x-(i<4?.64:.47),x+(i<4?.64:.47),z-(i<4?.65:.48),z+(i<4?.65:.48)]),[-4.5,-2.5,3.7,4.4],[-1.5,.5,3.7,4.4],[3.5,4.5,-4.3,-3.3]].map(([minX,maxX,minZ,maxZ])=>({minX:minX-radius,maxX:maxX+radius,minZ:minZ-radius,maxZ:maxZ+radius}));
 const spaces={pantry:{id:'pantry',name:'탕비실',seats,tables,seatTables,stations,approaches,walkBounds,obstacles,portal:portals.pantry},healing:{id:'healing',name:'힐링방',seats:healingSeats,tables:healingTables,seatTables:[0,0,1,1,2,2],stations:healingStations,approaches:healingSeats.map(([x,z,yaw])=>({x:x-Math.sin(yaw)*(z>0?1.16:.96),z:z-Math.cos(yaw)*(z>0?1.16:.96)})),walkBounds:healingBounds,obstacles:healingObstacles,portal:portals.healing}};
-export function getSpace(area='pantry'){return area==='healing'?spaces.healing:spaces.pantry;}
+spaces.smoking={id:'smoking',name:'흡연실',seats:smokingSeats,tables:[],seatTables:[],stations:{},
+ approaches:smokingSeats.map(([x,z,yaw])=>({x:x-Math.sin(yaw)*.92,z:z-Math.cos(yaw)*.92})),
+ walkBounds:smokingBounds,obstacles:[...smokingSeats.map(([x,z])=>({minX:x-.51,maxX:x+.51,minZ:z-.52,maxZ:z+.52})),
+ ...[[-3.93,-3.55],[3.8,-3.57]].map(([x,z])=>({minX:x-.48,maxX:x+.48,minZ:z-.48,maxZ:z+.48}))],portal:smokingExit};
+export function getSpace(area='pantry'){return area==='healing'||area==='smoking'?spaces[area]:spaces.pantry;}
 export function isWalkable(p,area='pantry'){const {walkBounds,obstacles}=getSpace(area);return typeof p?.x==='number'&&typeof p?.z==='number'&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&p.x>=walkBounds.minX&&p.x<=walkBounds.maxX&&p.z>=walkBounds.minZ&&p.z<=walkBounds.maxZ&&!obstacles.some(o=>p.x>o.minX&&p.x<o.maxX&&p.z>o.minZ&&p.z<o.maxZ);}
 export const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function clearSegment(a,b,area='pantry'){

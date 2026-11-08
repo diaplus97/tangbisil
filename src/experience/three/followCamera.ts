@@ -1,51 +1,96 @@
 import * as T from 'three';
 
-// The bearing belongs to the visitor, not to the character's route or seat.
+type Focus={x:number;z:number;y?:number;yaw?:number};
+type Subject={x:number;z:number;sit?:number;focus?:Focus|null;steering?:boolean};
+const deltaAngle=(a:number,b:number)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
 export function createFollowCamera(point:{x:number;z:number},yaw=Math.PI,area='pantry',resolve?:(origin:T.Vector3,desired:T.Vector3,ignoreNear?:number)=>void){
  const camera=new T.PerspectiveCamera(55,1,.08,70),anchor=new T.Vector3(point.x,0,point.z);
- let pitch=-.13,distance=5.3,ready=false,stationBlend=0,stationSide=1,standingBlend=0;
- const bounds=area==='healing'?{x:4.72,minZ:-4.32,maxZ:4.15}:{x:7.65,minZ:-5.6,maxZ:7.95};
- const desired=new T.Vector3(),look=new T.Vector3();
- function update(p:{x:number;z:number;sit?:number;focus?:{x:number;z:number;y?:number}|null},dt:number,reduced:boolean){
-  const alpha=!ready||reduced?1:1-Math.exp(-Math.min(dt,.1)*13);anchor.lerp(new T.Vector3(p.x,0,p.z),alpha);
-  if(p.focus&&stationBlend<.001)stationSide=(p.focus.x-anchor.x)*-Math.cos(yaw)+(p.focus.z-anchor.z)*Math.sin(yaw)<0?-1:1;
-  stationBlend+=(Number(Boolean(p.focus))-stationBlend)*alpha;
-  const center=anchor.clone();if(p.focus){center.x+=(p.focus.x-anchor.x)*.35;center.z+=(p.focus.z-anchor.z)*.35;}
-  standingBlend+=((p.focus?0:1-(p.sit??1))-standingBlend)*alpha;
-  const arm=distance+standingBlend*(camera.aspect<.8?1:1.1)-stationBlend*.8;
-  const minimumReach=2.8+standingBlend*1.6;
-  const right=new T.Vector3(-Math.cos(yaw),0,Math.sin(yaw));
-  desired.set(center.x-Math.sin(yaw)*arm,2.5,center.z-Math.cos(yaw)*arm).addScaledVector(right,T.MathUtils.lerp(1.1,stationSide*2.2,stationBlend));
-  // Keep the camera inside the room; the look target keeps the avatar visible
-  // when its orbit slides along a wall, without following the walking heading.
-  desired.x=T.MathUtils.clamp(desired.x,-bounds.x,bounds.x);desired.z=T.MathUtils.clamp(desired.z,bounds.minZ,bounds.maxZ);
-  const reach=Math.hypot(desired.x-anchor.x,desired.z-anchor.z);
-  desired.y=T.MathUtils.clamp(2.5+(2.8-reach)*.38,2.5,area==='healing'?3.08:3.55);
-  const origin=new T.Vector3(anchor.x,2.05,anchor.z),wanted=desired.clone();resolve?.(origin,desired);
-  const objectOrigin=p.focus?new T.Vector3(p.focus.x,(p.focus.y??1.4)+.2,p.focus.z).addScaledVector(new T.Vector3(anchor.x-p.focus.x,0,anchor.z-p.focus.z).normalize(),.25):null;
-  const blocked=(candidate:T.Vector3)=>{if(!objectOrigin||!resolve)return false;const probe=candidate.clone();resolve(objectOrigin,probe,.65);return probe.distanceToSquared(candidate)>.01;};
-  // A cupboard must not push the lens into the avatar. Slide the orbit into
-  // the nearest open side instead; the visitor's chosen bearing stays stored.
-  if(Math.hypot(desired.x-anchor.x,desired.z-anchor.z)<minimumReach||blocked(desired)){
-   let best:T.Vector3|null=null,score=Infinity;
-   const base=Math.atan2(wanted.x-anchor.x,wanted.z-anchor.z);
-   for(const angle of [.35,-.35,.7,-.7,1.05,-1.05,1.4,-1.4,1.8,-1.8,Math.PI]){
-    const candidate=new T.Vector3(T.MathUtils.clamp(anchor.x+Math.sin(base+angle)*arm,-bounds.x,bounds.x),2.65,T.MathUtils.clamp(anchor.z+Math.cos(base+angle)*arm,bounds.minZ,bounds.maxZ));
-    resolve?.(origin,candidate);if(Math.hypot(candidate.x-anchor.x,candidate.z-anchor.z)<minimumReach||blocked(candidate))continue;
-    const cost=candidate.distanceToSquared(wanted)+(ready?candidate.distanceToSquared(camera.position)*.15:0);if(cost<score){best=candidate;score=cost;}
-   }
-   if(best)desired.copy(best);
-  }
-  camera.position.copy(desired);
-  look.set(center.x+Math.sin(yaw)*.65,1.35+pitch*3,center.z+Math.cos(yaw)*.65);
-  camera.lookAt(look);camera.updateMatrixWorld();ready=true;
+ const bounds=area==='healing'?{x:4.72,minZ:-4.32,maxZ:4.15}:area==='smoking'?{x:4.38,minZ:-3.94,maxZ:4.0}:{x:7.65,minZ:-5.6,maxZ:7.95};
+ const nextEye=new T.Vector3(),travel=new T.Vector3(),desired=new T.Vector3(),origin=new T.Vector3(),candidate=new T.Vector3(),best=new T.Vector3(),aimPoint=new T.Vector3(),focusPoint=new T.Vector3(),objectOrigin=new T.Vector3(),probe=new T.Vector3();
+ let ready=false,pitch=-.13,distance=5.3,weight=0,standing=0,lastFocus:Focus|null=null,manualFocus:Focus|null=null;
+ let focusBearing=yaw,orbit=yaw+Math.PI,radius=distance,height=2.5,manual=false,steeringOrbit:number|null=null;
+ function bounded(v:T.Vector3){v.x=T.MathUtils.clamp(v.x,-bounds.x,bounds.x);v.z=T.MathUtils.clamp(v.z,bounds.minZ,bounds.maxZ);}
+ function place(v:T.Vector3,bearing:number,arm:number,eyeY:number){
+   v.set(anchor.x+Math.sin(bearing)*arm,eyeY,anchor.z+Math.cos(bearing)*arm);bounded(v);resolve?.(origin,v);
  }
- update(point,1,true);
- return{camera,follow:update,
-  resize(aspect:number){camera.aspect=aspect;camera.fov=aspect<.8?68:55;distance=aspect<.8?4.8:5.3;camera.updateProjectionMatrix();},
-  drag(dx:number,dy:number,width:number,height:number){yaw-=dx/Math.max(width,1)*Math.PI*1.35;pitch=T.MathUtils.clamp(pitch-dy/Math.max(height,1)*1.1,-.48,.16);},
-  turn(horizontal:number,vertical:number){yaw+=horizontal;pitch=T.MathUtils.clamp(pitch+vertical,-.48,.16);},
-  aim(nextYaw:number,nextPitch=-.13){yaw=nextYaw;pitch=nextPitch;},
-  get angles(){return{yaw,pitch};},
+ function obstructed(v:T.Vector3){
+   if(weight<.45||!resolve)return false;
+   probe.copy(v);resolve(objectOrigin,probe,.65);return probe.distanceToSquared(v)>.04;
+ }
+ function follow(p:Subject,dt:number,reduced:boolean){
+   const snap=!ready||reduced,step=Math.min(.10,Math.max(0,dt)),damp=snap?1:1-Math.exp(-step*10);
+   anchor.x+=(p.x-anchor.x)*damp;anchor.z+=(p.z-anchor.z)*damp;
+   origin.set(anchor.x,2.05,anchor.z);
+   const target=p.focus??null;
+   if(target!==lastFocus){
+     manualFocus=null;
+     if(target){
+       const bearing=target.yaw??Math.atan2(target.x-p.x,target.z-p.z);
+       const front=bearing+Math.PI,relative=deltaAngle(front,orbit);
+       // Stay on the near side of the appliance. The oblique view leaves
+       // the cup and the user's shoulder in different parts of the frame.
+       const offset=(relative<0?-1:1)*T.MathUtils.clamp(Math.abs(relative),.64,.94);
+       focusBearing=front+offset;
+     }
+     lastFocus=target;
+   }
+   let requested=0;
+   if(target&&target!==manualFocus){
+     focusPoint.set(target.x,target.y??1.45,target.z);
+     requested=1-T.MathUtils.smoothstep(Math.hypot(p.x-target.x,p.z-target.z),1.45,4.3);
+     objectOrigin.copy(focusPoint);objectOrigin.y+=.18;
+     objectOrigin.x-=Math.sin(target.yaw??0)*.28;objectOrigin.z-=Math.cos(target.yaw??0)*.28;
+   }
+   const blend=snap?1:1-Math.exp(-step*4.6);weight+=(requested-weight)*blend;
+   standing+=(1-(p.sit??1)-standing)*damp;
+   const arm=distance+standing*(camera.aspect<.8?1:1.1)-weight*1.52;
+   const free=yaw+Math.PI+Math.atan2(.95,arm);
+   if(!p.steering||manual)steeringOrbit=null;
+   else if(steeringOrbit===null&&ready)steeringOrbit=orbit;
+   const home=steeringOrbit??free;
+   const wanted=home+deltaAngle(home,focusBearing)*weight;
+   place(desired,wanted,arm,2.5);
+   const minReach=2.65+standing*(1-weight)*1.55;
+   if(Math.hypot(desired.x-anchor.x,desired.z-anchor.z)<minReach||obstructed(desired)){
+     let score=Infinity;best.copy(desired);
+     for(const angle of [.32,-.32,.64,-.64,.96,-.96,1.28,-1.28,1.60,-1.60,2.1,-2.1,Math.PI]){
+       place(candidate,wanted+angle,arm,2.65);
+       if(Math.hypot(candidate.x-anchor.x,candidate.z-anchor.z)<minReach||obstructed(candidate))continue;
+       const cost=candidate.distanceToSquared(desired)+(ready?candidate.distanceToSquared(camera.position)*.55:0);
+       if(cost<score){score=cost;best.copy(candidate);}
+     }
+     desired.copy(best);
+   }
+   const bearing=Math.atan2(desired.x-anchor.x,desired.z-anchor.z),reach=Math.hypot(desired.x-anchor.x,desired.z-anchor.z);
+   const turn=deltaAngle(orbit,bearing),speed=manual?6.8:1.75;
+   orbit+=snap?turn:T.MathUtils.clamp(turn,-speed*step,speed*step);
+   radius+=snap?reach-radius:T.MathUtils.clamp(reach-radius,-step*3.8,step*3.8);
+   const eyeY=2.5+Math.max(0,2.8-reach)*.30;height+=(eyeY-height)*damp;
+   place(nextEye,orbit,radius,height);
+   if(!snap){
+     // A sightline can clear in one frame as we pass a cabinet corner.
+     // Limit the actual lens travel as well as the requested orbit radius.
+     travel.copy(nextEye).sub(camera.position);
+     const maxTravel=(manual?12:6.5)*step;
+     if(travel.lengthSq()>maxTravel*maxTravel)nextEye.copy(camera.position).add(travel.setLength(maxTravel));
+     resolve?.(camera.position,nextEye,.015);
+   }
+   camera.position.copy(nextEye);
+   aimPoint.set(anchor.x+Math.sin(yaw)*.58,1.35+pitch*3,anchor.z+Math.cos(yaw)*.58);
+   if(weight>.001)aimPoint.lerp(focusPoint,.79*weight);
+   camera.lookAt(aimPoint);camera.updateMatrixWorld();ready=true;
+   if(Math.abs(turn)<.035)manual=false;
+ }
+ follow(point,1,true);
+ function takeLook(){
+   if(lastFocus&&manualFocus!==lastFocus&&weight>.02)yaw=orbit-Math.PI-Math.atan2(.95,radius);
+   manual=true;manualFocus=lastFocus;steeringOrbit=null;
+ }
+ return {camera,follow,
+   resize(aspect:number){camera.aspect=aspect;const portrait=1-T.MathUtils.smoothstep(aspect,.55,1.22);camera.fov=55+portrait*20;distance=5.3-portrait*.53;camera.updateProjectionMatrix();},
+   drag(dx:number,dy:number,width:number,height:number){takeLook();yaw-=dx/Math.max(width,1)*Math.PI*1.35;pitch=T.MathUtils.clamp(pitch-dy/Math.max(height,1)*1.1,-.48,.23);},
+   turn(horizontal:number,vertical:number){takeLook();yaw+=horizontal;pitch=T.MathUtils.clamp(pitch+vertical,-.48,.23);},
+   aim(nextYaw:number,nextPitch=-.13){takeLook();yaw=nextYaw;pitch=nextPitch;},
+   get angles(){return {yaw,pitch};}
  };
 }

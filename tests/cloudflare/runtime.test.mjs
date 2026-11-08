@@ -75,6 +75,34 @@ test('Cloudflare keyboard intent synchronizes, releases without polling and stop
  const restored=await connect(a);assert.equal(member(restored).motion.keyboard,undefined);
 });
 
+test('Cloudflare terrace notes survive hibernation and expire even with exhausted personal retries',{timeout:100000},async t=>{
+ const {mf,visitor,connect,storage}=await setup(t);
+ const a=await visitor('바람'),b=await visitor('물결'),outside=await visitor('창가');
+ const [writer,listener,other]=await Promise.all([connect(a),connect(b),connect(outside)]);
+ await Promise.all([writer.act('travel',{to:'smoking'}),listener.act('travel',{to:'smoking'})]);
+ await Promise.all([writer.arrive(),listener.arrive()]);
+ assert.equal(writer.state.room.area,'smoking');
+ const sentAt=Date.now(),message=randomUUID(),extra={phrase:'quiet',sentAt};
+ assert.equal((await writer.act('thought-leave',extra,message)).status,200);
+ assert.equal((await writer.act('thought-leave',extra,message)).data.replay,true);
+ await listener.wait(()=>listener.state.room.thoughts?.length===1);const [note]=listener.state.room.thoughts;
+ assert.equal((await other.act('thought-echo',{noteId:note.id})).status,409);
+ await mf.unsafeEvictDurableObject('pantry-test','PantryRoom',{name:'window',webSockets:'hibernate'});
+ assert.equal((await listener.act('thought-echo',{noteId:note.id})).status,200);
+ assert.equal((await listener.act('thought-echo',{noteId:note.id})).data.replay,true);
+ await writer.wait(()=>writer.state.room.thoughts[0]?.hasEcho);
+ assert.equal(other.states.some(s=>s.room.thoughts!==undefined),false);
+ const key=createHash('sha256').update(a.token).digest('hex'),home=await storage('PantryVisitor',key),room=await storage('PantryRoom','window');
+ const read=async()=>JSON.parse((await room.exec("SELECT value FROM cf_json WHERE key='room'"))[0].value);
+ const original=(await home.exec("SELECT value FROM cf_json WHERE key='record'"))[0].value;
+ assert.equal(original.includes(note.id),false);
+ const changed=JSON.parse(original);changed.epoch+=99;await home.exec("UPDATE cf_json SET value=? WHERE key='record'",JSON.stringify(changed));
+ assert.equal((await writer.act('appearance',{avatar:3})).status,503);
+ await writer.wait(()=>writer.state.room.thoughts?.length===0,55000);
+ const stored=await read();assert.equal(stored.retries,4);assert.equal(stored.retryAt,0);assert.ok(stored.pending[key]);assert.deepEqual(stored.thoughts,[]);
+ await home.exec("UPDATE cf_json SET value=? WHERE key='record'",original);
+});
+
 async function setup(t,overrides={}){
   const mf=new Miniflare(convertV4MiniflareOptions({name:'pantry-test',modules:true,scriptPath:fileURLToPath(new URL('../../test-results/cf-bundle/worker.js',import.meta.url)),
     compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags,cf:false,unsafeInspectDurableObjects:true,

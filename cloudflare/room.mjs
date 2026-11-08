@@ -1,3 +1,4 @@
+import {expireThoughts,nextThoughtExpiry,thoughtAction} from '../server/thoughts.mjs';
 import {DurableObject} from 'cloudflare:workers';
 import {sqliteAdapter,jsonStore} from './sql.mjs';
 import {captureUser,restoreUser} from './checkpoint.mjs';
@@ -33,7 +34,7 @@ export class PantryRoom extends DurableObject {
   home(key){return this.env.VISITORS.get(this.env.VISITORS.idFromName(key));}
   other(room){return this.env.ROOMS.get(this.env.ROOMS.idFromName(room));}
   snapshot(id){return roomSnapshot(this.store,this.r,id,this.r.version,m=>this.sockets(m.id).length>0);}
-  broadcast(){const view=roomSnapshotBatch(this.store,this.r,this.r.version,m=>this.sockets(m.id).length>0);for(const m of this.r.members.values()){const sockets=this.sockets(m.id);if(!sockets.length)continue;const value=JSON.stringify({type:'state',state:view(m.id)});for(const ws of sockets)try{ws.send(value);}catch{}}}
+  broadcast(area=null){const view=roomSnapshotBatch(this.store,this.r,this.r.version,m=>this.sockets(m.id).length>0);for(const m of this.r.members.values()){if(area&&m.area!==area)continue;const sockets=this.sockets(m.id);if(!sockets.length)continue;const value=JSON.stringify({type:'state',state:view(m.id)});for(const ws of sockets)try{ws.send(value);}catch{}}}
   queueUser(m){
     const previous=this.r.pending[m.key];if(!previous)m.revision++;
     const checkpoint=captureUser(this.db,m.id),food=checkpoint.tables.servings[0];
@@ -58,7 +59,8 @@ export class PantryRoom extends DurableObject {
   async schedule(){
     // Overdue game timers cannot bypass a failed outbox's backoff or restart
     // automatic retries after its budget is exhausted. An explicit action can retry.
-    const times=(this.r.retries&&this.hasOutbox()?[this.r.retryAt]:[...[...this.r.members.values()].flatMap(m=>[m.departAt,m.arriveAt,m.readyAt])]).filter(t=>t>0);
+    const gameTimes=this.r.retries&&this.hasOutbox()?[this.r.retryAt]:[...this.r.members.values()].flatMap(m=>[m.departAt,m.arriveAt,m.readyAt]);
+    const times=[nextThoughtExpiry(this.r),...gameTimes].filter(t=>t>0);
     const next=times.length?Math.max(Date.now()+20,Math.min(...times)):null,current=await this.ctx.storage.getAlarm();
     if(next!==null){if(current!==next)await this.ctx.storage.setAlarm(next);}else if(current!==null)await this.ctx.storage.deleteAlarm();
   }
@@ -68,7 +70,12 @@ export class PantryRoom extends DurableObject {
     if(!this.r.members.size&&this.r.media)this.r.media.emptyAt=Date.now();
     for(const [ticket,value] of Object.entries(this.r.tickets))if(value.id===m.id)delete this.r.tickets[ticket];
   }
+  clearExpiredThoughts(){
+    const expiry=nextThoughtExpiry(this.r);if(!expiry||expiry>Date.now())return;
+    this.atomic(()=>{expireThoughts(this.r);this.r.version++;});this.broadcast('smoking');
+  }
   async advance(){
+    this.clearExpiredThoughts();
     const recovering=Object.keys(this.r.pending).length>0;await this.flush();if(recovering)this.broadcast();const now=Date.now();let changed=false;
     if(needsTvQueueMigration(this.r)){this.atomic(()=>{migrateTvQueue(this.r,now);this.r.version++;});this.broadcast();}
     const due=[...this.r.members.values()].some(m=>(m.departAt&&m.departAt<=now)||(m.arriveAt&&m.arriveAt<=now)||(m.readyAt&&m.readyAt<=now));
@@ -99,7 +106,7 @@ export class PantryRoom extends DurableObject {
       startRoomMedia(this.r);
       if(!m){
         restoreUser(this.db,claimed.checkpoint);
-        const saved=this.store.location(identity.id,room),area=saved.area==='healing'?'healing':'pantry',occupied=reservedSeats(this.r,area,identity.id),seats=getSpace(area).seats;
+        const saved=this.store.location(identity.id,room),area=getSpace(saved.area).id,occupied=reservedSeats(this.r,area,identity.id),seats=getSpace(area).seats;
         const seat=Number.isInteger(saved.seat)&&saved.seat>=0&&saved.seat<seats.length&&!occupied.has(saved.seat)?saved.seat:seats.findIndex((_,i)=>!occupied.has(i));
         if(seat<0)throw new GameError('빈 자리가 생기면 들어올 수 있어요.');
         const used=new Set([...this.r.members.values()].map(member=>member.slot));
@@ -159,7 +166,9 @@ export class PantryRoom extends DurableObject {
       this.atomic(()=>this.consume(m));let result;
       actionInput(input);
       this.atomic(()=>{
-        if(input.type==='tv-join'||input.type==='tv-next')result=mediaAction(this.r,m,input,GameError);
+        if(input.type==='thought-leave'||input.type==='thought-echo')result=thoughtAction(this.r,m,input);
+        else if(m.area==='smoking'&&!['move','sit','stand','travel','approach','appearance'].includes(input.type))throw new GameError('이 행동은 원래 공간에서 이어갈 수 있어요.');
+        else if(input.type==='tv-join'||input.type==='tv-next')result=mediaAction(this.r,m,input,GameError);
         else if(input.type==='sand-contact'){const changed=sandContact(m,this.store.activities.get(m.id).rest.sand,input,GameError);result={ok:true,replay:!changed};}
         else if(['move','sit','stand','approach','travel'].includes(input.type)){
           const previous=m.station;result=moveVisitor(this.r,m,input);
@@ -183,7 +192,7 @@ export class PantryRoom extends DurableObject {
         }
         if(!result.replay)this.r.version++;
       });
-      await this.flush();if(!result.replay)this.broadcast();await this.schedule();
+      await this.flush();if(!result.replay)this.broadcast(input.type.startsWith('thought-')?'smoking':null);await this.schedule();
       if(input.type!=='sand-contact')ws.send(JSON.stringify({type:'result',requestId:input.requestId,status:200,data:{...result,state:this.snapshot(m.id)}}));
     }catch(error){
       const status=error.status??503;
@@ -207,6 +216,7 @@ export class PantryRoom extends DurableObject {
   webSocketError(ws){try{ws.close(1011,'Connection interrupted');}catch{}return this.webSocketClose(ws);}
   hasOutbox(){return Object.keys(this.r.pending).length>0||this.r.tastes.length>0||this.r.releases.length>0;}
   alarm(){return this.exclusive(async()=>{
+    this.clearExpiredThoughts();
     if(this.r.retries&&this.hasOutbox()&&(!this.r.retryAt||this.r.retryAt>Date.now())){await this.schedule();return;}
     try{await this.advance();}catch(error){
       // flush already persisted the next bounded retry. Throwing here would also

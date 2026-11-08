@@ -44,7 +44,7 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   kit.mesh(bowl,bowlGeo,kit.mat('#b6c3aa',.36));
   for(let i=0;i<11;i++){const c=candyModel(kit,bowl);c.position.set(Math.sin(i*2.4)*.22,.12+Math.floor(i/4)*.055,Math.cos(i*2.4)*.22);c.rotation.set(i*.23,i*.8,i*.12);c.scale.setScalar(.8);}
   const candyTag=label(kit,bowl,'레몬꿀 사탕',.48,.12,.43,.09,0,'#547063','#f3eed9',90);candyTag.rotation.y=Math.PI/2;
-  const machine=new T.Group();machine.position.set(stations.coffee.x,1.34,stations.coffee.z);machine.rotation.y=Math.PI/2;fixed.add(machine);
+  const machine=new T.Group();machine.position.set(stations.coffee.x,1.34,stations.coffee.z);machine.rotation.y=Math.PI/2;scene.add(machine);machine.userData={directSurface:true,action:'coffee',station:'coffee'};
   kit.box(machine,.72,.82,.57,0,.42,0,'#dddccf',.075);
   kit.box(machine,.58,.54,.03,0,.35,.3,'#354e55',.015);
   kit.box(machine,.36,.13,.12,0,.65,.35,'#78908e',.025);
@@ -55,8 +55,10 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   for(const x of[-.22,.22]){const dial=kit.cylinder(machine,.035,.035,.026,x,.65,.321,'#a8b7aa');dial.rotation.x=Math.PI/2;}
   label(kit,machine,'COFFEE',.24,.047,0,.728,.294,'#4c665f','#dddccf',70);
   // Movable cup and pour are kept outside the static geometry batch.
+  consolidate(machine,kit);
   const cupRoot=new T.Group();cupRoot.position.copy(machine.position);cupRoot.rotation.copy(machine.rotation);scene.add(cupRoot);
   const cup=mug(kit,cupRoot,0,.045,.36,'coffee',.85);
+  cup.userData={directSurface:true,action:'coffee',station:'coffee'};
   const liquid=cup.children.find(c=>c instanceof T.Mesh&&c.geometry instanceof T.CircleGeometry)!;
   const stream=kit.cylinder(cupRoot,.008,.011,.19,0,.325,.39,'#725036');stream.visible=false;
   const steam=new T.Group();cupRoot.add(steam);

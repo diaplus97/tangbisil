@@ -1,4 +1,4 @@
-import {getSpace,isWalkable,planMotion,sampleMotion} from '../shared/space.mjs';
+import {exitsFrom,getSpace,isWalkable,planMotion,sampleMotion} from '../shared/space.mjs';
 import {reservedSeats,clearParkedTray} from './travel.mjs';
 import {GameError} from '../shared/errors.mjs';
 import {steeringTarget} from '../shared/steering.mjs';
@@ -7,13 +7,16 @@ export function moveVisitor(room,member,input,now=Date.now()){
   if(typeof input.requestId!=='string'||!/^[\w-]{8,80}$/.test(input.requestId))throw new GameError('요청 번호를 확인해 주세요.',400);
   const signature=JSON.stringify([input.type,input.x,input.z,input.seat,input.station,input.to,...(input.direction!==undefined?[input.direction]:[])]),old=member.moves.get(input.requestId);
   if(old){if(old!==signature)throw new GameError('같은 요청 번호의 내용이 달라요.',400);return{replay:true};}
-  const area=member.area??'pantry',{seats,approaches,stations,portal}=getSpace(area);
+  const area=member.area??'pantry',{seats,approaches,stations}=getSpace(area);
   let seat=null,destination,station=null,travel=null;
   if(input.type==='travel'){
-    if(input.to!==portal.to)throw new GameError('출입구를 다시 확인해 주세요.',400);
-    const occupied=reservedSeats(room,input.to,member.id),target=getSpace(input.to).seats.findIndex((_,i)=>!occupied.has(i));
+    const portal=exitsFrom(area).find(exit=>exit.to===input.to);
+    if(!portal)throw new GameError('출입구를 다시 확인해 주세요.',400);
+    const occupied=reservedSeats(room,input.to,member.id),seatsInRoom=getSpace(input.to).seats;
+    const previous=input.to==='pantry'?member.pantrySeat:null;
+    const target=previous!=null&&seatsInRoom[previous]&&!occupied.has(previous)?previous:seatsInRoom.findIndex((_,i)=>!occupied.has(i));
     if(target<0)throw new GameError('빈 자리가 생기면 들어갈 수 있어요.');
-    destination={...portal.approach,z:portal.approach.z+((member.slot??0)%3-1)*.12};travel={to:input.to,seat:target,id:input.requestId};
+    destination=portal.approach;travel={to:input.to,seat:target,id:input.requestId};
   }else
  if(input.type==='approach'){
     if(!Object.hasOwn(stations,input.station??''))throw new GameError('갈 곳을 다시 골라 주세요.',400);
@@ -39,6 +42,7 @@ export function moveVisitor(room,member,input,now=Date.now()){
   const motion=planMotion(member,destination,seat,now,input.requestId);
   if(!motion)throw new GameError('그쪽으로는 지나가기 어려워요. 다른 바닥을 골라 주세요.');
   if(input.direction!==undefined)motion.keyboard=true;
+  if(travel&&area==='pantry')member.pantrySeat=member.seat??member.parkedSeat??member.pantrySeat;
   member.travel=travel?{...travel,enterAt:motion.endsAt+420}:null;
   const departure=sampleMotion(member,now);
   if(departure.inSeat!=null&&departure.inSeat===member.seat&&departure.sit>.52)member.parkedSeat=departure.inSeat;

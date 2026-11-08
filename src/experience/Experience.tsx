@@ -1,11 +1,12 @@
 import {lazy,Suspense,useEffect,useRef,useState,type ReactNode} from 'react';
 import {Avatar,Room} from './Room';
 import {outfits} from '../../shared/appearance.mjs';
-import {getSpace} from '../../shared/space.mjs';
+import {exitsFrom,getSpace} from '../../shared/space.mjs';
 import {heldName} from '../../shared/rest.mjs';
 import {ToolsDockContext,closeOtherPickers} from './PersonalItems';
 import {directAction} from './directActions';
 import {StationActions} from './StationActions';
+import {SmokingThoughts} from './SmokingThoughts';
 import {SnackTray} from './SnackTray';
 import {usePantry,roomId} from './usePantry';
 import {enableSound,playSound,setSoundVolume,setBiteSound,setOtherSounds,setSeaSound,setSeaVolume,setActionSounds,stopRoomSounds} from './sound';
@@ -95,10 +96,11 @@ export default function Experience(){
  function changeView(next:'pixel'|'3d'){setView(next);const url=new URL(location.href);url.searchParams.set('view',next);history.replaceState(null,'',url);}
  useEffect(()=>{if(status!=='online')stopRoomSounds();},[status]);
  const online=status==='online',me=state?.self,food=me?.serving,hasFood=Boolean(food&&food.state!=='empty'),lemonRecord=me?.discoveries.find(d=>d.snack_id==='lemon-sandwich-pie'),candyRecord=me?.discoveries.find(d=>d.snack_id==='honey-lemon-candy'),discovered=Boolean(lemonRecord);
- const area=state?.room.area??'pantry',space=getSpace(area),healing=area==='healing';
- const landscapeId=landscapeChoice==='auto'?(state?.room.media?.landscape??'sea'):landscapeChoice;
+ const area=state?.room.area??'pantry',space=getSpace(area),healing=area==='healing',smoking=area==='smoking';
+ const cameraMemory=useRef(new Map<string,{yaw:number;pitch:number}>());
+ const landscapeId=smoking?'sea':landscapeChoice==='auto'?(state?.room.media?.landscape??'sea'):landscapeChoice;
  useEffect(()=>{if(!healing||!online)setTvOpen(false);},[healing,online]);
- useEffect(()=>{if(healing&&view==='pixel')changeView('3d');},[healing,view]);
+ useEffect(()=>{if(area!=='pantry'&&view==='pixel')changeView('3d');},[area,view]);
  const member=state?.room.members.find(m=>m.id===me?.id),walking=Boolean(member?.travel||member?.motion&&state&&member.motion.endsAt>state.serverTime);
  useEffect(()=>{if(walking)setTvOpen(false);},[walking]);
  const [toolsHost,setToolsHost]=useState<HTMLElement|null>(null);
@@ -123,7 +125,7 @@ export default function Experience(){
  const guide=hasFood?(food?.state==='sealed'?'꺼내 둔 간식이 기다리고 있어요.':'먹던 간식은 그대로 남아 있어요.'):'간식을 꺼내 포장을 열어보세요.';
  return <ToolsDockContext.Provider value={toolsHost}><main className={'pantry-app play-mode view-'+view+(debug?' dev-mode':view==='3d'?' first-person-mode follow-mode':'')+(trayOpen?' snack-active':'')+(tvOpen?' tv-active':'')+(status==='welcome'?' is-welcome':'')}>
    <header className="app-header">
-     <a className="brand" href={location.pathname+location.search} aria-label="탕비실"><span className="brand-mark"><Icon name="cup"/></span><span>{healing?'힐링방':'탕비실'}<small>{online?'함께 쉬는 중 · '+state?.room.members.filter(m=>m.connected).length+'명':'잠깐 쉬어가요'}</small></span></a>
+     <a className="brand" href={location.pathname+location.search} aria-label="탕비실"><span className="brand-mark"><Icon name="cup"/></span><span>{space.name}<small>{online?'함께 쉬는 중 · '+state?.room.members.filter(m=>m.connected).length+'명':'잠깐 쉬어가요'}</small></span></a>
      <div className="header-controls">
        <span className={'connection '+(online?'live':'')} role="status"><i/>{online?'여기 '+state?.room.members.filter(m=>m.connected).length+'명 · 전체 '+(state?.room.total??state?.room.members.length)+'명':status==='welcome'?'잠깐 쉬어가요':status==='paused'?'잠시 쉬는 중':status==='offline'?'다시 연결 중':'자리를 찾는 중'}</span>
        <button className="sound-toggle" aria-label={sound?'소리 끄기':'소리 켜기'} aria-pressed={sound} onClick={()=>void chooseSound(sound?'mute':'all')}><Icon name={sound?'sound':'mute'}/><span>{sound?'소리 켜짐':'소리 끔'}</span></button>
@@ -131,15 +133,15 @@ export default function Experience(){
        <details ref={menu} className="play-menu" onToggle={e=>{if(e.currentTarget.open)closeOtherPickers(e.currentTarget);}} onKeyDown={e=>{if(e.key==='Escape'){closeMenu();menu.current?.querySelector('summary')?.focus();}}}>
          <summary>메뉴 <span aria-hidden="true">⋯</span></summary>
          <nav className="play-menu-content" aria-label="보조 메뉴">
-           {me&&<button disabled={!online||busy} onClick={()=>{closeMenu();setPanel(null);void act('travel',{to:space.portal.to});}}>{space.portal.name}</button>}
+           {me&&exitsFrom(area).map(exit=><button key={exit.id} disabled={!online||busy} onClick={()=>{closeMenu();setPanel(null);void act('travel',{to:exit.to});}}>{exit.name}</button>)}
            {healing&&(me?.pantry.rest.sand?.held||me?.pantry.rest.vase?.held)&&<small className="travel-storage-note">{me.pantry.rest.vase?.held?'꽃병과 꽃 배치':'모래 트레이와 선·돌'}는 힐링방에 보관돼요.</small>}
            {me&&<button onClick={()=>openPanel('album')}><Icon name="album"/>기록</button>}
            <button onClick={()=>openPanel('settings')}><Icon name="sliders"/>소리·풍경 설정</button>
            {healing&&<button onClick={()=>openPanel('tv')}>TV 안내·영상 목록</button>}
-           {me&&<><button disabled={!online||busy||walking||member?.seat==null} onClick={()=>{closeMenu();void useObject('cup');}}><Icon name="cup"/>{directAction(state!,'cup')?.label??'잔 준비 중'}</button>{food?.state==='open'&&!own&&<button disabled={!online||busy} onClick={()=>{closeMenu();void offer();}}>한 조각 나누기</button>}
+           {me&&<>{!smoking&&<button disabled={!online||busy||walking||member?.seat==null} onClick={()=>{closeMenu();void useObject('cup');}}><Icon name="cup"/>{directAction(state!,'cup')?.label??'잔 준비 중'}</button>}{!smoking&&food?.state==='open'&&!own&&<button disabled={!online||busy} onClick={()=>{closeMenu();void offer();}}>한 조각 나누기</button>}
              {view==='3d'&&<button disabled={!online} onClick={explore}>갈곳 찾기</button>}
              {!healing&&availableSample&&<button disabled={!online||busy||walking||member?.seat==null} onClick={()=>void sample()}>{held?held+' 내려놓고 ':''}동료가 나눈 한 조각 맛보기</button>}
-             {own&&<button disabled={!online||busy} onClick={()=>{closeMenu();void act('retract',{offerId:own.id});}}>나눈 간식 거두기</button>}
+             {!smoking&&own&&<button disabled={!online||busy} onClick={()=>{closeMenu();void act('retract',{offerId:own.id});}}>나눈 간식 거두기</button>}
              <button onClick={()=>void copyInvite()}><Icon name="share"/>동료 초대</button></>}
            <button onClick={()=>openPanel('help')}><Icon name="help"/>이용 안내</button>
          </nav>
@@ -149,9 +151,10 @@ export default function Experience(){
    {audioStatus&&<p className="audio-status" role="status">{audioStatus}</p>}
    {debug&&<div className="view-bar"><span>개발용 화면 비교</span><div className="view-switch" role="group" aria-label="그림체 비교"><button aria-pressed={view==='pixel'} onClick={()=>changeView('pixel')}>2D 도트</button><button aria-pressed={view==='3d'} onClick={()=>changeView('3d')}>입체 탕비실</button></div></div>}
    <section className="game-space" aria-label="공용 탕비실">
-     {view==='3d'?<Suspense fallback={<div className="room-frame three-loading">창가의 빛을 들이는 중…</div>}><Room3D inputReady={inputReady} keyboardEnabled={online&&!panel&&!movementMode} onSteer={direction=>act('move',{direction})} onExplore={explore} onUse={useObject} contextContent={state?<StationActions state={state} busy={busy} online={online} onExplore={explore} onSnack={()=>void take()} snackLabel={snackLabel} act={act}/>:undefined} key={area} landscapeId={landscapeId} tvOpen={tvOpen} onTv={healing?()=>{closeMenu();setMovementMode(false);setPanel('tv');}:undefined} windowContent={tvOpen&&healing&&state?<Suspense fallback={<div className="shared-tv"><p>TV를 준비하고 있어요.</p><button onClick={()=>setTvOpen(false)}>그만 보기</button></div>}><SharedTV state={state} active={online&&!panel} busy={busy} act={act} onClose={()=>setTvOpen(false)}/></Suspense>:undefined} onTravel={to=>{setPanel(null);return act('travel',{to});}} onToolsMount={setToolsHost} onApproach={station=>{setPanel(null);return act('approach',{station});}} seaMotion={seaMotion&&Boolean(state)} waves={waves} onWaves={()=>void toggleWaves()} state={state} debug={debug} movementMode={movementMode} foodInHand={trayOpen} onFinishMove={()=>{setMovementMode(false);requestAnimationFrame(()=>document.querySelector<HTMLCanvasElement>('.room-three-canvas')?.focus({preventScroll:true}));}} sampleLabel={(held?held+' 내려놓고 ':'')+'동료가 나눈 한 조각 맛보기'} sampleAvailable={Boolean(availableSample)} disabled={!online||busy} onShelf={()=>void take()} onPlate={()=>void sample()} onDrink={()=>openPanel('drink')} onFallback={()=>changeView('pixel')} onMove={(x,z)=>{setPanel(null);return act('move',{x,z});}} onSit={seat=>{setPanel(null);return act('sit',{seat});}} onStand={()=>act('stand')}/></Suspense>:
+     {view==='3d'?<Suspense fallback={<div className="room-frame three-loading">창가의 빛을 들이는 중…</div>}><Room3D cameraMemory={cameraMemory.current} inputReady={inputReady} keyboardEnabled={online&&!panel&&!movementMode} onSteer={direction=>act('move',{direction})} onExplore={explore} onUse={useObject} contextContent={state?<StationActions state={state} busy={busy} online={online} onExplore={explore} onSnack={()=>void take()} snackLabel={snackLabel} act={act}/>:undefined} key={area} landscapeId={landscapeId} tvOpen={tvOpen} onTv={healing?()=>{closeMenu();setMovementMode(false);setPanel('tv');}:undefined} windowContent={tvOpen&&healing&&state?<Suspense fallback={<div className="shared-tv"><p>TV를 준비하고 있어요.</p><button onClick={()=>setTvOpen(false)}>그만 보기</button></div>}><SharedTV state={state} active={online&&!panel} busy={busy} act={act} onClose={()=>setTvOpen(false)}/></Suspense>:undefined} onTravel={to=>{setPanel(null);return act('travel',{to});}} onToolsMount={setToolsHost} onApproach={station=>{setPanel(null);return act('approach',{station});}} seaMotion={!smoking&&seaMotion&&Boolean(state)} waves={waves} onWaves={()=>void toggleWaves()} state={state} debug={debug} movementMode={movementMode} foodInHand={trayOpen} onFinishMove={()=>{setMovementMode(false);requestAnimationFrame(()=>document.querySelector<HTMLCanvasElement>('.room-three-canvas')?.focus({preventScroll:true}));}} sampleLabel={(held?held+' 내려놓고 ':'')+'동료가 나눈 한 조각 맛보기'} sampleAvailable={Boolean(availableSample)} disabled={!online||busy} onShelf={()=>void take()} onPlate={()=>void sample()} onDrink={()=>openPanel('drink')} onFallback={()=>changeView('pixel')} onMove={(x,z)=>{setPanel(null);return act('move',{x,z});}} onSit={seat=>{setPanel(null);return act('sit',{seat});}} onStand={()=>act('stand')}/></Suspense>:
        <Room state={state} simple={!debug} sampleAvailable={Boolean(availableSample)} disabled={!online||busy} onShelf={()=>void take()} onPlate={()=>void sample()} onDrink={()=>openPanel('drink')}/>}
-   {view==='3d'&&!tvOpen&&state&&!trayOpen&&!walking&&member?.seat!=null&&me?.pantry.rest?.stone?.held&&<Suspense fallback={null}><StoneStage state={state} disabled={!online||busy} onPress={point=>act('stone-press',{itemId:me.pantry.rest.stone!.id,point})}/></Suspense>}
+   {smoking&&state&&!movementMode&&!panel&&<SmokingThoughts state={state} disabled={!online||busy||Boolean(member?.travel)} act={act}/>}
+   {view==='3d'&&!smoking&&!tvOpen&&state&&!trayOpen&&!walking&&member?.seat!=null&&me?.pantry.rest?.stone?.held&&<Suspense fallback={null}><StoneStage state={state} disabled={!online||busy} onPress={point=>act('stone-press',{itemId:me.pantry.rest.stone!.id,point})}/></Suspense>}
    {view==='3d'&&!tvOpen&&healing&&state&&!trayOpen&&!walking&&member?.seat!=null&&me?.pantry.rest?.vase?.held&&<Suspense fallback={null}><VaseStage vase={me.pantry.rest.vase} disabled={!online||busy} act={act}/></Suspense>}
    {view==='3d'&&!tvOpen&&healing&&state&&!trayOpen&&!walking&&member?.seat!=null&&me?.pantry.rest?.sand?.held&&<Suspense fallback={null}><SandStage state={state} disabled={!online||busy} connected={online} contact={contact} act={act}/></Suspense>}
    {!tvOpen&&trayOpen&&state&&<SnackTray onFlush={registerFoodFlush} state={state} appearance={view} busy={busy} online={online} onClose={putDown} onProgress={progress=>act('unwrap',{servingId:food?.id,progress})} onOpen={()=>act('open',{servingId:food?.id})} onBite={bite} onOffer={healing?undefined:offer}/>}
@@ -180,8 +183,8 @@ export default function Experience(){
      <div className="sea-settings">
        <label className="sound-check"><input type="checkbox" checked={waves} onChange={()=>void toggleWaves()}/>파도 소리</label>
        <label>파도 음량 <span>{Math.round(waveVolume*100)}%</span><input aria-label="파도 음량" type="range" min="0" max="100" value={Math.round(waveVolume*100)} onChange={e=>{const value=Number(e.target.value)/100;setWaveVolume(value);setSeaVolume(value);}}/></label>
-       <div className="landscape-choice" role="group" aria-label="내 창밖 풍경">{(['auto','sea','forest','fire'] as const).map(id=><button key={id} aria-pressed={landscapeChoice===id} onClick={()=>{setLandscapeChoice(id);try{localStorage.setItem('tangbisil:landscape',id);}catch{}}}>{id==='auto'?'방의 추천 풍경':landscapeLabels[id]}</button>)}</div><p className="landscape-note">추천은 서울 시간으로 낮에는 바다·숲, 저녁에는 모닥불을 골라요. 함께 머무는 동안 바뀌지 않습니다. 직접 고른 풍경은 내 화면에만 적용돼요.</p>
-       <label className="sound-check"><input type="checkbox" disabled={landscapeId==='forest'} checked={landscapeId!=='forest'&&seaMotion} onChange={e=>{motionOverride.current=true;setSeaMotion(e.target.checked);try{localStorage.setItem('tangbisil:landscape-motion',e.target.checked?'on':'off');}catch{}}}/>풍경 움직임{landscapeId==='forest'?' · 숲은 선명한 정지 풍경':''}</label>
+       {!smoking&&<><div className="landscape-choice" role="group" aria-label="내 창밖 풍경">{(['auto','sea','forest','fire'] as const).map(id=><button key={id} aria-pressed={landscapeChoice===id} onClick={()=>{setLandscapeChoice(id);try{localStorage.setItem('tangbisil:landscape',id);}catch{}}}>{id==='auto'?'방의 추천 풍경':landscapeLabels[id]}</button>)}</div><p className="landscape-note">추천은 서울 시간으로 낮에는 바다·숲, 저녁에는 모닥불을 골라요. 함께 머무는 동안 바뀌지 않습니다. 직접 고른 풍경은 내 화면에만 적용돼요.</p>
+       <label className="sound-check"><input type="checkbox" disabled={landscapeId==='forest'} checked={landscapeId!=='forest'&&seaMotion} onChange={e=>{motionOverride.current=true;setSeaMotion(e.target.checked);try{localStorage.setItem('tangbisil:landscape-motion',e.target.checked?'on':'off');}catch{}}}/>풍경 움직임{landscapeId==='forest'?' · 숲은 선명한 정지 풍경':''}</label></>}
      </div>
      <label className="sound-check"><input type="checkbox" checked={actionSounds} onChange={e=>{setActions(e.target.checked);setActionSounds(e.target.checked);}}/>물건을 만지는 소리</label>
      <label className="sound-check"><input type="checkbox" disabled={!actionSounds} checked={others} onChange={e=>{setOthers(e.target.checked);setOtherSounds(e.target.checked);}}/>가까운 동료의 작은 소리</label>

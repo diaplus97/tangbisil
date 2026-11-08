@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {Workshop,consolidate,label,mug,packet} from './assets';
+import {Workshop,consolidate,mug,packet} from './assets';
 import {roomSurfaces} from './surfaces';
 import {chair,beanbag,loungePillow} from './furniture';
 import {indoorTree} from './plants';
@@ -8,7 +8,7 @@ import {metricUvs,contactShadow} from './detailGeometry';
 import {seats,roomBounds,pantryOffset,sharedPlate} from './layout';
 
 import {entryDoor} from './entryDoor';
-import {tables,portals} from '../../../shared/space.mjs';
+import {tables,exitsFrom} from '../../../shared/space.mjs';
 
 function roundedShape(w:number,h:number,r:number){
   const s=new T.Shape(),x=w/2,y=h/2;
@@ -24,23 +24,6 @@ function panel(kit:Workshop,parent:T.Object3D,w:number,h:number,depth:number,r:n
   const uv=g.getAttribute('uv');
   for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/w+.5,uv.getY(i)/h+.5);
   return kit.mesh(parent,g,material);
-}
-function door(kit:Workshop,parent:T.Object3D,z:number,smoking:boolean,glass:T.Material,metal:T.Material){
-  const g=new T.Group();g.position.set(roomBounds.width/2-.135,0,z);g.rotation.y=-Math.PI/2;parent.add(g);
-  kit.box(g,1.67,2.91,.12,0,1.47,0,'#b6bebc',.025).material=metal;
-  kit.box(g,1.55,2.78,.065,0,1.47,.08,'#8a9995',.018);
-  const pane=kit.box(g,1.47,2.7,.03,0,1.48,.123,'#bfced2',.015);pane.material=glass;
-  for(const y of [.115,2.835])kit.box(g,1.5,.035,.035,0,y,.15,'#d7dcd7',.007);
-  kit.cylinder(g,.055,.055,.055,-.57,1.16,.195,'#61706c').rotation.x=Math.PI/2;
-  kit.box(g,.23,.032,.055,-.48,1.16,.22,'#61706c',.012).material=metal;
-  for(const y of [.43,2.43])kit.cylinder(g,.021,.021,.13,.77,y,.14,'#8d9c96').material=metal;
-  if(smoking)label(kit,g,'흡연실',.63,.21,0,2.06,.151,'#30454d','#b9cbd2',100);
-  else{
-    // Name is undecided: a leaf identifies the second entrance.
-    const icon=new T.Shape();icon.moveTo(0,0);icon.bezierCurveTo(-.27,.1,-.25,.35,.2,.43);icon.bezierCurveTo(.28,.13,.18,.02,0,0);
-    const leaf=kit.mesh(g,new T.ShapeGeometry(icon,16),kit.mat('#65866a'),0,1.91,.154);leaf.scale.setScalar(.7);
-    kit.tube(g,[new T.Vector3(-.12,1.86,.157),new T.Vector3(0,2.02,.157),new T.Vector3(.13,2.18,.157)],.009,'#65866a');
-  }
 }
 export function createArchitecture(kit:Workshop,scene:T.Scene){
   const fixed=new T.Group(),shell=new T.Group(),occluders:T.Group[]=[];scene.add(fixed,shell);
@@ -76,7 +59,7 @@ export function createArchitecture(kit:Workshop,scene:T.Scene){
     const lamp=kit.cylinder(shell,.065,.065,.015,x,ceilingY-.315,z,'#fff5d8');lamp.material=s.cove;lamp.castShadow=false;
   }
   // Open approach to two entrances along the right wall.
-  door(kit,fixed,-4.8,true,s.smokingGlass,s.frame);const healingDoor=entryDoor(kit,scene,portals.pantry);
+  const doors=exitsFrom('pantry').map(portal=>entryDoor(kit,scene,portal));
   // Pantry cabinetry is on the left side wall.
   const pantry=new T.Group();pantry.position.set(pantryOffset.x,0,pantryOffset.z);fixed.add(pantry);
   {
@@ -90,7 +73,9 @@ export function createArchitecture(kit:Workshop,scene:T.Scene){
   }
   for(let i=0;i<4;i++)box(.58,.89,.85,-4.87,2.98,-1.5+i*.87,'#f8f5eb',.07);
   box(.1,.035,3.46,-4.54,2.5,-.19,'#fff0ca',.008).material=s.cove;
-  for(let i=0;i<3;i++)mug(kit,pantry,-4.25,1.34,-.5+i*.3,'empty',.7);
+  const counterCups=new T.Group();counterCups.position.copy(pantry.position);scene.add(counterCups);
+  for(let i=0;i<3;i++)mug(kit,counterCups,-4.25,1.34,-.5+i*.3,'empty',.7);
+  consolidate(counterCups,kit);counterCups.userData={directSurface:true,action:'coffee',station:'coffee'};
   for(const row of [0,1]){
     const shelf=new T.Group();shelf.position.set(-4.82,1.73+row*.42,.9);shelf.rotation.y=Math.PI/2;pantry.add(shelf);
     kit.box(shelf,1.14,.045,.4,0,0,0,'#dcc29d',.012).material=s.wood;
@@ -132,5 +117,5 @@ export function createArchitecture(kit:Workshop,scene:T.Scene){
     for(const fade of furnitureFades)fade(camera,point,reduced);
     for(const fade of trees)fade(camera,point,reduced,marker);
   }
-  return {portalTargets:[healingDoor.hit],tickDoor:healingDoor.tick,reveal,interior(enabled:boolean){shell.visible=enabled;},lighting(warm:boolean){s.cove.emissiveIntensity=warm?2:1.1;}};
+  return {portalTargets:doors.map(d=>d.hit),tickDoor(...args:Parameters<typeof doors[number]['tick']>){for(const d of doors)d.tick(...args);},reveal,interior(enabled:boolean){shell.visible=enabled;},lighting(warm:boolean){s.cove.emissiveIntensity=warm?2:1.1;}};
 }

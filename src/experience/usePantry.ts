@@ -31,7 +31,7 @@ export function usePantry(){
       while(!abort.signal.aborted){
         const currentEpoch=++epoch.current;
         const current=()=>!abort.signal.aborted&&epoch.current===currentEpoch;
-        const receive=(incoming:Snapshot,initial:boolean)=>{if(!current())return;setState(previous=>current()&&(initial||!previous||incoming.version>=previous.version)?incoming:previous);setStatus('online');setError('');delay=1000;};
+        const receive=(incoming:Snapshot,initial:boolean)=>{if(!current())return;const snapshot={...incoming,receivedAt:Date.now()};setState(previous=>current()&&(initial||!previous||incoming.version>=previous.version)?snapshot:previous);setStatus('online');setError('');delay=1000;};
         requests.current?.abort();requests.current=new AbortController();activeAction.current=null;lock.current=false;setBusy(false);setStatus('connecting');
         try{
           if(!mode){const {response:health,data}=await requestJson('/api/health',{signal:abort.signal});if(health.status===429)throw new PauseConnection('지금은 잠시 쉬어가는 중이에요. 조금 뒤 다시 들어와 주세요.');if(!health.ok)throw new Error('연결을 확인하고 있어요.');mode=data.transport??'sse';usesSocket.current=mode==='websocket';}
@@ -99,7 +99,8 @@ export function usePantry(){
       if(reply.status<500)uncertain.current=null;
       if(reply.status!==200||!reply.data)throw new Error(reply.error??'저장을 다시 확인하고 있어요.');
       const data=reply.data;
-      setState(previous=>current()&&(!previous||data.state.version>=previous.version)?data.state:previous);
+      const snapshot={...data.state,receivedAt:Date.now()};
+      setState(previous=>current()&&(!previous||data.state.version>=previous.version)?snapshot:previous);
       return data;
     }catch(e){if(current())setError(e instanceof Error?e.message:'저장을 확인하지 못했어요. 다시 시도해 주세요.');return null;}
     finally{if(activeAction.current===owner){activeAction.current=null;lock.current=false;if(current())setBusy(false);}}

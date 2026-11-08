@@ -4,7 +4,7 @@ export type Motion={id:string;start:Point&{yaw:number;sit:number};points:Point[]
 export const tableCenter:{x:number;z:number;y:number};
 export const tables:{id:string;name:string;x:number;z:number;y:number;width:number;length:number}[];
 export const seatTables:number[];
-export type Area='pantry'|'healing';
+export type Area='pantry'|'healing'|'smoking';
 export type StationId='candy'|'coffee'|'fridge'|'plant'|'stone'|'tea'|'sand'|'flower';
 export const stations:Record<StationId,{name:string;x:number;z:number;y:number;approach:Point;yaw:number}>;
 export const seats:[number,number,number][];
@@ -21,5 +21,6 @@ export function findPath(a:Point,b:Point,area?:Area):Point[]|null;
 export function sampleMotion(member:{area?:Area;seat:number|null;motion:Motion|null;station?:StationId|null},now:number):Pose;
 export function planMotion(member:{seat:number|null;motion:Motion|null},destination:Point,toSeat:number|null,now:number,id:string):Motion|null;
 export type Portal={id:string;name:string;to:Area;x:number;y:number;z:number;approach:Point;yaw:number};
-export const portals:Record<Area,Portal>;
+export const portals:Record<'pantry'|'healing',Portal>;
+export function exitsFrom(area?:Area):Portal[];
 export function getSpace(area?:Area):{id:Area;name:string;seats:typeof seats;tables:typeof tables;seatTables:number[];stations:Partial<typeof stations>;approaches:Point[];walkBounds:typeof walkBounds;obstacles:typeof obstacles;portal:Portal};

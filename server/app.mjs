@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {expireThoughts,nextThoughtExpiry,thoughtAction} from './thoughts.mjs';
 import {sandContact} from './sand-contact.mjs';
 import {roomSnapshot,roomSnapshotBatch,validateSnackAction,actionNames as actions} from './room-view.mjs';
 import { stat } from 'node:fs/promises';
@@ -26,13 +27,19 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
     const r=rooms.get(id);if(migrateTvQueue(r)){saveMedia(r);broadcast(r);}return r;
   }
   const snapshot=(r,id)=>roomSnapshot(store,r,id,version);
-  function broadcast(r) {
+  function broadcast(r,area=null) {
     version++;const view=roomSnapshotBatch(store,r,version);
     for (const m of r.members.values()) {
-      if(!m.streams.size)continue;
+      if(!m.streams.size||(area&&m.area!==area))continue;
       const data=`event: state\ndata: ${JSON.stringify(view(m.id))}\n\n`;
       for (const res of m.streams) { if (!res.destroyed) res.write(data); }
     }
+  }
+  function scheduleThoughtExpiry(r){
+    clearTimeout(r.thoughtTimer);
+    const next=nextThoughtExpiry(r);if(!next)return;
+    r.thoughtTimer=setTimeout(()=>{if(expireThoughts(r))broadcast(r,'smoking');scheduleThoughtExpiry(r);},Math.max(1,next-Date.now()+1));
+    r.thoughtTimer.unref();
   }
   function attach(id, roomId, res) {
     const r=room(roomId);
@@ -40,7 +47,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
     if (!m) {
       if(r.members.size>=6)throw new GameError('이 방은 잠시 만석이에요. 다른 방 링크로 함께 들어와 주세요.',409);
       startRoomMedia(r);saveMedia(r);
-      const saved=store.location(id,roomId),area=saved.area==='healing'?'healing':'pantry',occupied=reservedSeats(r,area,id),seats=getSpace(area).seats;
+      const saved=store.location(id,roomId),area=getSpace(saved.area).id,occupied=reservedSeats(r,area,id),seats=getSpace(area).seats;
       const seat=Number.isInteger(saved.seat)&&saved.seat>=0&&saved.seat<seats.length&&!occupied.has(saved.seat)?saved.seat:seats.map((_,i)=>i).find(n=>!occupied.has(n));
       if (seat === undefined) throw new GameError('이 방은 잠시 만석이에요. 다른 방 링크로 함께 들어와 주세요.',409);
       const slots=new Set([...r.members.values()].map(x=>x.slot));
@@ -112,6 +119,11 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
           const input=actionInput(await body(req));
           const r=room(roomId), m=r.members.get(id);
           if(!m?.streams.size)throw new GameError('방에 연결하고 있어요. 잠시 후 다시 눌러 주세요.',409);
+          if(input.type==='thought-leave'||input.type==='thought-echo'){
+            const result=thoughtAction(r,m,input);if(!result.replay){scheduleThoughtExpiry(r);broadcast(r,'smoking');}
+            send(res,200,{...result,state:snapshot(r,id)});return;
+          }
+          if(m.area==='smoking'&&!['move','sit','stand','travel','approach','appearance'].includes(input.type))throw new GameError('이 행동은 원래 공간에서 이어갈 수 있어요.');
           if(input.type==='tv-join'||input.type==='tv-next'){const result=mediaAction(r,m,input,GameError);if(!result.replay){saveMedia(r);broadcast(r);}send(res,200,{...result,state:snapshot(r,id)});return;}
           if(input.type==='sand-contact'){const changed=sandContact(m,store.activities.get(id).rest.sand,input,GameError);if(changed)broadcast(r);send(res,200,{ok:true});return;}
           if(['move','sit','stand','approach','travel'].includes(input.type)){
@@ -163,7 +175,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
   });
   return {server,store,close:async()=>{
     closing=true;
-    clearInterval(heartbeat);
+    clearInterval(heartbeat);for(const r of rooms.values())clearTimeout(r.thoughtTimer);
     for(const r of rooms.values())for(const m of r.members.values()){clearTimeout(m.timer);clearTimeout(m.arrival);clearTimeout(m.brewTimer);store.activities.leave(m.id,r,m.station);for(const res of m.streams)res.end();}
     await new Promise(resolve=>server.close(resolve));store.close();
   }};
