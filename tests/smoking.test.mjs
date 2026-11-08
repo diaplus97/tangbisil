@@ -5,7 +5,13 @@ import {getSpace,exitsFrom,findPath} from '../shared/space.mjs';
 import {moveVisitor} from '../server/movement.mjs';
 import {completeTravel} from '../server/travel.mjs';
 import {thoughtAction,visibleThoughts,expireThoughts,nextThoughtExpiry} from '../server/thoughts.mjs';
-import {thoughtLifetime} from '../shared/smoking.mjs';
+import {thoughtLifetime,ribbonState} from '../shared/smoking.mjs';
+
+test('the terrace ribbon reflects live anonymous notes once and resets at the deadline',()=>{
+ const notes=[{until:75,hasEcho:false},{until:45,hasEcho:true}];
+ assert.equal(ribbonState(undefined,0),0);assert.equal(ribbonState(notes,44),2);
+ assert.equal(ribbonState(notes,45),1);assert.equal(ribbonState(notes,75),0);
+});
 
 test('six terrace seats connect to both sides of the correct door; returning restores the free seat',()=>{
  const m={id:'a',seat:5,area:'pantry',moves:new Map()},room={members:new Map([['a',m]])};

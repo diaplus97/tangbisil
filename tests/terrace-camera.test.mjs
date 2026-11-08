@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {Vector3} from 'three';
 import assert from 'node:assert/strict';
 import {createFollowCamera} from '../src/experience/three/followCamera.ts';
 import {createCameraCollision} from '../src/experience/three/cameraCollision.ts';
@@ -23,4 +24,25 @@ test('the camera approaches coffee and leaves the cabinet without jumping on a c
      start=motion.endsAt+2200;
    }
  }
+});
+
+test('reduced motion keeps the selected direction through a walk and still accepts seated look input',()=>{
+ const {seats,stations}=getSpace(),[x,z,yaw]=seats[0],view=createFollowCamera({x,z},yaw+.42,'pantry',createCameraCollision('pantry'));
+ view.resize(390/844);
+ const member={area:'pantry',seat:0,station:null,motion:null};
+ view.follow({...sampleMotion(member,0)},1/60,true);
+ const start=view.camera.getWorldDirection(new Vector3());
+ view.turn(.4,.1);view.follow({...sampleMotion(member,0)},1/60,true);
+ const chosen=view.camera.getWorldDirection(new Vector3()),last=view.camera.position.clone();
+ assert.ok(start.angleTo(chosen)>.25);
+ const motion=planMotion(member,stations.coffee.approach,null,0,'coffee');
+ Object.assign(member,{motion,seat:null,station:'coffee'});
+ for(let ms=0;ms<motion.endsAt+2000;ms+=1000/60){
+   view.follow({...sampleMotion(member,ms),focus:stations.coffee},1/60,true);
+   assert.ok(chosen.angleTo(view.camera.getWorldDirection(new Vector3()))<1e-5);
+   assert.ok(last.distanceTo(view.camera.position)<=.201);
+   last.copy(view.camera.position);
+ }
+ view.turn(-.45,0);view.follow({...sampleMotion(member,motion.endsAt+2000),focus:stations.coffee},1/60,true);
+ assert.ok(chosen.angleTo(view.camera.getWorldDirection(new Vector3()))>.3);
 });

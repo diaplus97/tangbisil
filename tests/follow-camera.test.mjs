@@ -7,7 +7,8 @@ import {seats,stations,planMotion,sampleMotion} from '../shared/space.mjs';
 
 test('standing uses a wider middle-distance view while the seated tray remains closer',()=>{
  const view=createFollowCamera({x:0,z:0},Math.PI);view.resize(1280/720);view.follow({x:0,z:0,sit:1},1,true);
- const seated=view.camera.position.length();view.follow({x:0,z:0,sit:0},1,true);
+ const seated=view.camera.position.length();
+ for(let frame=0;frame<120;frame++)view.follow({x:0,z:0,sit:0},1/60,true);
  assert.ok(view.camera.position.length()>seated+.8);assert.equal(view.camera.fov,55);
  const head=new T.Vector3(0,2,0).project(view.camera),feet=new T.Vector3(0,0,0).project(view.camera);
  assert.ok((head.y-feet.y)/2<.36);

@@ -3,11 +3,12 @@ import {thoughtPhrases} from '../../shared/smoking.mjs';
 import type {Snapshot,Thought} from './types';
 import './smoking.css';
 
-type Props={state:Snapshot;disabled:boolean;act:(type:string,extra:Record<string,unknown>)=>Promise<unknown>};
-export function SmokingThoughts({state,disabled,act}:Props){
+type Props={state:Snapshot;disabled:boolean;reduceMotion:boolean;act:(type:string,extra:Record<string,unknown>)=>Promise<unknown>};
+export function SmokingThoughts({state,disabled,reduceMotion,act}:Props){
  const offset=state.receivedAt!==undefined?state.serverTime-state.receivedAt:0;
  const [revision,wake]=useState(0),[selected,setSelected]=useState<string|null>(null);
  const chooser=useRef<HTMLDetailsElement>(null),expires=state.room.thoughts??[];
+ const card=useRef<HTMLElement>(null);
  const now=Date.now()+offset,notes=expires.filter(n=>n.until>now);
  const note=notes.find(n=>n.id===selected)??notes.at(-1),mine=notes.some(n=>n.mine);
  useEffect(()=>{
@@ -17,13 +18,19 @@ export function SmokingThoughts({state,disabled,act}:Props){
    document.addEventListener('visibilitychange',redraw);
    return()=>{clearTimeout(timer);document.removeEventListener('visibilitychange',redraw);};
  },[state,offset,revision]);
+ useEffect(()=>{
+   if(!note||reduceMotion||!card.current?.animate)return;
+   const remaining=Math.max(0,note.until-(Date.now()+offset)),duration=Math.min(650,remaining);
+   const fade=card.current.animate([{opacity:1},{opacity:0}],{delay:remaining-duration,duration,easing:'ease-in',fill:'forwards'});
+   return()=>fade.cancel();
+ },[note?.id,note?.until,offset,reduceMotion]);
  async function post(phrase:Thought['phrase']){
    if(await act('thought-leave',{phrase,sentAt:Math.round(Date.now()+offset)})){
      if(chooser.current)chooser.current.open=false;setSelected(null);
    }
  }
  return <section className="terrace-thoughts" aria-label="흡연실에 잠시 놓인 한마디">
-   {note&&<article className="terrace-note" key={note.id}>
+   {note&&<article ref={card} className="terrace-note" key={note.id}>
      <span className={'wind-thread'+(note.hasEcho?' resonant':'')} aria-hidden="true"><i/><i/></span>
      <p aria-live="polite">{thoughtPhrases[note.phrase]}</p>
      <div className="note-actions">

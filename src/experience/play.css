@@ -112,7 +112,14 @@
 .settings-form>label>span{float:right;color:#91a086}.settings-form input[type=range]{display:block;width:100%;margin:15px 0 0;accent-color:#6e8d77}.settings-form p{color:#8b9a80;font-size:11px;line-height:1.8}
 .play-mode .help-content>p{font-size:13px;line-height:1.9;margin-bottom:14px}
 .play-mode .audio-status{font-size:11px;margin:0 0 8px}
-.play-mode.view-pixel .room-frame{aspect-ratio:16/9}.play-mode.view-pixel .room-canvas{width:100%;height:auto;margin-left:0}.play-mode.view-pixel .visitor-name{left:var(--seat-x)}
+.play-mode.view-pixel .room-frame{aspect-ratio:16/9}.play-mode.view-pixel .room-canvas{width:100%;height:auto;margin-left:0;transform:none}.play-mode.view-pixel .visitor-name{left:var(--seat-x)}
+@media(max-width:650px){
+ .play-mode.view-pixel .brand{font-size:20px;line-height:1.25}
+ .play-mode.view-pixel .brand small{display:block;font-size:11px;line-height:1.5;letter-spacing:0}
+ .play-mode.view-pixel .header-controls>.connection,.play-mode.view-pixel .desktop-help,.play-mode.view-pixel .desktop-settings{display:none}
+ .play-mode.view-pixel .play-menu>summary,.play-mode.view-pixel .sound-toggle{display:flex;align-items:center;min-height:44px;padding:6px 10px}
+}
+.play-mode.view-pixel .shared-tv{position:relative;top:auto;left:auto;transform:none;margin:10px auto;box-sizing:border-box}
 .play-mode.view-pixel .simple-tray .food-stage{max-width:340px;margin:auto;aspect-ratio:1.6}
 @media(max-width:650px){
  .play-mode{padding:0 10px 12px;--scene-height:clamp(240px,calc(100svh - 230px),420px);--food-width:min(340px,calc(100vw - 26px))}

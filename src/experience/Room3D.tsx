@@ -23,12 +23,12 @@ import {heldName} from '../../shared/rest.mjs';
 import ExploreDestinations from './ExploreDestinations';
 import type {Snapshot} from './types';
 
-type Props={cameraMemory:Map<string,{yaw:number;pitch:number}>;inputReady:()=>boolean;keyboardEnabled:boolean;onSteer:(direction:[number,number])=>Promise<unknown>;onExplore:()=>void;onUse:(target:string)=>Promise<unknown>;contextContent?:ReactNode;landscapeId:LandscapeId;tvOpen:boolean;windowContent?:ReactNode;onTv?:()=>void;onTravel:(to:Area)=>Promise<unknown>;onToolsMount:(element:HTMLDivElement|null)=>void;onApproach:(station:StationId)=>Promise<unknown>;seaMotion:boolean;waves:boolean;onWaves:()=>void;state:Snapshot|null;debug:boolean;movementMode:boolean;foodInHand:boolean;onFinishMove:()=>void;sampleAvailable:boolean;sampleLabel:string;onShelf:()=>void;onPlate:()=>void;onDrink:()=>void;disabled:boolean;onFallback:()=>void;onMove:(x:number,z:number)=>Promise<unknown>;onSit:(seat:number)=>Promise<unknown>;onStand:()=>Promise<unknown>};
+type Props={reduceMotion:boolean;cameraMemory:Map<string,{yaw:number;pitch:number}>;inputReady:()=>boolean;keyboardEnabled:boolean;onSteer:(direction:[number,number])=>Promise<unknown>;onExplore:()=>void;onUse:(target:string)=>Promise<unknown>;contextContent?:ReactNode;landscapeId:LandscapeId;tvOpen:boolean;windowContent?:ReactNode;onTv?:()=>void;onTravel:(to:Area)=>Promise<unknown>;onToolsMount:(element:HTMLDivElement|null)=>void;onApproach:(station:StationId)=>Promise<unknown>;seaMotion:boolean;waves:boolean;onWaves:()=>void;state:Snapshot|null;debug:boolean;movementMode:boolean;foodInHand:boolean;onFinishMove:()=>void;sampleAvailable:boolean;sampleLabel:string;onShelf:()=>void;onPlate:()=>void;onDrink:()=>void;disabled:boolean;onFallback:()=>void;onMove:(x:number,z:number)=>Promise<unknown>;onSit:(seat:number)=>Promise<unknown>;onStand:()=>Promise<unknown>};
 type Study='diorama'|'inside'|'table'|'lounge'|'map'|'third';
 type Framing=Study|'seated'|'walking'|'activity';
 const frames:Record<Study,string>={inside:'입구 시점',table:'테이블 시점',lounge:'창가 자리',diorama:'전체 배치',map:'개발용 평면',third:'이전 3인칭'};
-export default function Room3D({cameraMemory,inputReady,keyboardEnabled,onSteer,onExplore,onUse,contextContent,landscapeId,tvOpen,windowContent,onTv,onTravel,onToolsMount,onApproach,seaMotion,waves,onWaves,state,debug,movementMode,foodInHand,onFinishMove,sampleAvailable,sampleLabel,onShelf,onPlate,onDrink,disabled,onFallback,onMove,onSit,onStand}:Props){
-  const input=useInputMethod();
+export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEnabled,onSteer,onExplore,onUse,contextContent,landscapeId,tvOpen,windowContent,onTv,onTravel,onToolsMount,onApproach,seaMotion,waves,onWaves,state,debug,movementMode,foodInHand,onFinishMove,sampleAvailable,sampleLabel,onShelf,onPlate,onDrink,disabled,onFallback,onMove,onSit,onStand}:Props){
+  const input=useInputMethod(),reduceRef=useRef(reduceMotion);reduceRef.current=reduceMotion;
   const [intro,setIntro]=useState(false),[discovery,setDiscovery]=useState<StationId|null>(null),[arrival,setArrival]=useState(false);
   const cueFocus=useRef(false),beacon=useRef<HTMLSpanElement>(null),brewProgress=useRef<HTMLProgressElement>(null);
   const cueState=useRef({input,intro,hovered:null as string|null,discovery});
@@ -106,7 +106,7 @@ export default function Room3D({cameraMemory,inputReady,keyboardEnabled,onSteer,
     let labelTime=0,shadowTime=0,shadowState:Snapshot|null=null;
     const labelCamera=new T.Matrix4();let labelSnapshot:Snapshot|null=null,labelCue='';
     let previousFraming:Framing|undefined,previousMotion:string|undefined,previousSeat:number|null|undefined,previousOwner:string|undefined,raf=0,last=0,visible=true;
-    const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches,frameInterval=1000/(matchMedia('(pointer:coarse)').matches?30:60);let nextFrame=0;
+    const frameInterval=1000/(matchMedia('(pointer:coarse)').matches?30:60);let nextFrame=0;
     const isPersonal=(f:Framing)=>f==='seated'||f==='walking'||f==='activity';
     function eyeFor(f:Framing):Eye{
       const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id),p=m?room.pose(m.id):null;
@@ -142,11 +142,19 @@ export default function Room3D({cameraMemory,inputReady,keyboardEnabled,onSteer,
       if(travelling&&!stationId&&member?.seat!=null){const [x,z]=seats[member.seat];points.destination=new T.Vector3(x,1.35,z);}
       for(const m of latest.current?.room.members??[]){const point=room.labelPosition(m.id);if(point)points[m.id]=point;}
       const occupied:{x:number;y:number;w:number;h:number}[]=[];
-      const root=container.current!.getBoundingClientRect(),toolbarRects=[...container.current!.querySelectorAll<HTMLElement>('.scene-toolbar>*,.direct-hint,.room-assist,.object-context')].filter(e=>getComputedStyle(e).visibility!=='hidden').map(e=>{const a=e.getBoundingClientRect();return{x:a.left-root.left,y:a.top-root.top,w:a.width,h:a.height};}).filter(a=>a.w>0&&a.h>0);
+      const root=container.current!.getBoundingClientRect();
+      const overlays=[...container.current!.querySelectorAll<HTMLElement>('.scene-toolbar>*,.direct-hint,.room-assist,.object-context,.tv-entry')];
+      if(area==='smoking')overlays.push(...(container.current.closest('.game-space')?.querySelectorAll<HTMLElement>('.terrace-note,.thought-picker summary,.thought-picker[open]>div')??[]));
+      const toolbarRects=overlays.filter(e=>getComputedStyle(e).visibility!=='hidden').map(e=>{const a=e.getBoundingClientRect();return{x:a.left-root.left,y:a.top-root.top,w:a.width,h:a.height};}).filter(a=>a.w>0&&a.h>0);
       const m=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),station=m?.station&&stations[m.station];
       if(context.current&&station){let point=new T.Vector3(station.x,station.y,station.z).project(camera);
         for(const [front,side,up]of [[0,0,0],[.3,0,.2],[.3,.3,.2],[.3,-.3,.2],[.2,0,.45]]){const candidate=new T.Vector3(station.x-Math.sin(station.yaw)*front+Math.cos(station.yaw)*side,station.y+up,station.z-Math.cos(station.yaw)*front-Math.sin(station.yaw)*side).project(camera);if(hitAt(root.left+(candidate.x+1)*width/2,root.top+(1-candidate.y)*height/2)?.object.userData.station===m?.station){point=candidate;break;}}
-        const cw=context.current.offsetWidth,ch=context.current.offsetHeight;context.current.style.setProperty('--context-x',Math.max(12,Math.min(width-cw-12,(point.x+1)*width/2-cw/2))+'px');context.current.style.setProperty('--context-y',Math.max(88,Math.min(height-ch-76,(1-point.y)*height/2+55))+'px');const visibleTarget=hitAt(root.left+(point.x+1)*width/2,root.top+(1-point.y)*height/2)?.object.userData;context.current.style.visibility=point.z>-1&&point.z<1&&Math.abs(point.x)<1.15&&Math.abs(point.y)<1.15&&visibleTarget?.station===m?.station?'visible':'hidden';}else if(context.current)context.current.style.visibility='visible';
+        const cw=context.current.offsetWidth,ch=context.current.offsetHeight;context.current.style.setProperty('--context-x',Math.max(12,Math.min(width-cw-12,(point.x+1)*width/2-cw/2))+'px');context.current.style.setProperty('--context-y',Math.max(88,Math.min(height-ch-76,(1-point.y)*height/2+55))+'px');const visibleTarget=hitAt(root.left+(point.x+1)*width/2,root.top+(1-point.y)*height/2)?.object.userData;const onScreen=point.z>-1&&point.z<1&&Math.abs(point.x)<1.15&&Math.abs(point.y)<1.15&&visibleTarget?.station===m?.station;
+        if(!onScreen&&reduceRef.current){
+          context.current.style.setProperty('--context-x',Math.max(12,(width-cw)/2)+'px');
+          context.current.style.setProperty('--context-y',Math.max(88,height-ch-86)+'px');
+        }
+        context.current.style.visibility=onScreen||reduceRef.current?'visible':'hidden';}else if(context.current)context.current.style.visibility='visible';
       const right=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,0),entries=[...labels.current].filter(([id])=>points[id]).sort(([a],[b])=>camera.position.distanceToSquared(points[a])-camera.position.distanceToSquared(points[b]));
       const bodies:{x:number;y:number;w:number;h:number;distance:number}[]=[];
       const tableLabels=entries.filter(([id])=>id==='my-snack'||id==='my-cup').map(([id,el])=>{
@@ -213,6 +221,7 @@ export default function Room3D({cameraMemory,inputReady,keyboardEnabled,onSteer,
       camera.updateProjectionMatrix();camera.updateMatrixWorld();renderer.setSize(width,height,false);positionLabels();renderer.render(room.scene,camera);
     }
     function setCamera(f:Framing){
+      const reduced=reduceRef.current;
       const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id),personal=isPersonal(f);
       if(personal&&!debug){
         if(!follower||current?.self.id!==previousOwner){
@@ -244,7 +253,7 @@ export default function Room3D({cameraMemory,inputReady,keyboardEnabled,onSteer,
       Object.assign(container.current!.dataset,{perspective:f,firstPerson:String(personal&&debug),cameraMode:follower?'follow':'study',cameraSeat:String(m?.seat??0),area});
       resize();
     }
-    cameraUpdate.current=setCamera;lookAtSea.current=()=>{basisDirty=true;follower?.aim(Math.PI,-.13);first?.aim(Math.PI,-.02);if(reduced)first?.update(1,true);};setCamera(framingRef.current);
+    cameraUpdate.current=setCamera;lookAtSea.current=()=>{basisDirty=true;follower?.aim(Math.PI,-.13);first?.aim(Math.PI,-.02);if(reduceRef.current)first?.update(1,true);};setCamera(framingRef.current);
     const element=canvas.current!;
     let down:{x:number;y:number;lastX:number;lastY:number;id:number;slop:number;touch:boolean;dragged:boolean}|null=null;
     let lastHover=0,basisDirty=false;
@@ -342,9 +351,16 @@ export default function Room3D({cameraMemory,inputReady,keyboardEnabled,onSteer,
     const focusWalking=()=>{if(keyboardBlocked())stopWalking();};
     window.addEventListener('keydown',walkKeyDown);window.addEventListener('keyup',walkKeyUp);window.addEventListener('blur',stopWalking);document.addEventListener('visibilitychange',stopWalking);document.addEventListener('focusin',focusWalking);
     element.addEventListener('pointerdown',pointerDown);element.addEventListener('pointermove',pointerMove);element.addEventListener('pointerup',pointerUp);element.addEventListener('pointercancel',pointerCancel);element.addEventListener('lostpointercapture',pointerCancel);element.addEventListener('pointerleave',pointerLeave);element.addEventListener('keydown',keyDown);
+    const gameSpace=container.current!.closest('.game-space');
+    const overlayObserver=area==='smoking'&&gameSpace?new MutationObserver(records=>{
+      if(records.some(r=>r.target instanceof Element&&r.target.closest('.terrace-thoughts')||
+        [...r.addedNodes,...r.removedNodes].some(n=>n instanceof Element&&n.matches('.terrace-thoughts'))))labelSnapshot=null;
+    }):null;
+    if(overlayObserver&&gameSpace)overlayObserver.observe(gameSpace,{childList:true,subtree:true,attributes:true,attributeFilter:['open']});
     const observer=new ResizeObserver(resize);observer.observe(container.current!);
     const intersection=new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting??true;});intersection.observe(container.current!);
     function frame(time:number){
+      const reduced=reduceRef.current;
       if(!container.current||!canvas.current)return;
       if(keyboardBlocked()&&keyboard.active)void keyboard.stop();
       const active=visible&&!document.hidden&&!actions.current.tvOpen&&!document.querySelector('dialog[open]');room.active(active);
@@ -363,7 +379,7 @@ export default function Room3D({cameraMemory,inputReady,keyboardEnabled,onSteer,
         Object.assign(container.current!.dataset,{cameraX:camera.position.x.toFixed(4),cameraY:camera.position.y.toFixed(4),cameraZ:camera.position.z.toFixed(4),cameraFov:camera instanceof T.PerspectiveCamera?String(camera.fov):'ortho',cameraYaw:(follower||first)?.angles.yaw.toFixed(4)??'',cameraPitch:(follower||first)?.angles.pitch.toFixed(4)??'',actorX:pose?.x.toFixed(3)??'',actorZ:pose?.z.toFixed(3)??''});
         const now=room.now(),animated=current?.room.members.some(m=>m.motion&&m.motion.endsAt>now||now-m.actionAt<4500||m.pantry.coffee.stage==='brewing'||Boolean(m.pantry.rest.tea?.pourAt));
         if(shadowState!==current||animated&&time-shadowTime>100){renderer.shadowMap.needsUpdate=true;shadowState=current;shadowTime=time;}
-        const cue=JSON.stringify([cueState.current,framingRef.current,foodRef.current]);
+        const cue=JSON.stringify([cueState.current,framingRef.current,foodRef.current,reduced]);
         if(time-labelTime>120&&(labelSnapshot!==current||labelCue!==cue||!labelCamera.equals(camera.matrixWorld))){positionLabels();labelTime=time;labelSnapshot=current;labelCue=cue;labelCamera.copy(camera.matrixWorld);}
         if(brewProgress.current){const c=current?.self.pantry.coffee;brewProgress.current.value=coffeePhase(c?.stage,c?.readyAt??0,now).progress;}
         renderer.render(room.scene,camera);last=time;nextFrame=Math.max(nextFrame+frameInterval,time+frameInterval*.25);container.current.dataset.destination=room.destination.status;
@@ -372,7 +388,7 @@ export default function Room3D({cameraMemory,inputReady,keyboardEnabled,onSteer,
     }
     const lost=(e:Event)=>{e.preventDefault();setError('3D 화면 연결이 끊겼어요. 도트 화면으로 이어갈 수 있어요.');};element.addEventListener('webglcontextlost',lost);
     resize();setReady(true);raf=requestAnimationFrame(frame);
-    return()=>{if(previousOwner&&follower)cameraMemory.set(previousOwner+'/'+area,follower.angles);void keyboard.stop().finally(()=>keyboard.dispose());stopKeyboard.current=async()=>{};window.removeEventListener('keydown',walkKeyDown);window.removeEventListener('keyup',walkKeyUp);window.removeEventListener('blur',stopWalking);document.removeEventListener('visibilitychange',stopWalking);document.removeEventListener('focusin',focusWalking);cancelAnimationFrame(raf);observer.disconnect();intersection.disconnect();element.removeEventListener('webglcontextlost',lost);element.removeEventListener('pointerdown',pointerDown);element.removeEventListener('pointermove',pointerMove);element.removeEventListener('pointerup',pointerUp);element.removeEventListener('pointercancel',pointerCancel);element.removeEventListener('lostpointercapture',pointerCancel);element.removeEventListener('pointerleave',pointerLeave);element.removeEventListener('keydown',keyDown);room.dispose();reflection.dispose();renderer.dispose();renderer.forceContextLoss();world.current=null;cameraUpdate.current=null;lookAtSea.current=null;};
+    return()=>{if(previousOwner&&follower)cameraMemory.set(previousOwner+'/'+area,follower.angles);void keyboard.stop().finally(()=>keyboard.dispose());stopKeyboard.current=async()=>{};window.removeEventListener('keydown',walkKeyDown);window.removeEventListener('keyup',walkKeyUp);window.removeEventListener('blur',stopWalking);document.removeEventListener('visibilitychange',stopWalking);document.removeEventListener('focusin',focusWalking);cancelAnimationFrame(raf);overlayObserver?.disconnect();observer.disconnect();intersection.disconnect();element.removeEventListener('webglcontextlost',lost);element.removeEventListener('pointerdown',pointerDown);element.removeEventListener('pointermove',pointerMove);element.removeEventListener('pointerup',pointerUp);element.removeEventListener('pointercancel',pointerCancel);element.removeEventListener('lostpointercapture',pointerCancel);element.removeEventListener('pointerleave',pointerLeave);element.removeEventListener('keydown',keyDown);room.dispose();reflection.dispose();renderer.dispose();renderer.forceContextLoss();world.current=null;cameraUpdate.current=null;lookAtSea.current=null;};
   },[area]);
   const ref=(key:string)=>(el:HTMLElement|null)=>{if(el)labels.current.set(key,el);else labels.current.delete(key);};
   const hoverStation=stationInArea(area,hovered?.startsWith('station-')?hovered.slice(8):null),hoverSeat=hovered?.startsWith('seat-')?Number(hovered.slice(5)):null;
@@ -387,7 +403,7 @@ export default function Room3D({cameraMemory,inputReady,keyboardEnabled,onSteer,
       <div className="scene-toolbar"><div className="scene-label">{moving?(destination?destination+' · 이동 중':'이동 중'):me?.station?stations[me.station]?.name??map.name:map.name}{debug&&<span className="scene-label-sub">{frames[study]}</span>}</div><button className="sea-sound-toggle" aria-pressed={waves} onClick={onWaves}>{waves?'파도 소리 끄기':'파도 소리 켜기'}</button></div>
       {playback==='fallback'&&<span className="sea-playback-note" role="status">지금은 고요한 풍경으로 쉬어가요.</span>}
       {!ready&&!error&&<div className="three-message">창가의 빛을 들이는 중…</div>}
-      {error?<div className="three-message" role="alert"><p>{error}</p><button className="primary" disabled={disabled} onClick={area!=='pantry'?()=>void choosePortal():onFallback}>{area!=='pantry'?'탕비실로 돌아가기':'도트로 이어가기'}</button></div>:<>
+      {error?<div className="three-message" role="alert"><p>{error}</p><button className="primary" onClick={onFallback}>도트로 이어가기</button>{area!=='pantry'&&<button disabled={disabled} onClick={()=>void choosePortal()}>탕비실로 돌아가기</button>}</div>:<>
         {debug&&<><button ref={ref('shelf')} className="hotspot three-hotspot" onClick={onShelf} disabled={disabled}>오늘의 레몬파이</button><button ref={ref('drink')} className="hotspot three-hotspot" onClick={onDrink} disabled={disabled}>한 잔</button></>}
         {!debug&&state&&!tvOpen&&!foodInHand&&!moving&&!discovery&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-snack')} className="world-action snack-world-hint" disabled={disabled} onClick={()=>{setIntro(false);onShelf();}}>{intro?'간식을 눌러보세요':directAction(state,'snack')?.label}</button>}
         {!debug&&state&&!tvOpen&&!moving&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-cup')} className="world-action cup-world-hint" disabled={disabled&&!foodInHand} onClick={()=>void useNearObject('cup')}>{directAction(state,'cup')?.label??'잔 준비 중'}</button>}

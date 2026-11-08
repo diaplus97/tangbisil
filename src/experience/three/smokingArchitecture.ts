@@ -1,9 +1,28 @@
 import * as T from 'three';
 import {getSpace} from '../../../shared/space.mjs';
 import {Workshop,consolidate} from './assets';
+import {ribbonState} from '../../../shared/smoking.mjs';
+import type {Snapshot} from '../types';
 import {entryDoor} from './entryDoor';
 import {roomSurfaces} from './surfaces';
 import {metricUvs} from './detailGeometry';
+
+function linenRibbon(kit:Workshop,parent:T.Object3D,color:string,hem:string){
+ // Three columns shape the folded centre and the split end of the fabric.
+ const positions:number[]=[],colors:number[]=[],indices:number[]=[];
+ const dye=new T.Color(color),edge=new T.Color(hem);
+ for(let i=0;i<7;i++){
+   const t=i/6,bend=Math.sin(t*Math.PI),width=.023+.06*Math.min(1,t*4);
+   for(const side of [-1,0,1]){
+     positions.push(t*t*.54+side*width,-t*.67+bend*.01+side*width*t+(i===6&&side===0 ? .085 : 0),bend*.075+(1-Math.abs(side))*.025);
+     colors.push(...(side===-1?edge:dye).toArray());
+   }
+   if(i)for(let j=0;j<2;j++){const a=(i-1)*3+j;indices.push(a,a+3,a+1,a+1,a+3,a+4);}
+ }
+ const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.setIndex(indices);geometry.computeVertexNormals();
+ const cloth=new T.MeshStandardMaterial({side:T.DoubleSide,roughness:.98,vertexColors:true});kit.materials.set('linen-'+color,cloth);
+ const mesh=kit.mesh(parent,geometry,cloth);mesh.visible=false;mesh.castShadow=false;mesh.raycast=()=>{};return mesh;
+}
 
 // A glazed sea-facing terrace. Individual seats leave a clear return aisle
 // beside the blue-grey door. Nothing in the terrace needs a separate light pass.
@@ -57,6 +76,18 @@ export function createSmokingArchitecture(kit:Workshop,scene:T.Scene){
  }
  const vent=box(.085,.64,1.18,-4.55,2.34,1.3,'#b1bdb7');
  for(let i=0;i<9;i++)box(.025,.020,.96,vent.position.x+.052,2.12+i*.053,1.3,'#86968e',.006);
+ const peg=box(.30,.043,.098,-1.51,2.5,-4.0,'#9e8360',.016);
+ const linen=new T.Group();linen.position.set(peg.position.x,peg.position.y,-3.94);scene.add(linen);
+ const voice=linenRibbon(kit,linen,'#d6a44d','#aa783c'),echo=linenRibbon(kit,linen,'#548f85','#377169');
+ voice.position.x=-.09;echo.position.set(.08,0,.035);echo.scale.set(.85,.78,1);
+ let previous=0,changedAt=0;
  const door=entryDoor(kit,scene,map.portal);consolidate(fixed,kit);consolidate(shell,kit);
- return {portalTargets:[door.hit],tickDoor:door.tick,reveal(){},interior(enabled:boolean){shell.visible=enabled;},lighting(warm:boolean){s.cove.emissiveIntensity=warm?1.4:1.05;}};
+ return {portalTargets:[door.hit],tickDoor(state:Snapshot|null,now:number,reduced:boolean){
+   door.tick(state,now,reduced);
+   const next=ribbonState(state?.room.thoughts,now);
+   if(next!==previous){changedAt=now;previous=next;}
+   voice.visible=next>0;echo.visible=next===2;
+   const settling=reduced?0:Math.max(0,1-(now-changedAt)/450);
+   voice.rotation.z=-.065*settling;echo.rotation.z=.13-.10*settling;
+ },reveal(){},interior(enabled:boolean){shell.visible=enabled;},lighting(warm:boolean){s.cove.emissiveIntensity=warm?1.4:1.05;}};
 }

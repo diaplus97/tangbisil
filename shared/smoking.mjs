@@ -13,3 +13,14 @@ export const thoughtPhrases={
  quiet:'잠깐 혼자 있고 싶어.'
 };
 export const thoughtLifetime=45000;
+
+// One visual state for the whole room, independent of author, note count or viewer.
+export function ribbonState(notes,now){
+  let state=0;
+  for(const note of notes??[]){
+    if(note.until<=now)continue;
+    if(note.hasEcho)return 2;
+    state=1;
+  }
+  return state;
+}

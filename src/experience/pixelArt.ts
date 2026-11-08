@@ -1,6 +1,6 @@
 import type {Member} from './types';
 import {appearance} from '../../shared/appearance.mjs';
-import {sampleMotion} from '../../shared/space.mjs';
+import {getSpace,sampleMotion,type Area} from '../../shared/space.mjs';
 import {CUP_RETURN_MS} from './gestureTiming';
 const visibleAction=(m:Member,now:number)=>now-m.actionAt<(m.action==='wave'?CUP_RETURN_MS:3500)?m.action:'rest';
 type C=CanvasRenderingContext2D;
@@ -21,9 +21,11 @@ function packet(c:C,x:number,y:number,s=1){
   rect(c,x+4*s,y+8*s,14*s,9*s,'#dfb95d');rect(c,x+6*s,y+7*s,10*s,11*s,'#efd27d');rect(c,x+10*s,y+10*s,2*s,6*s,'#fff2b6');rect(c,x+7*s,y+12*s,8*s,2*s,'#fff2b6');
   for(let i=0;i<7;i++)rect(c,x+(i*3+1)*s,y+25*s,1*s,2*s,'#bac8ce');
 }
-export const seats=[{x:252,y:228},{x:395,y:228},{x:324,y:216},{x:227,y:302},{x:327,y:302},{x:428,y:302}];
+export const seats=[{x:252,y:228},{x:395,y:228},{x:324,y:216},{x:227,y:302},{x:327,y:302},{x:428,y:302},{x:106,y:254},{x:542,y:275}];
 export function pixelMemberPosition(m:Member,now=Date.now()){
-  const pose=sampleMotion(m,now);return pose.phase==='seated'&&m.seat!=null?seats[m.seat]:{x:80+(pose.x+5.6)/11.25*490,y:286+(pose.z+3.85)/7*25};
+  const pose=sampleMotion(m,now);
+  if(m.area==='smoking'||m.area==='healing')return sideRoomPosition(pose.x,pose.z);
+  return pose.phase==='seated'&&m.seat!=null?seats[m.seat]:{x:80+(pose.x+5.6)/11.25*490,y:286+(pose.z+3.85)/7*25};
 }
 export function drawAvatar(c:C,x:number,y:number,variant:number,action='rest',back=false,now=0,id='preview-02'){
   const look=appearance(variant,id),skin='#e8bfa0',light='#f5d5b5',hair=look.hair,shirt=look.coat,sleeve=look.sleeve;
@@ -58,7 +60,50 @@ function cup(c:C,x:number,y:number,drink:string,now:number,saucer=true){
 }
 function chair(c:C,x:number,y:number,front=false){rect(c,x-15,y+17,3,21,'#8a7764');rect(c,x+12,y+17,3,21,'#8a7764');rect(c,x-17,y-5,34,25,'#61798b');rect(c,x-15,y-3,30,21,'#a1b7c6');rect(c,x-12,y-1,24,3,'#becbd0');if(front){rect(c,x-16,y-8,32,22,'#6c8395');rect(c,x-14,y-6,28,18,'#a4bac9');}}
 
-export function drawRoom(c:C,allMembers:Member[],myId:string|undefined,offerCount:number,now:number,motionNow=now){
+function sideRoomPosition(x:number,z:number){return {x:Math.round(300+x*49),y:Math.round(235+z*17)};}
+
+function drawSideRoom(c:C,members:Member[],area:'healing'|'smoking',now:number,motionNow:number,ribbon:number){
+  rect(c,0,0,640,360,'#dce0d6');
+  rect(c,26,12,526,158,'#7d9089');rect(c,30,16,518,148,'#b5d8e6');
+  rect(c,30,60,518,31,'#c8e0e7');rect(c,30,91,518,73,'#82b5c2');
+  poly(c,[[30,69],[49,72],[68,80],[94,77],[119,85],[155,91],[30,94]],'#8ca6ad');
+  poly(c,[[450,90],[474,83],[495,84],[520,75],[548,72],[548,94]],'#8aa4aa');
+  for(let i=0;i<62;i++){
+    const x=31+Math.floor(noise(i,13)*470),y=95+Math.floor(noise(i,23)*65);
+    rect(c,x,y,3+(y-94)*noise(i,32)*.36,1,i%3?'#94bdc5':'#b9d5d4');
+  }
+  for(const x of [162,289,417]){rect(c,x,15,4,151,'#84948e');rect(c,x+3,15,2,151,'#d8e1d8');}
+  if(area==='smoking'){
+    rect(c,158,63,11,3,'#907957');
+    if(ribbon>0)poly(c,[[160,66],[164,66],[166,77],[173,87],[178,91],[173,90],[169,91],[163,81]],'#c69043');
+    if(ribbon===2)poly(c,[[166,66],[169,66],[172,74],[179,81],[183,83],[179,84],[175,83],[169,77]],'#4e8679');
+  }
+  rect(c,20,166,537,5,'#cfae86');rect(c,22,171,533,3,'#a18d75');
+  rect(c,0,189,640,171,'#d8d3c6');
+  for(const y of [199,223,257,302,352])rect(c,0,y,640,1,'#bebfb2');
+  for(let x=-180;x<800;x+=86)poly(c,[[320+(x-320)*.59,190],[320+(x-320)*.59+1,190],[x+2,360],[x,360]],'#c4c2b4');
+  rect(c,566,44,59,145,'#81948c');rect(c,570,47,51,141,'#b2c6bf');rect(c,576,57,39,68,'#c6d7d1');
+  rect(c,575,135,10,3,'#788b82');rect(c,569,187,54,2,'#97a198');
+  plant(c,51,185,1.5);plant(c,532,188,1.2);
+  const seats=getSpace(area).seats;
+  const figures=members.map(m=>({m,...pixelMemberPosition(m,motionNow)}));
+  const rows=[...seats.map(([x,z],index)=>({...sideRoomPosition(x,z),seat:index,m:null})),...figures.map(f=>({...f,seat:-1}))].sort((a,b)=>a.y-b.y||b.seat-a.seat);
+  for(const row of rows){
+    const {x,y}=row;
+    if(row.m){drawAvatar(c,x,y,row.m.avatar,visibleAction(row.m,motionNow),true,now,row.m.id);continue;}
+    if(area==='healing'&&row.seat<4){
+      poly(c,[[x-26,y+19],[x-22,y-3],[x-9,y-15],[x+6,y-17],[x+23,y-6],[x+28,y+16],[x+16,y+26],[x-16,y+26]],row.seat%2?'#9aaea9':'#b2aaa2');
+      poly(c,[[x-18,y+1],[x-8,y-11],[x+5,y-13],[x+12,y-8],[x+4,y+1]],'#c3c9ba');
+    }else{
+      for(const side of [-1,1])rect(c,x+side*17,y+8,3,22,'#75847c');
+      rect(c,x-21,y+5,43,7,'#b49878');rect(c,x-20,y+5,41,2,'#dbc19b');
+      rect(c,x-20,y-9,41,5,'#b69f83');rect(c,x-20,y-2,41,4,'#c6aa89');
+    }
+  }
+}
+
+export function drawRoom(c:C,allMembers:Member[],myId:string|undefined,offerCount:number,now:number,motionNow=now,area:Area='pantry',ribbon=0){
+  if(area!=='pantry'){drawSideRoom(c,allMembers,area,now,motionNow,ribbon);return;}
   const members=allMembers.filter(m=>sampleMotion(m,motionNow).phase==='seated');
   c.imageSmoothingEnabled=false;
   rect(c,0,0,640,360,'#d4dedf');rect(c,0,0,640,11,'#8195a5');rect(c,0,11,640,4,'#f1efdf');
@@ -125,7 +170,7 @@ export function drawRoom(c:C,allMembers:Member[],myId:string|undefined,offerCoun
   members.filter(m=>m.seat!=null&&m.seat<3).forEach(m=>{const s=seats[m.seat!];const xx=s.x,yy=m.seat===2?232:247;rect(c,xx-25,yy-5,46,16,'#b99a78');rect(c,xx-23,yy-4,42,12,'#ede6d2');if(visibleAction(m,now)!=='wave')cup(c,xx-14,yy+1,m.drink,now);if(m.food?.state==='sealed')packet(c,xx+1,yy-10,.55);else if(m.food?.state==='open'){rect(c,xx+1,yy-5,14,7,'#d9aa58');rect(c,xx+1,yy-2,14,2,'#f8ebbd');}});
   rect(c,320,259,37,8,'#b1a78f');rect(c,318,257,40,7,'#eff0da');rect(c,324,255,28,4,'#f9f4df');
   if(offerCount){rect(c,328,250,17,8,'#d9ac58');rect(c,328,254,17,2,'#fff0be');rect(c,331,248,11,2,'#eac47b');}
-  for(let i=3;i<6;i++){const s=seats[i];const m=members.find(m=>m.seat===i);if(m)drawAvatar(c,s.x,s.y-5,m.avatar,visibleAction(m,now),true,now,m.id);chair(c,s.x,s.y,true);}
+  for(let i=3;i<seats.length;i++){const s=seats[i];const m=members.find(m=>m.seat===i);if(m)drawAvatar(c,s.x,s.y-5,m.avatar,visibleAction(m,now),true,now,m.id);chair(c,s.x,s.y,true);}
   for(const m of allMembers.filter(m=>!members.includes(m))){const p=pixelMemberPosition(m,motionNow);drawAvatar(c,p.x,p.y,m.avatar,visibleAction(m,now),false,now,m.id);}
   // Tiny plant and a mug left on a shelf are decor, never fake visitors.
   plant(c,34,302,2);rect(c,4,333,61,7,'#8c9985');
