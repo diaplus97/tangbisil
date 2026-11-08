@@ -74,7 +74,9 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
     kit.box(fridge,1,.025,.65,0,y,.04,'#c1d6d1',.008);
     kit.box(fridge,1,.04,.035,0,y,.36,'#f0f2e7',.006);
   }
-  for(const y of[.2,.75,1.3])for(const x of[-.3,0,.3]){const b=bottleModel(kit,fridge);b.position.set(x,y,.02);}
+  const bottles=new T.Group();fridge.add(bottles);
+  for(const y of[.2,.75,1.3])for(const x of[-.3,0,.3]){const b=bottleModel(kit,bottles);b.position.set(x,y,.02);}
+  consolidate(bottles,kit);
   const pickupBottle=bottleModel(kit,fridge);pickupBottle.position.set(.3,1.3,.25);
   kit.box(fridge,.76,.28,.35,0,1.99,-.1,'#e6e9dc',.035);
   label(kit,fridge,'차갑게 쉬어가요',.63,.1,0,2.06,.081,'#647967','#e6e9dc',88);
@@ -89,9 +91,14 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   const doorPieces=new T.Group();for(const c of [...hinge.children])doorPieces.add(c);hinge.add(doorPieces);consolidate(doorPieces,kit);
   // The real handle extends beyond the broad door proxy. Include the visible
   // door meshes so the occlusion test accepts their own front surface.
-  doorPieces.userData={action:'fridge-door',station:'fridge'};
+  doorPieces.userData={directSurface:true,action:'fridge-door',station:'fridge'};
   // Static batch excludes the articulated door and the bottle being picked.
-  fridge.remove(hinge,pickupBottle);fixed.remove(fridge);consolidate(fridge,kit);consolidate(fixed,kit);scene.add(fridge);fridge.add(hinge,pickupBottle);
+  fridge.remove(hinge,bottles,pickupBottle);fixed.remove(fridge);consolidate(fridge,kit);consolidate(fixed,kit);scene.add(fridge);fridge.add(hinge,bottles,pickupBottle);
+  for(const stock of [bottles,pickupBottle]){
+    stock.userData={action:'fridge-bottle',station:'fridge',directSurface:false};
+    // The glass shoulder and neck count as part of the bottle, too.
+    stock.traverse(o=>{if(o instanceof T.Mesh)o.userData.blocksSelection=true;});
+  }
   const reveal=visible?createSightFade(kit,fridge,false,.09):null;
   const lamp=new T.PointLight('#f1fff1',0,2.6,2);lamp.position.set(0,2.04,.2);fridge.add(lamp);
   const hands=new T.Group();hands.userData.action='held';foregroundScene.add(hands);let handKey='',handItem:T.Group|null=null;
@@ -108,11 +115,10 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
     }
   }
   const doorHit=kit.mesh(hinge,new T.BoxGeometry(1.16,2.23,.17),hitMaterial,.57,1.11,0);doorHit.userData={action:'fridge-door',station:'fridge'};doorHit.castShadow=false;
-  const bottleHit=kit.mesh(fridge,new T.BoxGeometry(.9,1.5,.3),hitMaterial,0,1.05,.25);bottleHit.userData={action:'fridge-bottle',station:'fridge'};bottleHit.castShadow=false;
   let angle=0;
   function tick(state:Snapshot|null,now:number,time:number,reduced:boolean){
     const f=state?.room.fixtures?.fridge,open=Boolean(f?.open);angle=reduced?(open?-1.65:0):T.MathUtils.lerp(angle,open?-1.65:0,.16);hinge.rotation.y=angle;lamp.intensity=open?.55:0;
-    bottleHit.visible=open;
+    bottles.userData.directSurface=open;pickupBottle.userData.directSurface=open;
     pickupBottle.visible=!state?.room.members.some(m=>m.id===f?.owner&&m.pantry?.bottle&&m.pantry.bottle.sips<3);
     const owner=state?.room.members.find(m=>m.station==='coffee'&&m.pantry?.coffee.stage!=='carried'),coffee=owner?.pantry.coffee;
     cup.visible=Boolean(coffee);const {progress,pouring,finished}=coffeePhase(coffee?.stage,coffee?.readyAt??0,now);
@@ -134,5 +140,5 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
     const lift=cup&&!reduced?1-T.MathUtils.smoothstep(now-me!.actionAt,0,CUP_LIFT_MS):0;
     hands.position.set(isCandy?0:.22,bottom-lift*.18,-.66-lift*.08).applyQuaternion(camera.quaternion).add(camera.position);hands.quaternion.copy(camera.quaternion);hands.scale.setScalar(.72);
   }
-  return{reveal,hits:visible?hits:[],interactionTargets:visible?[hands,doorPieces,doorHit,bottleHit]:[hands],tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
+  return{reveal,hits:visible?hits:[],interactionTargets:visible?[hands,doorPieces,doorHit]:[hands],tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
 }

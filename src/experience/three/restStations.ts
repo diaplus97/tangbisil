@@ -9,6 +9,7 @@ import type {Snapshot,Tea} from '../types';
 export function createRestStations(kit:Workshop,scene:T.Scene,visible=true){
  const foregroundScene=scene;if(!visible)scene=new T.Scene();
  const shelf=new T.Group();shelf.position.set(stations.plant.x,0,stations.plant.z);scene.add(shelf);
+ shelf.userData={directSurface:true,station:'plant',action:'plant'};
  const furniture=new T.Group();shelf.add(furniture);
  for(const y of[.26,1.04])kit.box(furniture,1.45,.065,.7,0,y,0,'#c4b391',.035);
  for(const x of[-.64,.64])for(const z of[-.27,.27])kit.box(furniture,.045,1.03,.045,x,.52,z,'#81998b',.015);

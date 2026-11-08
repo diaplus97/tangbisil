@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as T from 'three';
 import {createFollowCamera} from '../src/experience/three/followCamera.ts';
 import {createCameraCollision} from '../src/experience/three/cameraCollision.ts';
+import {fridgeShelfView} from '../src/experience/three/layout.ts';
 import {seats,stations,planMotion,sampleMotion} from '../shared/space.mjs';
 
 test('standing uses a wider middle-distance view while the seated tray remains closer',()=>{
@@ -32,6 +33,22 @@ test('touch, keyboard, reduced motion and station framing preserve manual orbit'
  v.follow({x:-5.85,z:-2.5,focus:stations.coffee},1,true);assert.equal(v.angles.yaw,bearing);v.follow({x:1,z:0},1,true);assert.equal(v.angles.yaw,bearing);
  const head=new T.Vector3(1,1.8,0).project(v.camera),feet=new T.Vector3(1,0,0).project(v.camera);assert.ok(Math.abs(head.x)<1&&Math.abs(head.y)<1&&Math.abs(feet.y)<1);
  const h=createFollowCamera({x:4.55,z:4.05},5*Math.PI/4,'healing');h.follow({x:4.55,z:4.05},1,true);assert.ok(h.camera.position.y<=3.08);
+});
+
+test('arriving from either side frames a bottle through the open side of the fridge',()=>{
+ const target=fridgeShelfView;
+ for(const aspect of [320/568,1280/720])for(const [seat,[x,z,yaw]] of seats.entries()){
+   const view=createFollowCamera({x,z},yaw+.42,'pantry',createCameraCollision('pantry'));view.resize(aspect);
+   const m={area:'pantry',seat,motion:null,station:null};
+   m.motion=planMotion(m,target.approach,null,0,'open-fridge');m.seat=null;m.station='fridge';
+   for(let time=0;time<m.motion.endsAt+2200;time+=1000/60)view.follow({...sampleMotion(m,time),focus:target},1/60,false);
+   const eye=view.camera.position;
+   assert.ok(eye.z<target.z-.5&&eye.x>target.x+1.2);
+   const bottle=new T.Vector3(target.x+.25,1.5,target.z-.3),screen=bottle.clone().project(view.camera);
+   assert.ok(Math.abs(screen.x)<.92&&Math.abs(screen.y)<.85&&screen.z>0&&screen.z<1);
+   const crossing=bottle.clone().lerp(eye,(target.x+.46-bottle.x)/(eye.x-bottle.x));
+   assert.ok(Math.abs(crossing.z-target.z)<.51,'sightline to bottle passes through the shelf opening');
+ }
 });
 
 test('an opaque cabinet cannot compress the orbit into the character or clip the lens',()=>{

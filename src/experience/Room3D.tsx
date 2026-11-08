@@ -8,7 +8,7 @@ import {exitsFrom,isWalkable,getSpace,seatedView,stations as pantryStations,type
 import type {SeaPlaybackStatus} from './three/seaPlayback';
 import type {LandscapeStatus} from './three/environment';
 import {windowViews} from './three/windowView';
-import {tableCenter} from './three/layout';
+import {fridgeShelfView,tableCenter} from './three/layout';
 import {isVisibleInScene,selectionSurfaces,stationInArea} from './three/sceneInteraction';
 import {createFollowCamera} from './three/followCamera';
 import {createExploreCamera} from './three/exploreCamera';
@@ -380,7 +380,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
         const current=latest.current,self=current?.self.id,pose=self?room.pose(self):null,f=framingRef.current,dt=last?(time-last)/1000:1/30;
         if(first&&isPersonal(f)){first.anchor(eyeFor(f));first.update(dt,reduced);}
         if(third&&f==='third'&&pose)third.follow(pose,dt,reduced);
-        if(follower&&pose){const station=current?.room.members.find(m=>m.id===self)?.station;follower.follow({...pose,steering:keyboard.keys.size>0,focus:station?stations[station]:null},dt,reduced);}
+        if(follower&&pose){const station=current?.room.members.find(m=>m.id===self)?.station;follower.follow({...pose,steering:keyboard.keys.size>0,focus:station==='fridge'?fridgeShelfView:station?stations[station]:null},dt,reduced);}
         if(basisDirty || (keyboard.keys.size && bearingChanged(forward,camera.getWorldDirection(visibleForward)))) {
           captureKeyboardBasis();
         }

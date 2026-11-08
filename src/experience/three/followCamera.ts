@@ -1,6 +1,6 @@
 import * as T from 'three';
 
-type Focus={x:number;z:number;y?:number;yaw?:number};
+type Focus={x:number;z:number;y?:number;yaw?:number;viewOffset?:number};
 type Subject={x:number;z:number;sit?:number;focus?:Focus|null;steering?:boolean};
 const deltaAngle=(a:number,b:number)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
 export function createFollowCamera(point:{x:number;z:number},yaw=Math.PI,area='pantry',resolve?:(origin:T.Vector3,desired:T.Vector3,ignoreNear?:number)=>void){
@@ -38,7 +38,7 @@ export function createFollowCamera(point:{x:number;z:number},yaw=Math.PI,area='p
        const front=bearing+Math.PI,relative=deltaAngle(front,orbit);
        // Stay on the near side of the appliance. The oblique view leaves
        // the cup and the user's shoulder in different parts of the frame.
-       const offset=(relative<0?-1:1)*T.MathUtils.clamp(Math.abs(relative),.64,.94);
+       const offset=target.viewOffset??((relative<0?-1:1)*T.MathUtils.clamp(Math.abs(relative),.64,.94));
        focusBearing=front+offset;
      }
      lastFocus=target;
