@@ -1,4 +1,5 @@
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
+import {avatarChoice} from '../shared/appearance.mjs';
 import {GameError} from '../shared/errors.mjs';
 export {GameError} from '../shared/errors.mjs';
 import {createActivities} from './activities.mjs';
@@ -79,7 +80,7 @@ export function createGameStore(db,{crossRoomOffers=false}={}) {
   function act(id, roomId, input) {
     const { type, requestId } = input;
     if (typeof requestId !== 'string' || !/^[\w-]{8,80}$/.test(requestId)) throw new GameError('요청을 다시 시도해 주세요.',400);
-    const signature=JSON.stringify([type,input.servingId,input.progress,input.offerId,input.drink,...(input.bites!==undefined?[input.bites]:[])]);
+    const signature=JSON.stringify([type,input.servingId,input.progress,input.offerId,input.drink,...(input.bites!==undefined?[input.bites]:[]),...(type==='appearance'?[input.avatar]:[])]);
     const old = db.prepare('SELECT action,result,signature FROM receipts WHERE user_id=? AND request_id=?').get(id,requestId);
     if (old) {
       if (old.action !== type) throw new GameError('이미 사용한 요청입니다.',409);
@@ -94,7 +95,10 @@ export function createGameStore(db,{crossRoomOffers=false}={}) {
       const needOwn = () => {
         if (!food || input.servingId !== food.id) throw new GameError('접시의 상태가 바뀌었어요. 다시 열어 주세요.');
       };
-      if (type === 'take') {
+      if(type==='appearance'){
+        if(avatarChoice(input.avatar)!==input.avatar)throw new GameError('목록에서 옷을 골라 주세요.',400);
+        db.prepare('UPDATE users SET avatar=? WHERE id=?').run(input.avatar,id);
+      }else if (type === 'take') {
         if (available) throw new GameError('접시에 있는 간식을 먼저 즐겨 주세요.');
         db.prepare('INSERT INTO servings(id,user_id,snack_id,state,bites,portions,source,created_at) VALUES(?,?,?,?,?,?,?,?)').run(randomUUID(),id,SNACK_ID,'sealed',0,3,'shelf',Date.now());
       } else if (type === 'unwrap') {

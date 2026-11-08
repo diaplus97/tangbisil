@@ -4,8 +4,9 @@ import {roomSnapshot,roomSnapshotBatch,validateSnackAction,actionNames as action
 import { stat } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 import { createStore, GameError } from './store.mjs';
-import {completeTravel,reservedSeats} from './travel.mjs';
+import {completeTravel,clearParkedTray,reservedSeats} from './travel.mjs';
 import {moveVisitor} from './movement.mjs';
+import {avatarChoice} from '../shared/appearance.mjs';
 import {serveStatic} from './static.mjs';
 import {getSpace} from '../shared/space.mjs';
 import {startRoomMedia,mediaAction,migrateTvQueue} from '../shared/room-media.mjs';
@@ -49,7 +50,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
       if(pantry.rest.sprayer&&!([...rooms.values()].some(active=>active.members.get(id)?.station==='plant')))store.activities.leave(id,r,'plant');
       if(pantry.rest.tea?.location==='station'&&!([...rooms.values()].some(active=>active.members.get(id)?.station==='tea')))store.activities.leave(id,{id:pantry.rest.tea.roomId,fixtures:r.fixtures},'tea');
       if(coffee.stage!=='carried'&&coffee.roomId&&!([...rooms.values()].some(active=>active.members.get(id)?.station==='coffee'))){store.activities.leave(id,{id:coffee.roomId,fixtures:r.fixtures},'coffee');}
-      r.members.set(id,m);store.saveLocation(id,r.id,area,seat);
+      clearParkedTray(r,area,seat);r.members.set(id,m);store.saveLocation(id,r.id,area,seat);
     }
     clearTimeout(m.timer);
     res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});
@@ -100,7 +101,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
         if(url.pathname==='/api/session'&&req.method==='POST') {
           const data=await body(req), name=typeof data.name==='string'?data.name.trim():'';
           if(!name||[...name].length>12||/[\u0000-\u001f<>]/.test(name))throw new GameError('이름은 1~12자로 적어 주세요.',400);
-          send(res,201,store.createUser(name,data.avatar===1?1:0));return;
+          send(res,201,store.createUser(name,avatarChoice(data.avatar)));return;
         }
         const id=store.authenticate(req.headers.authorization?.replace(/^Bearer /,''));
         if(!id)throw new GameError('자리를 다시 잡아 주세요.',401);

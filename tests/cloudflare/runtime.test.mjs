@@ -23,6 +23,19 @@ test('Cloudflare direct bite and table sip synchronize once and persist across h
  const rejoined=await connect(a,'quiet');assert.deepEqual(rejoined.state.self.serving,saved.serving);assert.equal(rejoined.state.self.pantry.coffee.sips,1);assert.equal(rejoined.state.self.drink,saved.drink);assert.deepEqual(rejoined.state.self.discoveries,saved.discoveries);
 });
 
+test('Cloudflare appearance changes broadcast, persist and replay without disturbing a serving',{timeout:30000},async t=>{
+ const {visitor,connect}=await setup(t),a=await visitor('의상A'),b=await visitor('의상B'),c=await connect(a),peer=await connect(b);
+ await c.act('take');const saved=structuredClone(c.state.self);
+ const appearanceKey=randomUUID(),seat=c.state.room.members.find(m=>m.id===a.user.id).seat;
+ assert.equal((await c.act('appearance',{avatar:3},appearanceKey)).status,200);
+ await peer.wait(()=>peer.state.room.members.find(m=>m.id===a.user.id)?.avatar===3);
+ assert.equal((await c.act('appearance',{avatar:3},appearanceKey)).data.replay,true);
+ assert.equal((await c.act('appearance',{avatar:2},appearanceKey)).status,409);
+ assert.equal((await c.act('appearance',{avatar:8})).status,400);
+ assert.equal(c.state.room.members.find(m=>m.id===a.user.id).seat,seat);
+ const rejoined=await connect(a,'quiet');assert.equal(rejoined.state.self.avatar,3);
+ assert.deepEqual(rejoined.state.self.serving,saved.serving);assert.deepEqual(rejoined.state.self.pantry,saved.pantry);
+});
 test('Cloudflare room scenery and TV queue survive hibernation without waking alarms', {timeout:60000},async t=>{
   const {mf,visitor,connect,storage}=await setup(t),a=await visitor('TV A'),b=await visitor('TV B'),first=await connect(a),second=await connect(b);
   assert.deepEqual(first.state.room.media,second.state.room.media);

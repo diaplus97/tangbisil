@@ -69,7 +69,7 @@ export function label(kit:Workshop,parent:T.Object3D,text:string,w:number,h:numb
   return kit.mesh(parent,new T.PlaneGeometry(w,h),material,x,y,z);
 }
 
-export function mug(kit:Workshop,parent:T.Object3D,x:number,y:number,z:number,drink='tea',size=1,fill=1){
+export function mug(kit:Workshop,parent:T.Object3D,x:number,y:number,z:number,drink='tea',size=1,fill=1,withSaucer=true){
   const g=new T.Group();g.position.set(x,y,z);g.scale.setScalar(size);parent.add(g);
   const color=drink==='coffee'?'#d8c8ab':'#9fbec0',key='glazed-cup-'+color;
   if(!kit.materials.has(key))kit.materials.set(key,new T.MeshPhysicalMaterial({color,roughness:.3,clearcoat:.25,clearcoatRoughness:.23}));
@@ -80,8 +80,11 @@ export function mug(kit:Workshop,parent:T.Object3D,x:number,y:number,z:number,dr
   const liquid=kit.mat(drink==='coffee'?'#59402d':drink==='water'?'#9ab6b3':'#938044',.19);
   const surface=kit.mesh(g,new T.CircleGeometry(.103,40),liquid,0,.199,0);surface.rotation.x=-Math.PI/2;surface.position.y=.045+.154*fill;surface.visible=fill>0;
   if(drink==='empty'){surface.removeFromParent();surface.geometry.dispose();kit.geometries.delete(surface.geometry);}
+  if(withSaucer)mugSaucer(kit,g);return g;
+}
+export function mugSaucer(kit:Workshop,parent:T.Object3D){
   const saucer=[[0,.008],[.09,.008],[.11,.012],[.165,.022],[.174,.029],[.17,.036],[.112,.025],[.09,.018],[0,.018]].map(([r,h])=>new T.Vector2(r,h));
-  kit.mesh(g,new T.LatheGeometry(saucer,40),kit.mat('#e8e1d1',.36));return g;
+  return kit.mesh(parent,new T.LatheGeometry(saucer,36),kit.mat('#e8e1d1',.36));
 }
 
 export function plant(kit:Workshop,parent:T.Object3D,x:number,z:number,size=1,y=0){

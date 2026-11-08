@@ -98,6 +98,11 @@
  .first-person-mode .simple-tray .food-action-row .primary,.first-person-mode .simple-tray .tray-rest,.first-person-mode .simple-tray .share-snack{padding:8px;font-size:18px}
 }
 
+.outfit-retry{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.outfit-retry button{min-height:44px;padding:6px 10px}
+.settings-outfit{display:grid;gap:6px}.settings-outfit>span{font-size:13px;color:#4d6259}
+.outfit-choices button{padding:0;overflow:hidden;line-height:0}.outfit-choices img{display:block;width:100%;height:100%;object-fit:cover}
+.settings-outfit .outfit-choices{display:flex;gap:8px}.settings-outfit .outfit-choices button{width:54px;height:62px}
+
 /* Low third-person view: small labels stay beside the actual table objects. */
 .follow-mode .cup-world-hint{position:absolute;z-index:11;font-size:14px;min-height:44px;padding:8px 10px;max-width:140px}
 .follow-mode .snack-world-hint{font-size:14px;min-height:44px;padding:8px 10px;max-width:160px}

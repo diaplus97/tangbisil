@@ -1,9 +1,9 @@
 import {useEffect,useRef,type CSSProperties} from 'react';
 import {drawAvatar,drawRoom,pixelMemberPosition} from './pixelArt';
 import type {Snapshot} from './types';
-export function Avatar({variant=0}:{variant?:number}){
+export function Avatar({variant=0,visitorId='preview-02'}:{variant?:number;visitorId?:string}){
  const ref=useRef<HTMLCanvasElement>(null);
- useEffect(()=>{const c=ref.current?.getContext('2d');if(c){c.clearRect(0,0,50,80);drawAvatar(c,25,45,variant,'rest',false,1000);}},[variant]);
+ useEffect(()=>{const c=ref.current?.getContext('2d');if(c){c.clearRect(0,0,50,80);drawAvatar(c,25,45,variant,'rest',false,1000,visitorId);}},[variant,visitorId]);
  return <canvas width="50" height="80" ref={ref} className="avatar-preview" aria-hidden="true"/>;
 }
 export function Room({state,onShelf,onPlate,onDrink,disabled,simple=false,sampleAvailable=false}:{state:Snapshot|null;onShelf:()=>void;onPlate:()=>void;onDrink:()=>void;disabled:boolean;simple?:boolean;sampleAvailable?:boolean}){

@@ -1,5 +1,6 @@
 import {lazy,Suspense,useEffect,useRef,useState,type ReactNode} from 'react';
-import {Room,Avatar} from './Room';
+import {Avatar,Room} from './Room';
+import {outfits} from '../../shared/appearance.mjs';
 import {getSpace} from '../../shared/space.mjs';
 import {heldName} from '../../shared/rest.mjs';
 import {ToolsDockContext,closeOtherPickers} from './PersonalItems';
@@ -21,6 +22,9 @@ const SandStage=lazy(()=>import('./SandStage'));
 const StoneStage=lazy(()=>import('./StoneStage'));
 const Room3D=lazy(()=>import('./Room3D'));
 const SharedTV=lazy(()=>import('./SharedTV'));
+function OutfitChoices({value,onPick,disabled=false,pixel=false,visitorId}:{value:number;onPick:(id:number)=>void;disabled?:boolean;pixel?:boolean;visitorId?:string}){
+ return <div className="avatar-choices outfit-choices" role="group" aria-label="옷 고르기">{[2,3,0,1].map(id=><button key={id} type="button" className={value===id?'selected':''} disabled={disabled} onClick={()=>onPick(id)} aria-pressed={value===id} aria-label={outfits[id].name+' 모습'} title={outfits[id].name}>{pixel?<Avatar variant={id} visitorId={visitorId}/>:<img width="52" height="60" src={'/avatars/look-'+id+'.png'} alt=""/>}</button>)}</div>;
+}
 const landscapeLabels={sea:'바다',forest:'숲',fire:'모닥불'};
 function preference(key:string){try{return localStorage.getItem(key);}catch{return null;}}
 
@@ -51,9 +55,15 @@ function PiePreview(){const ref=useRef<HTMLCanvasElement>(null);useEffect(()=>{d
 export default function Experience(){
  const{state,status,error,busy,enter,act,contact,retry,clearError,inputReady}=usePantry();
  const debug=new URLSearchParams(location.search).get('dev')==='1';
- const[name,setName]=useState(''),[avatar,setAvatar]=useState(0);
+ const[name,setName]=useState(''),[avatar,setAvatar]=useState(2);
  const[panel,setPanel]=useState<'food'|'album'|'drink'|'help'|'settings'|'tv'|null>(null),[movementMode,setMovementMode]=useState(false);
  const[tvOpen,setTvOpen]=useState(false);
+ const[outfitSave,setOutfitSave]=useState<{id:number;failed:boolean}|null>(null);
+ async function saveOutfit(id:number){
+   setOutfitSave({id,failed:false});
+   const saved=await act('appearance',{avatar:id});
+   setOutfitSave(saved?null:{id,failed:true});
+ }
  const[landscapeChoice,setLandscapeChoice]=useState<'auto'|LandscapeId>(()=>{const value=preference('tangbisil:landscape');return value==='sea'||value==='forest'||value==='fire'?value:'auto';});
  const[sound,setSound]=useState(false),[toast,setToast]=useState('');
  const[volume,setVolume]=useState(.6),[actionSounds,setActions]=useState(true),[mouth,setMouth]=useState(false),[others,setOthers]=useState(true),[audioStatus,setAudioStatus]=useState('');
@@ -151,7 +161,7 @@ export default function Experience(){
      <form onSubmit={e=>{e.preventDefault();void enter(name.trim()||'느긋한 동료',avatar);}}>
        <label className="welcome-name">불릴 이름 <span>선택</span><input value={name} onChange={e=>setName(e.target.value)} maxLength={12} placeholder="느긋한 동료" autoComplete="off"/></label>
        <button className="primary" disabled={busy} type="submit">{busy?'자리를 준비하는 중…':'앉아서 쉬기'} <span aria-hidden="true">↗</span></button>
-       <details className="welcome-appearance"><summary>모습 고르기</summary><div className="avatar-choices">{[0,1].map(v=><button key={v} type="button" className={avatar===v?'selected':''} onClick={()=>setAvatar(v)} aria-pressed={avatar===v} aria-label={v?'베이지 셔츠 모습':'남색 카디건 모습'}><Avatar variant={v}/></button>)}</div></details>
+       <details className="welcome-appearance"><summary>모습 고르기</summary><OutfitChoices pixel={view==='pixel'} value={avatar} onPick={setAvatar}/></details>
      </form>
    </section>}
    {(view!=='3d'||debug)&&!tvOpen&&state&&!trayOpen&&!walking&&(member?.station||member?.seat!=null)&&<StationActions state={state} busy={busy} online={online} onExplore={explore} onSnack={()=>void take()} snackLabel={snackLabel} act={act}/>}
@@ -162,6 +172,7 @@ export default function Experience(){
    {toast&&<div className="toast" role="status"><span>✦</span>{toast}</div>}
    {panel==='tv'&&<Modal title="창가에서 함께 볼까요?" eyebrow="선택해서 켜는 YouTube TV" onClose={()=>setPanel(null)}><div className="tv-notice"><p>빠더너스·채널십오야·haha ha의 짧은 영상을 함께 봅니다. 2026년 11월 6일, 최근 게시일과 공개 조회·좋아요를 보고 고른 한국 채널 3편이에요. 한국 전체의 실시간 인기순위는 아닙니다. 말소리와 음악이 포함되며 처음에는 음소거로 시작해요.</p><p>켜면 YouTube 외부 플레이어와 연결되어 IP·기기 정보 등이 Google에 전달될 수 있어요. 개인정보 보호 강화 모드를 사용해도 정보 전송이 없는 것은 아닙니다.</p><p>TV 기능은 방이 함께 보는 영상 번호·시작 기준·순서를 저장합니다. YouTube 계정 로그인이나 개인별 시청 이력 수집은 하지 않아요. 광고·일시정지 때문에 재생 시점은 다를 수 있습니다.</p><ul><li><a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube 이용약관 ↗</a></li><li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google 개인정보처리방침 ↗</a></li></ul><p>방 입장과 간식 기록에는 별명·브라우저 방문자 키와 게임 상태가 사용됩니다. 서버는 입장 제한을 위해 IP 해시와 당일 요청 수를 보관합니다.</p><details><summary>이번에 함께 보는 영상</summary><ul>{tvQueue.map(item=><li key={item.id}><a href={'https://www.youtube.com/watch?v='+item.id} target="_blank" rel="noopener noreferrer">{item.title} · {item.channel} ↗</a><small>{item.publishedAt} 게시 · {item.views.toLocaleString('ko-KR')}회 · 좋아요 {item.likes.toLocaleString('ko-KR')}개<br/>{item.verifiedOn} 공개 누적 수치 확인</small></li>)}</ul></details><p>다른 동료가 다음 편을 골라도 내 영상은 자연 종료까지 이어집니다. ‘함께 보기로’를 누르면 현재 함께 보는 편에 합류해요.</p><p>그만 보기는 내 화면만 풍경으로 돌려놓습니다. 간식이나 기록에 영향을 주지 않아요.</p><button className="primary" disabled={!online||busy||walking||member?.seat==null} onClick={()=>void(async()=>{if(tvOpen){setPanel(null);return;}if(await act('tv-join')){setPanel(null);setTvOpen(true);}})()}>{tvOpen?'TV로 돌아가기':'동의하고 TV 켜기'}</button></div></Modal>}
    {panel==='settings'&&<Modal title="소리·풍경 설정" eyebrow="내가 편안한 만큼" onClose={()=>setPanel(null)}><div className="settings-form">
+     {state&&<section className="settings-outfit"><strong>내 모습</strong><OutfitChoices pixel={view==='pixel'} visitorId={state.self.id} value={state.self.avatar} disabled={!online||busy} onPick={id=>{if(id!==state.self.avatar)void saveOutfit(id);}}/><span aria-live="polite">{outfitSave&&!outfitSave.failed?'옷을 갈아입는 중…':outfits[state.self.avatar]?.name}</span>{outfitSave?.failed&&outfitSave.id!==state.self.avatar&&<div role="alert" className="outfit-retry"><span>옷을 저장하지 못했어요.</span><button type="button" disabled={!online||busy} onClick={()=>void saveOutfit(outfitSave.id)}>다시 시도</button></div>}</section>}
      <div className="sound-presets" role="group" aria-label="소리 조합">
       {([['mute','무음'],['waves','파도만'],['all','파도와 행동']] as const).map(([mode,label])=><button key={mode} className="secondary" aria-pressed={mode==='mute'?!sound:sound&&waves&&(mode==='all'?actionSounds:!actionSounds)} onClick={()=>void chooseSound(mode)}>{label}</button>)}
      </div>

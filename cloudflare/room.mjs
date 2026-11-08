@@ -5,7 +5,7 @@ import {createGameStore} from '../server/game-store.mjs';
 import {GameError} from '../shared/errors.mjs';
 import {getSpace} from '../shared/space.mjs';
 import {moveVisitor} from '../server/movement.mjs';
-import {completeTravel,reservedSeats} from '../server/travel.mjs';
+import {completeTravel,clearParkedTray,reservedSeats} from '../server/travel.mjs';
 import {sandContact} from '../server/sand-contact.mjs';
 import {roomSnapshot,roomSnapshotBatch,validateSnackAction,actionNames} from '../server/room-view.mjs';
 import {startRoomMedia,mediaAction,migrateTvQueue,needsTvQueueMigration} from '../shared/room-media.mjs';
@@ -104,7 +104,7 @@ export class PantryRoom extends DurableObject {
         if(seat<0)throw new GameError('빈 자리가 생기면 들어올 수 있어요.');
         const used=new Set([...this.r.members.values()].map(member=>member.slot));
         m={id:identity.id,key,epoch:claimed.epoch,revision:claimed.revision,originRoom:claimed.checkpoint.originRoom??null,area,seat,slot:[0,1,2,3,4,5].find(i=>!used.has(i)),station:null,motion:null,travel:null,enteredAt:0,moves:new Map(),contacts:new Map(),contact:null,action:'rest',actionAt:Date.now(),arriveAt:0,readyAt:0,departAt:Date.now()+30000,rate:{at:0,count:0}};
-        this.r.members.set(m.id,m);this.store.saveLocation(m.id,room,area,seat);this.queueUser(m);
+        clearParkedTray(this.r,area,seat);this.r.members.set(m.id,m);this.store.saveLocation(m.id,room,area,seat);this.queueUser(m);
       }
       for(const [ticket,value] of Object.entries(this.r.tickets))if(value.until<Date.now()||value.id===m.id)delete this.r.tickets[ticket];
       const ticket=crypto.randomUUID();this.r.tickets[ticket]={id:m.id,until:Date.now()+30000};this.r.version++;

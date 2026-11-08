@@ -96,7 +96,7 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   function held(kind:'candy'|'bottle'|'cup',progress:number,eaten:boolean,sips:number,drink:string){
     const key=[kind,progress.toFixed(2),eaten,sips,drink].join(':');if(key===handKey)return;handKey=key;
     if(handItem)kit.release(handItem);handItem=new T.Group();hands.add(handItem);
-    const item=kind==='candy'?candyModel(kit,handItem,progress,eaten):kind==='bottle'?bottleModel(kit,handItem,sips):mug(kit,handItem,.02,-.09,0,drink,.95);
+    const item=kind==='candy'?candyModel(kit,handItem,progress,eaten):kind==='bottle'?bottleModel(kit,handItem,sips):mug(kit,handItem,.02,-.09,0,drink,.95,1,false);
     if(kind==='bottle'){item.position.set(.06,-.12,0);item.rotation.z=-.12;item.rotation.x=.05;}
     for(const side of kind==='candy'?[-1,1]:[1]){
       const arm=new T.Group();handItem.add(arm);arm.position.set(side*(kind==='candy'?.14+progress*.18:.1),-.045,.075);

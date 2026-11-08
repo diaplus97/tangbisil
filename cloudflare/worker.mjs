@@ -1,3 +1,4 @@
+import {avatarChoice} from '../shared/appearance.mjs';
 import {createHash,randomBytes} from 'node:crypto';
 import {mediaResponse} from './range.mjs';
 import mediaSizes from '../dist-cf/media-manifest.json';
@@ -34,7 +35,7 @@ export default {
         const input=await body(request),name=typeof input.name==='string'?input.name.trim():'';if(!name||[...name].length>12||/[\u0000-\u001f<>]/.test(name))return json({error:'이름은 1~12자로 적어 주세요.'},400);
         const access=await gate('session');if(!access.ok)return json(access,access.status);
         const token=randomBytes(32).toString('hex'),home=env.VISITORS.get(env.VISITORS.idFromName(hash(token)));
-        return json(await home.initialize(name,input.avatar===1?1:0,token),201);
+        return json(await home.initialize(name,avatarChoice(input.avatar),token),201);
       }
       if(url.pathname==='/api/socket'&&request.method==='GET'){
         if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return json({error:'연결을 다시 열어 주세요.'},426);

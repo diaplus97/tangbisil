@@ -1,5 +1,5 @@
 import {getSpace,isWalkable,planMotion,sampleMotion} from '../shared/space.mjs';
-import {reservedSeats} from './travel.mjs';
+import {reservedSeats,clearParkedTray} from './travel.mjs';
 import {GameError} from '../shared/errors.mjs';
 import {steeringTarget} from '../shared/steering.mjs';
 
@@ -40,6 +40,10 @@ export function moveVisitor(room,member,input,now=Date.now()){
   if(!motion)throw new GameError('그쪽으로는 지나가기 어려워요. 다른 바닥을 골라 주세요.');
   if(input.direction!==undefined)motion.keyboard=true;
   member.travel=travel?{...travel,enterAt:motion.endsAt+420}:null;
+  const departure=sampleMotion(member,now);
+  if(departure.inSeat!=null&&departure.inSeat===member.seat&&departure.sit>.52)member.parkedSeat=departure.inSeat;
+  if(seat!=null)clearParkedTray(room,area,seat,member.id);
+  if(travel)clearParkedTray(room,travel.to,travel.seat);
   member.seat=seat;member.station=station;member.motion=motion;member.moves.set(input.requestId,signature);
   if(member.moves.size>64)member.moves.delete(member.moves.keys().next().value);
   return{replay:false};

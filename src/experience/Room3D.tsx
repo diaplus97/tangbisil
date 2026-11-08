@@ -15,6 +15,7 @@ import {createExploreCamera} from './three/exploreCamera';
 import {createFirstPersonCamera,type Eye} from './three/firstPersonCamera';
 import {createKeyboardWalk,keyboardVector,movementCodes,bearingChanged} from './keyboardWalk';
 import {useInputMethod} from './useInputMethod';
+import {placeTableActions} from './tableActionPlacement';
 import {directAction} from './directActions';
 import {coffeePhase} from '../../shared/coffee.mjs';
 import {tableDrink} from '../../shared/table-drink.mjs';
@@ -148,16 +149,39 @@ export default function Room3D({inputReady,keyboardEnabled,onSteer,onExplore,onU
         const cw=context.current.offsetWidth,ch=context.current.offsetHeight;context.current.style.setProperty('--context-x',Math.max(12,Math.min(width-cw-12,(point.x+1)*width/2-cw/2))+'px');context.current.style.setProperty('--context-y',Math.max(88,Math.min(height-ch-76,(1-point.y)*height/2+55))+'px');const visibleTarget=hitAt(root.left+(point.x+1)*width/2,root.top+(1-point.y)*height/2)?.object.userData;context.current.style.visibility=point.z>-1&&point.z<1&&Math.abs(point.x)<1.15&&Math.abs(point.y)<1.15&&visibleTarget?.station===m?.station?'visible':'hidden';}else if(context.current)context.current.style.visibility='visible';
       const right=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,0),entries=[...labels.current].filter(([id])=>points[id]).sort(([a],[b])=>camera.position.distanceToSquared(points[a])-camera.position.distanceToSquared(points[b]));
       const bodies:{x:number;y:number;w:number;h:number;distance:number}[]=[];
+      const tableLabels=entries.filter(([id])=>id==='my-snack'||id==='my-cup').map(([id,el])=>{
+        const p=points[id].clone().project(camera);
+        return {id,x:(p.x+1)*width/2,y:(1-p.y)*height/2,w:el.offsetWidth,h:el.offsetHeight,onScreen:p.z>0&&p.z<1&&Math.abs(p.x)<1&&Math.abs(p.y)<1};
+      }).filter(l=>l.onScreen).sort((a,b)=>a.x-b.x);
+      const tableSlots=new Map<string,{x:number;y:number}>();
+      if(tableLabels.length){
+        const avoid=[...toolbarRects];
+        // Reserve the seated head and the entire hand-to-mouth path. These
+        // bounds stay fixed throughout a sip, so the next button stays put.
+        for(const visitor of latest.current?.room.members??[]){
+          const pose=room.pose(visitor.id);if(pose?.inSeat==null)continue;
+          const crown=room.labelPosition(visitor.id);if(!crown)continue;
+          const corners=[];
+          for(const side of [-.34,.34])for(const depth of [-.32,.66])for(const down of [0,.75]){
+            const v=new T.Vector3(crown.x+side*Math.cos(pose.yaw)+depth*Math.sin(pose.yaw),crown.y-down,crown.z+depth*Math.cos(pose.yaw)-side*Math.sin(pose.yaw)).project(camera);
+            if(v.z>0&&v.z<1)corners.push([(v.x+1)*width/2,(1-v.y)*height/2]);
+          }
+          if(corners.length){const xx=corners.map(c=>c[0]),yy=corners.map(c=>c[1]),x=Math.min(...xx),y=Math.min(...yy);avoid.push({x,y,w:Math.max(...xx)-x,h:Math.max(...yy)-y});}
+        }
+        const w=tableLabels.reduce((sum,l)=>sum+l.w,0)+12*(tableLabels.length-1),h=Math.max(...tableLabels.map(l=>l.h));
+        const slot=placeTableActions(tableLabels.reduce((sum,l)=>sum+l.x,0)/tableLabels.length,Math.min(...tableLabels.map(l=>l.y))-h-10,w,h,width,height,avoid);
+        if(slot){let x=slot.x;for(const label of tableLabels){tableSlots.set(label.id,{x,y:slot.y});x+=label.w+12;}}
+      }
       for(const [id,el]of entries){
         const point=points[id],p=point.clone().project(camera),w=el.offsetWidth,h=el.offsetHeight,distance=camera.position.distanceToSquared(point);
-        let tableX:number|undefined;
-        if((id==='my-snack'||id==='my-cup')&&points['my-snack']&&points['my-cup']&&labels.current.has('my-snack')&&labels.current.has('my-cup')){const a=points['my-snack'].clone().project(camera),b=points['my-cup'].clone().project(camera),sw=labels.current.get('my-snack')!.offsetWidth,cw=labels.current.get('my-cup')!.offsetWidth,total=sw+cw+16,left=Math.max(10,Math.min(width-total-10,((a.x+b.x)/2+1)*width/2-total/2)),snackLeft=a.x<b.x;tableX=left+((id==='my-snack')===snackLeft?0:(snackLeft?sw:cw)+16);}
-        const rawX=tableX??(p.x+1)*width/2-w/2,rawY=(1-p.y)*height/2-h-8,x=['my-snack','my-cup','discovery','destination'].includes(id)?Math.max(10,Math.min(width-w-10,rawX)):rawX,y=rawY,rect={x,y,w,h};
+        const table=id==='my-snack'||id==='my-cup',slot=tableSlots.get(id);
+        const rawX=(p.x+1)*width/2-w/2,rawY=(1-p.y)*height/2-h-8;
+        const x=slot?.x??(['discovery','destination'].includes(id)?Math.max(10,Math.min(width-w-10,rawX)):rawX),y=slot?.y??rawY,rect={x,y,w,h};
         const intersects=(a:{x:number;y:number;w:number;h:number})=>x<a.x+a.w+8&&x+w>a.x-8&&y<a.y+a.h+6&&y+h>a.y-6;
         const overlap=occupied.some(intersects)||bodies.some(b=>b.distance<distance*.88&&intersects(b));
         const toolbar=toolbarRects.some(intersects);
         const cueHit=id==='discovery'&&!travelling?hitAt(root.left+(p.x+1)*width/2,root.top+(1-p.y)*height/2):null;
-        const show=p.z> -1&&p.z<1&&(id!=='my-snack'||Math.abs(p.x)<1)&&(id!=='discovery'||travelling||cueHit?.object.userData.station===next)&&x>=10&&x+w<=width-10&&y>=110&&y+h<=height-12&&!overlap&&!toolbar;
+        const show=p.z> -1&&p.z<1&&(!table||!!slot)&&(id!=='discovery'||travelling||cueHit?.object.userData.station===next)&&x>=10&&x+w<=width-10&&y>=110&&y+h<=height-12&&!overlap&&!toolbar;
         if(id==='my-snack')el.style.setProperty('--pointer-x',Math.max(16,Math.min(w-28,(p.x+1)*width/2-x-7))+'px');
         el.style.visibility=show?'visible':'hidden';el.style.left=x+'px';el.style.top=y+'px';
         if(show)occupied.push(rect);
@@ -171,7 +195,9 @@ export default function Room3D({inputReady,keyboardEnabled,onSteer,onExplore,onU
       const coffee=latest.current?.self.pantry.coffee;
       if(point&&marked==='station'&&stationId==='coffee')point.set(stations.coffee.x+.38,coffee?.stage==='placed'?1.99:1.54,stations.coffee.z);
       const canUse=marked!=='station'||latest.current&&stationId&&Boolean(directAction(latest.current,stationId));
-      if(beacon.current){const p=point?.clone().project(camera),label=marked==='station'?context.current:labels.current.get(marked);beacon.current.style.visibility=canUse&&p&&p.z>-1&&p.z<1&&Math.abs(p.x)<.95&&Math.abs(p.y)<.8&&label?.style.visibility==='visible'?'visible':'hidden';if(p){beacon.current.style.left=(p.x+1)*width/2+'px';beacon.current.style.top=(1-p.y)*height/2+'px';}beacon.current.dataset.target=marked==='discovery'?next!:marked;}
+      if(beacon.current){const p=point?.clone().project(camera);
+        const snackVisible=marked!=='my-snack'||p&&hitAt(root.left+(p.x+1)*width/2,root.top+(1-p.y)*height/2)?.object.userData.action==='snack';
+        const label=marked==='station'?context.current:labels.current.get(marked);beacon.current.style.visibility=canUse&&snackVisible&&p&&p.z>-1&&p.z<1&&Math.abs(p.x)<.95&&Math.abs(p.y)<.8&&label?.style.visibility==='visible'?'visible':'hidden';if(p){beacon.current.style.left=(p.x+1)*width/2+'px';beacon.current.style.top=(1-p.y)*height/2+'px';}beacon.current.dataset.target=marked==='discovery'?next!:marked;}
       if(brewProgress.current){const coffee=latest.current?.self.pantry.coffee;brewProgress.current.value=coffeePhase(coffee?.stage,coffee?.readyAt??0,room.now()).progress;}
     }
     function resize(){

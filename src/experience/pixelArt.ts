@@ -1,4 +1,5 @@
 import type {Member} from './types';
+import {appearance} from '../../shared/appearance.mjs';
 import {sampleMotion} from '../../shared/space.mjs';
 import {CUP_RETURN_MS} from './gestureTiming';
 const visibleAction=(m:Member,now:number)=>now-m.actionAt<(m.action==='wave'?CUP_RETURN_MS:3500)?m.action:'rest';
@@ -24,33 +25,35 @@ export const seats=[{x:252,y:228},{x:395,y:228},{x:324,y:216},{x:227,y:302},{x:3
 export function pixelMemberPosition(m:Member,now=Date.now()){
   const pose=sampleMotion(m,now);return pose.phase==='seated'&&m.seat!=null?seats[m.seat]:{x:80+(pose.x+5.6)/11.25*490,y:286+(pose.z+3.85)/7*25};
 }
-export function drawAvatar(c:C,x:number,y:number,variant:number,action='rest',back=false,now=0){
-  const skin='#e8bfa0',light='#f5d5b5',hair=variant?'#614c3f':'#343640',shirt=variant?'#b8b6a4':'#4c6079';
+export function drawAvatar(c:C,x:number,y:number,variant:number,action='rest',back=false,now=0,id='preview-02'){
+  const look=appearance(variant,id),skin='#e8bfa0',light='#f5d5b5',hair=look.hair,shirt=look.coat,sleeve=look.sleeve;
   // Feet, trousers, blouse, separate arms and hair silhouette are deliberately pixel-authored.
-  rect(c,x-10,y+10,8,19,variant?'#5c6572':'#c7bba6');rect(c,x+2,y+10,8,19,variant?'#505a66':'#b5a993');
+  rect(c,x-10,y+10,8,19,look.pants);rect(c,x+2,y+10,8,19,look.pants);
   rect(c,x-11,y+29,10,4,'#eee9d9');rect(c,x+2,y+29,10,4,'#eee9d9');rect(c,x-11,y+33,10,2,'#777c81');rect(c,x+2,y+33,10,2,'#777c81');
-  rect(c,x-11,y-13,22,26,pal.ink);rect(c,x-10,y-13,20,24,shirt);rect(c,x-8,y-10,4,21,variant?'#d2cbb8':'#5f748c');
+  rect(c,x-11,y-13,22,26,pal.ink);rect(c,x-10,y-13,20,24,shirt);rect(c,x-8,y-10,4,21,look.quilt?'#bca9b7':sleeve);
   rect(c,x-3,y-15,6,8,skin);poly(c,[[x-6,y-13],[x,y-6],[x-2,y+2],[x-7,y-7]],'#e8e4d7');poly(c,[[x+6,y-13],[x,y-6],[x+2,y+2],[x+7,y-7]],'#e8e4d7');
   for(let i=0;i<3;i++)rect(c,x,y+i*6,1,1,'#ddd9c9');
   rect(c,x-12,y-40,24,23,hair);rect(c,x-9,y-43,18,3,hair);
   if(!back){
     rect(c,x-10,y-33,20,15,skin);rect(c,x-8,y-35,17,15,light);rect(c,x-7,y-20,14,3,skin);rect(c,x-4,y-17,8,2,skin);
-    if(variant){poly(c,[[x-12,y-34],[x-12,y-42],[x-5,y-46],[x+3,y-43],[x+10,y-44],[x+13,y-38],[x+10,y-31],[x+6,y-36],[x+1,y-32],[x-2,y-38],[x-8,y-33]],hair);rect(c,x-7,y-42,10,2,'#8c6d51');}
+    if(look.bun){poly(c,[[x-12,y-34],[x-12,y-42],[x-5,y-46],[x+3,y-43],[x+10,y-44],[x+13,y-38],[x+10,y-31],[x+6,y-36],[x+1,y-32],[x-2,y-38],[x-8,y-33]],hair);rect(c,x-7,y-42,10,2,'#8c6d51');}
     else{rect(c,x-13,y-39,4,25,hair);rect(c,x+9,y-39,4,25,hair);poly(c,[[x-10,y-38],[x+9,y-38],[x+9,y-31],[x+5,y-34],[x+1,y-31],[x-3,y-35],[x-9,y-31]],hair);rect(c,x-8,y-41,13,2,'#53525b');}
     const blink=Math.floor(now/150)%34===0;
     rect(c,x-6,y-28,3,blink?1:3,'#423f40');rect(c,x+4,y-28,3,blink?1:3,'#423f40');
     if(!blink){rect(c,x-5,y-28,1,1,'#fff2dc');rect(c,x+5,y-28,1,1,'#fff2dc');}
     rect(c,x-8,y-24,3,1,'#d89e8a');rect(c,x+7,y-24,2,1,'#d89e8a');rect(c,x-1,y-21,3,1,'#af7564');
-  }else{rect(c,x-9,y-39,3,18,variant?'#80624d':'#4c4a53');rect(c,x-5,y-16,10,3,hair);}
-  const raised=action==='wave'||action==='bite';
-  rect(c,x-15,y-10,6,17,shirt);rect(c,x-14,y+6,6,4,skin);
-  if(raised){rect(c,x+10,y-18,5,18,shirt);rect(c,x+11,y-23,5,6,light);if(action==='wave')cup(c,x+17,y-22,'tea',0);else{rect(c,x+8,y-25,9,6,'#deb465');rect(c,x+8,y-22,9,2,'#fff0c6');}}
-  else{rect(c,x+10,y-9,6,14,shirt);rect(c,x+11,y+5,6,4,skin);}
+  }else{rect(c,x+look.part*6,y-39,2,16,'#715f52');rect(c,x-6,y-18,12,look.bun?2:3+look.cut,hair);}
+  if(look.bun)rounded(c,x+(look.part===1?6:-15),y-27,10,12,4,hair);
+  if(look.quilt)for(const offset of [-4,2,8])rect(c,x-8,y+offset,16,1,'#887b88');
+  const sipping=['wave','cup-sip','bottle-sip','tea-sip'].includes(action),raised=sipping||action==='bite';
+  rect(c,x-15,y-10,6,17,sleeve);rect(c,x-14,y+6,6,4,skin);
+  if(raised){rect(c,x+10,y-18,5,18,sleeve);rect(c,x+11,y-23,5,6,light);if(sipping)cup(c,x+17,y-22,'tea',0,false);else{rect(c,x+8,y-25,9,6,'#deb465');rect(c,x+8,y-22,9,2,'#fff0c6');}}
+  else{rect(c,x+10,y-9,6,14,sleeve);rect(c,x+11,y+5,6,4,skin);}
   if(action==='open'){rect(c,x-6,y+3,15,9,'#92b5c5');rect(c,x-4,y+4,11,6,'#f2dca0');rect(c,x-10,y+4,5,4,light);rect(c,x+8,y+4,5,4,light);}
   if(action==='offer'||action==='sample'){rect(c,x+12,y-6,16,5,shirt);rect(c,x+26,y-6,4,4,light);rect(c,x+25,y-9,15,2,'#eef0dc');rect(c,x+28,y-14,8,5,'#e0b567');}
 }
-function cup(c:C,x:number,y:number,drink:string,now:number){
-  rect(c,x+7,y-7,4,7,'#5c7182');rect(c,x+7,y-5,2,3,'#dbe3df');rect(c,x-7,y-10,14,14,'#6e869b');rect(c,x-6,y-9,12,12,drink==='coffee'?'#c7b299':'#b4cfdb');rect(c,x-5,y-9,10,3,drink==='coffee'?'#654e43':drink==='tea'?'#b5a66b':'#d6e5e1');rect(c,x-5,y-4,2,6,'#e5eddf');rect(c,x-8,y+4,17,2,'#e7e5d9');
+function cup(c:C,x:number,y:number,drink:string,now:number,saucer=true){
+  rect(c,x+7,y-7,4,7,'#5c7182');rect(c,x+7,y-5,2,3,'#dbe3df');rect(c,x-7,y-10,14,14,'#6e869b');rect(c,x-6,y-9,12,12,drink==='coffee'?'#c7b299':'#b4cfdb');rect(c,x-5,y-9,10,3,drink==='coffee'?'#654e43':drink==='tea'?'#b5a66b':'#d6e5e1');rect(c,x-5,y-4,2,6,'#e5eddf');if(saucer)rect(c,x-8,y+4,17,2,'#e7e5d9');
   if(drink!=='water')for(let i=0;i<3;i++){const dy=(now/170+i*5)%15;rect(c,x-4+i*4+Math.round(Math.sin(now/500+i)),y-13-dy,1,3,'#eef2e5');}
 }
 function chair(c:C,x:number,y:number,front=false){rect(c,x-15,y+17,3,21,'#8a7764');rect(c,x+12,y+17,3,21,'#8a7764');rect(c,x-17,y-5,34,25,'#61798b');rect(c,x-15,y-3,30,21,'#a1b7c6');rect(c,x-12,y-1,24,3,'#becbd0');if(front){rect(c,x-16,y-8,32,22,'#6c8395');rect(c,x-14,y-6,28,18,'#a4bac9');}}
@@ -111,7 +114,7 @@ export function drawRoom(c:C,allMembers:Member[],myId:string|undefined,offerCoun
   // Pendant and quiet pixel shadows.
   rect(c,322,0,1,21,'#617786');poly(c,[[314,22],[332,22],[341,34],[305,34]],'#718da2');rect(c,306,34,34,3,'#4f6d81');rect(c,312,37,22,2,'#f9e9ba');
   // Back chairs and bodies are behind the table; front visitors sit in front.
-  for(let i=0;i<3;i++){const s=seats[i];chair(c,s.x,s.y);const m=members.find(m=>m.seat===i);if(m)drawAvatar(c,s.x,s.y,m.avatar,visibleAction(m,now),false,now);}
+  for(let i=0;i<3;i++){const s=seats[i];chair(c,s.x,s.y);const m=members.find(m=>m.seat===i);if(m)drawAvatar(c,s.x,s.y,m.avatar,visibleAction(m,now),false,now,m.id);}
   poly(c,[[178,295],[512,295],[524,311],[169,312]],'#b0ad9d');
   rect(c,195,265,8,61,'#9c7d5a');rect(c,482,265,8,61,'#9c7d5a');rect(c,210,266,5,47,'#c2a27a');rect(c,468,266,5,47,'#c2a27a');
   poly(c,[[184,231],[480,231],[515,277],[165,277]],'#866e56');poly(c,[[184,224],[480,224],[515,270],[165,270]],'#d4b68e');
@@ -122,8 +125,8 @@ export function drawRoom(c:C,allMembers:Member[],myId:string|undefined,offerCoun
   members.filter(m=>m.seat!=null&&m.seat<3).forEach(m=>{const s=seats[m.seat!];const xx=s.x,yy=m.seat===2?232:247;rect(c,xx-25,yy-5,46,16,'#b99a78');rect(c,xx-23,yy-4,42,12,'#ede6d2');if(visibleAction(m,now)!=='wave')cup(c,xx-14,yy+1,m.drink,now);if(m.food?.state==='sealed')packet(c,xx+1,yy-10,.55);else if(m.food?.state==='open'){rect(c,xx+1,yy-5,14,7,'#d9aa58');rect(c,xx+1,yy-2,14,2,'#f8ebbd');}});
   rect(c,320,259,37,8,'#b1a78f');rect(c,318,257,40,7,'#eff0da');rect(c,324,255,28,4,'#f9f4df');
   if(offerCount){rect(c,328,250,17,8,'#d9ac58');rect(c,328,254,17,2,'#fff0be');rect(c,331,248,11,2,'#eac47b');}
-  for(let i=3;i<6;i++){const s=seats[i];const m=members.find(m=>m.seat===i);if(m)drawAvatar(c,s.x,s.y-5,m.avatar,visibleAction(m,now),true,now);chair(c,s.x,s.y,true);}
-  for(const m of allMembers.filter(m=>!members.includes(m))){const p=pixelMemberPosition(m,motionNow);drawAvatar(c,p.x,p.y,m.avatar,visibleAction(m,now),false,now);}
+  for(let i=3;i<6;i++){const s=seats[i];const m=members.find(m=>m.seat===i);if(m)drawAvatar(c,s.x,s.y-5,m.avatar,visibleAction(m,now),true,now,m.id);chair(c,s.x,s.y,true);}
+  for(const m of allMembers.filter(m=>!members.includes(m))){const p=pixelMemberPosition(m,motionNow);drawAvatar(c,p.x,p.y,m.avatar,visibleAction(m,now),false,now,m.id);}
   // Tiny plant and a mug left on a shelf are decor, never fake visitors.
   plant(c,34,302,2);rect(c,4,333,61,7,'#8c9985');
 }
