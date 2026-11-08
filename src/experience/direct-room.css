@@ -77,6 +77,7 @@
 .room-assist.at-object{left:14px;right:auto}
 .room-assist.at-object .look-window{display:none}
 .room-assist{gap:8px}
+@media(max-width:359px){.room-assist .seat-return-verb{display:none}}
 .first-person-mode .simple-tray .food-action-row .primary,.first-person-mode .simple-tray .tray-rest,.first-person-mode .simple-tray .share-snack{font-size:18px;line-height:1.5;min-height:48px;min-width:48px;background:#f9f6ec;color:#314a40}
 .first-person-mode .simple-tray{gap:8px}
 @media(max-width:650px){

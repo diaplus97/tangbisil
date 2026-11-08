@@ -48,7 +48,7 @@ function Modal({title,eyebrow,children,onClose,wide=false}:{title:string;eyebrow
  const ref=useRef<HTMLDialogElement>(null),close=useRef(onClose);close.current=onClose;
  useEffect(()=>{ref.current?.showModal();return()=>ref.current?.close();},[]);
  return <dialog ref={ref} className={`dialog ${wide?'wide':''}`} aria-label={title} onCancel={()=>close.current()} onClick={e=>{if(e.target===ref.current){const r=ref.current.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)close.current();}}}>
-   <header className="dialog-head"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2></div><button className="icon-button" onClick={onClose} aria-label="닫고 탕비실로 돌아가기"><Icon name="close"/></button></header>{children}
+   <header className="dialog-head"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2></div><button className="icon-button" onClick={onClose} aria-label="닫기"><Icon name="close"/></button></header>{children}
  </dialog>;
 }
 function PiePreview(){const ref=useRef<HTMLCanvasElement>(null);useEffect(()=>{drawFood(ref.current!.getContext('2d')!,0,0,false,false,900);},[]);return <canvas className="pie-preview" ref={ref} width="320" height="200" aria-label="레몬 글라세 샌드파이"/>;}
