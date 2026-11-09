@@ -16,23 +16,23 @@ export function RestActions({state,disabled,act,onExplore,onSnack,snackLabel}:Pr
  let title='',content;
  if(station==='flower'){
   title=vase?.held?'한 송이를 골랐어요. 자리에 놓고 편하게 바라보세요.':'마음에 드는 한 송이. 내 작은 꽃병에 담아요.';
-  content=<>{vase?.held?<button className="primary" onClick={onExplore}>앉을 자리 고르기</button>:pickup('하얀 꽃 고르기','vase-take','vase',{flower:'cosmos'})}<PersonalItems label="꽃 고르기" dockable={false}>{flowers.map(f=><Fragment key={f.id}>{pickup(f.name,'vase-take','vase',{flower:f.id},false)}</Fragment>)}</PersonalItems></>;
+  content=<>{vase?.held?<button className="secondary" onClick={onExplore}>앉을 자리 고르기</button>:pickup('하얀 꽃 고르기','vase-take','vase',{flower:'cosmos'})}<PersonalItems label="꽃 고르기" dockable={false}>{flowers.map(f=><Fragment key={f.id}>{pickup(f.name,'vase-take','vase',{flower:f.id},false)}</Fragment>)}</PersonalItems></>;
  }else if(station==='sand'){
   title=sand?.held?'편한 자리에 가져가 천천히 선을 그어보세요.':'흔적을 남기고 지워도 좋은 작은 모래밭.';
-  content=sand?.held?<button className="primary" onClick={onExplore}>앉을 자리 고르기</button>:pickup(sand?'내 모래 트레이 집기':'모래 트레이 가져오기','sand-take','sand');
+  content=sand?.held?<button className="secondary" onClick={onExplore}>앉을 자리 고르기</button>:pickup(sand?'내 모래 트레이 집기':'모래 트레이 가져오기','sand-take','sand');
  }else if(station==='plant'){
   title=r.sprayer?'가볍게 한 번. 잎 위에 작은 물방울이 맺혀요.':'초록은 여기서 느긋하게 기다려요.';
   content=r.sprayer?<><button className="primary" disabled={disabled} onClick={()=>action('plant-spray')}>물 한 번 뿌리기</button><button className="quiet-action" disabled={disabled} onClick={()=>action('plant-put')}>분무기 내려놓기</button></>:<>{pickup('분무기 집기','plant-take','sprayer')}{(!compact||!heldName(p))&&<button className="quiet-action" disabled={disabled||Boolean(heldName(p))} onClick={()=>action('plant-brush')}>잎 살짝 쓸기</button>}{!compact&&<button className="quiet-action" onClick={onExplore}>자리로 돌아가기</button>}</>;
  }else if(station==='stone'){
   title=sand?.held?'선을 긋거나 돌을 옮겨보세요. 모래는 그대로 남아요.':stone?.held?'편한 자리에 가져가 손에 쥐어보세요.':'부드러운 말랑돌. 필요한 동안 곁에 두어요.';
-  content=<>{stone?.held?<button className="primary" onClick={onExplore}>앉을 자리 고르기</button>:pickup(stone?'내 말랑돌 집기':'말랑돌 하나 집기','stone-take','stone')}{stone&&<button className="quiet-action" disabled={disabled} onClick={()=>action('stone-return',{itemId:stone.id})}>바구니에 반납하기</button>}</>;
+  content=<>{stone?.held?<button className="secondary" onClick={onExplore}>앉을 자리 고르기</button>:pickup(stone?'내 말랑돌 집기':'말랑돌 하나 집기','stone-take','stone')}{stone&&<button className="quiet-action" disabled={disabled} onClick={()=>action('stone-return',{itemId:stone.id})}>바구니에 반납하기</button>}</>;
  }else if(station==='tea'){
   const here=tea?.location==='station',pouring=Boolean(tea?.pourAt);
   title=!here?'따뜻한 보리차를 내 잔에 준비해요.':!tea.bagUsed?'비어 있는 잔. 티백 하나를 담아요.':pouring?'따뜻한 물이 천천히 차올라요.':tea.volume>0?'차 색이 천천히 번져요. 원할 때 가져가세요.':'원하는 만큼 물을 부어요.';
-  content=!here?(tea?.held&&me.action==='tea-take'?<><button className="primary" onClick={onExplore}>앉을 자리 고르기</button><button className="quiet-action" disabled={disabled} onClick={()=>action('tea-place')}>찻잔 다시 놓기</button></>:pickup(tea?'내 찻잔 놓기':'찻잔 놓기','tea-place','tea')):<>
+  content=!here?(tea?.held&&me.action==='tea-take'?<><button className="secondary" onClick={onExplore}>앉을 자리 고르기</button><button className="quiet-action" disabled={disabled} onClick={()=>action('tea-place')}>찻잔 다시 놓기</button></>:pickup(tea?'내 찻잔 놓기':'찻잔 놓기','tea-place','tea')):<>
    {!tea.bagUsed?<button className="primary" disabled={disabled} onClick={()=>action('tea-bag',{itemId:tea.id})}>티백 담기</button>:pouring?<button className="primary" disabled={disabled} onClick={()=>action('tea-stop',{itemId:tea.id})}>물 붓기 멈추기</button>:tea.volume<.99?<button className="primary" disabled={disabled} onClick={()=>action('tea-pour',{itemId:tea.id})}>{tea.volume>0?'물 조금 더 붓기':'물 붓기'}</button>:tea.bagIn?<button className="primary" disabled={disabled} onClick={()=>action('tea-remove',{itemId:tea.id})}>티백 받침에 놓기</button>:null}
    {tea.volume>0&&tea.bagIn&&tea.volume<.99&&!pouring&&<button className="quiet-action" disabled={disabled} onClick={()=>action('tea-remove',{itemId:tea.id})}>티백 받침에 놓기</button>}
-   {pickup('찻잔 가져오기','tea-take','tea',{itemId:tea.id},!compact)}
+   {pickup('찻잔 가져오기','tea-take','tea',{itemId:tea.id},!compact&&tea.volume>=.99&&!tea.bagIn&&!pouring)}
   </>;
   if(compact&&here&&tea.bagUsed&&!pouring&&tea.volume>0)content=<>
    {pickup('찻잔 가져오기','tea-take','tea',{itemId:tea.id})}

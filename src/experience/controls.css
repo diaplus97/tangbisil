@@ -1,0 +1,170 @@
+/* Interaction surfaces shared by the 3D room, pixel room and their panels.
+   Geometry and world-label placement stay with their respective components. */
+.pantry-app {
+  --paper: #fffaf0;
+  --ink: #254337;
+  --outline: #697c71;
+  --pine: #245849;
+  --pine-edge: #123d32;
+  --mist: #e7eee8;
+}
+
+/* An outlined, flat surface for travel, alternatives and equal choices. */
+.pantry-app.play-mode :is(
+  .world-action, .room-assist button, .object-options > summary, .pixel-return,
+  .primary, .secondary, .quiet-action, .object-action-buttons button,
+  .simple-tray .food-action-row .primary, .simple-tray .tray-rest, .simple-tray .share-snack,
+  .header-controls > button, .play-menu > summary, .sea-sound-toggle, .tv-entry, .tv-actions button,
+  .seat-picker summary, .personal-items summary, .seat-picker-panel button, .personal-items-options button,
+  .landscape-choice button, .note-actions button, .thought-picker :is(button, summary),
+  .sample-hotspot, .dialog-head .icon-button, .outfit-retry button, .connection-options button
+) {
+  color: var(--control-ink, var(--ink));
+  background: var(--control-face, var(--paper));
+  border: 1px var(--control-border, solid) var(--control-line, var(--outline));
+  border-radius: var(--control-radius, 10px);
+  box-shadow: var(--control-shadow, none);
+  font-weight: var(--control-weight, 550);
+  backdrop-filter: none;
+  text-shadow: none;
+}
+
+/* One current action rises just above its lower edge. */
+.pantry-app :is(.primary, .object-context > .world-action, .snack-world-hint, .note-echo, .connection-options button) {
+  --control-face: var(--pine);
+  --control-line: var(--pine-edge);
+  --control-ink: #fffdf6;
+  --control-weight: 650;
+  --control-shadow: inset 0 -2px var(--pine-edge), 0 1px 2px #162b2326;
+}
+.pantry-app .snack-world-hint::after {
+  background: var(--control-face);
+  border-color: var(--control-line);
+}
+
+/* Personal inventory lists equal choices. Closing a panel is also secondary. */
+.pantry-app .object-context:has(> .object-options[open]) > .world-action,
+.pantry-app .personal-items-options .primary,
+.pantry-app .tray-rest.primary {
+  --control-face: var(--paper);
+  --control-ink: var(--ink);
+  --control-line: var(--outline);
+  --control-shadow: none;
+  --control-weight: 550;
+}
+.pantry-app :is(.header-controls > button, .play-menu > summary, .object-options > summary,
+  .personal-items summary, .sea-sound-toggle, .dialog-head .icon-button) {
+  --control-face: var(--mist);
+  --control-radius: 32px;
+}
+.pantry-app.play-mode .header-controls :is(.sound-toggle, .desktop-help, .desktop-settings, .play-menu > summary) {
+  font-size: 16px;
+  gap: 4px;
+}
+.pantry-app.play-mode .header-controls .sound-toggle svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+.pantry-app .play-menu-content { background: #f7f8f2; }
+.pantry-app .play-menu-content button { color: var(--ink); }
+.pantry-app :is(.terrace-note, .thought-picker > div, .brew-feedback, .seat-picker-panel, .object-options-panel, .personal-items-panel) {
+  background-color: #f8f8f1;
+  color: var(--ink);
+  backdrop-filter: none;
+}
+
+/* Flat captions carry progress without the outline or bevel of a control. */
+.pantry-app.play-mode :is(.world-status, .arrival-note, .simple-tray .shared-status, .brew-status, .direct-hint) {
+  min-height: 0;
+  border: 0;
+  border-inline-start: 3px solid #718578;
+  border-radius: 0 5px 5px 0;
+  padding: 4px 9px;
+  background: #f2f3e9;
+  color: #364d40;
+  font-size: 14px;
+  line-height: 1.5;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.pantry-app .world-status { pointer-events: none; }
+.pantry-app .brew-feedback progress { accent-color: var(--pine); }
+.pantry-app .brew-feedback progress::-webkit-progress-value { background: var(--pine); }
+.pantry-app .brew-feedback progress::-moz-progress-bar { background: var(--pine); }
+.pantry-app.play-mode .wrapper-inset .drag-hint { background: var(--paper); color: var(--ink); }
+
+
+/* Readable at the smallest room width without reducing the camera viewport. */
+.pantry-app.play-mode .play-welcome .primary,
+.pantry-app.play-mode .welcome-name input,
+.pantry-app.play-mode .settings-form,
+.pantry-app.play-mode .settings-form label,
+.pantry-app.play-mode .settings-form :is(.sound-presets button, .landscape-choice button) {
+  font-size: 16px;
+}
+.pantry-app.play-mode .play-welcome .primary { min-height: 44px; }
+.pantry-app.play-mode .welcome-name input { min-width: 0; min-height: 44px; }
+.pantry-app .welcome-name input::placeholder { color: #53675a; opacity: 1; }
+.pantry-app.play-mode :is(.play-welcome p, .welcome-name, .welcome-name span, .welcome-appearance > summary,
+  .settings-form p, .settings-form label > span, .settings-outfit > span, .dialog-head .eyebrow,
+  .object-options-panel .object-actions > p, .object-actions > p) {
+  font-size: 14px;
+  line-height: 1.55;
+  color: #475f51;
+}
+.pantry-app .welcome-appearance > summary { padding-block: 11px; min-height: 44px; box-sizing: border-box; }
+.pantry-app.play-mode .dialog-head .icon-button { min-width: 44px; min-height: 44px; flex-shrink: 0; }
+.pantry-app.play-mode .seat-picker-panel :is(small, .area-count) { color: #465d50; }
+.pantry-app .settings-form .sound-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.pantry-app .settings-form :is(.sound-presets, .landscape-choice) button { white-space: normal; word-break: keep-all; }
+.pantry-app .settings-form .sound-presets button { padding-inline: 4px; }
+
+/* Space for a check is available on the portrait, outside its label. */
+.pantry-app .outfit-choices button { position: relative; }
+.pantry-app .outfit-choices button[aria-pressed="true"]::after {
+  content: "✓";
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--pine-edge);
+  color: white;
+  text-align: center;
+  font: bold 13px/17px system-ui, sans-serif;
+}
+.pantry-app :is(.sound-presets, .landscape-choice, .compact-view-options, .destination-objects, .view-switch, .camera-switch) button[aria-pressed="true"],
+.pantry-app .sound-toggle[aria-pressed="true"],
+.pantry-app details[open] > summary {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: .21em;
+}
+.pantry-app.play-mode :is(button, summary):active:not(:disabled) {
+  --control-shadow: inset 0 2px 0 #122e2866;
+  box-shadow: var(--control-shadow);
+}
+.pantry-app.play-mode button:disabled:not(.outfit-choices button) {
+  --control-face: #ebece5;
+  --control-ink: #4e5c54;
+  --control-line: #768478;
+  --control-shadow: none;
+  --control-border: dashed;
+  border-style: dashed;
+  opacity: 1;
+}
+.note-echo .echo-check { margin-inline-end: .3em; font-weight: 700; }
+.pantry-app.play-mode :is(button, summary, input, select, a):focus-visible {
+  --control-shadow: 0 0 0 3px white;
+  outline: 3px solid #143e35;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px white;
+}
+@media (forced-colors: active) {
+  .pantry-app.play-mode :is(button, summary, input, select, a):focus-visible { outline-color: Highlight; }
+}

@@ -34,7 +34,7 @@ export function SmokingThoughts({state,disabled,reduceMotion,act}:Props){
      <span className={'wind-thread'+(note.hasEcho?' resonant':'')} aria-hidden="true"><i/><i/></span>
      <p aria-live="polite">{thoughtPhrases[note.phrase]}</p>
      <div className="note-actions">
-       {note.mine?<span role="status">{note.hasEcho?'누군가도 그렇대요':'내가 놓은 한마디'}</span>:<button disabled={disabled||note.echoed} aria-pressed={note.echoed} onClick={()=>void act('thought-echo',{noteId:note.id})}>{note.echoed?'공감을 보냈어요':'나도 그래요'}</button>}
+       {note.mine?<span role="status">{note.hasEcho?'누군가도 그렇대요':'내가 놓은 한마디'}</span>:<button className="note-echo" disabled={disabled||note.echoed} aria-pressed={note.echoed} onClick={()=>void act('thought-echo',{noteId:note.id})}>{note.echoed?<><span className="echo-check" aria-hidden="true">✓</span>공감을 보냈어요</>:'나도 그래요'}</button>}
        {notes.length>1&&<button onClick={()=>setSelected(notes[(notes.findIndex(n=>n.id===note.id)+1)%notes.length].id)}>다른 한마디 ›</button>}
      </div>
    </article>}

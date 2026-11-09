@@ -10,7 +10,7 @@ export function directAction(state:Snapshot,target:string):DirectAction|null{
   const p=state.self.pantry,r=p.rest,c=p.candy,b=p.bottle,t=r.tea;
   const pick=(label:string,type:string,except:string,extra:Record<string,unknown>={}):DirectAction=>({label,type,extra:{...extra,stow:Boolean(heldName(p,except))}});
   if(target==='held'){const kind=c?.held&&c.state!=='eaten'?'candy':b?.held&&b.sips<3?'bottle':r.sprayer?'plant':t?.held?'tea-held':r.stone?.held?'stone':null;if(!kind)return null;target=kind;}
-  if(target==='snack')return{label:state.self.serving?.state==='open'?'한입 먹기':state.self.serving?.state==='sealed'?'포장 열기':'레몬파이',type:'snack'};
+  if(target==='snack')return{label:state.self.serving?.state==='open'?'한입 먹기':state.self.serving?.state==='sealed'?'포장 열기':'간식 꺼내기',type:'snack'};
   if(target==='shared')return{label:'나눈 한 조각 집기',type:'shared'};
   if(target==='cup'){const drink=tableDrink(p);if(drink==='tea'&&t)return t.volume>0?{label:'보리차 한 모금',type:'tea-sip',extra:{itemId:t.id,table:true,volume:t.volume}}:{label:'빈 찻잔 · 다시 준비하기',type:'refill-tea'};if(drink==='bottle'&&b)return b.sips<3?{label:'음료 한 모금',type:'bottle-sip',extra:{itemId:b.id,table:true,sips:b.sips}}:{label:'빈 병 · 새 음료',type:'refill-bottle'};return p.coffee.stage==='carried'?{label:(p.coffee.sips??0)>=CUP_SIPS?'빈 잔 · 커피 준비하기':'한 모금',type:(p.coffee.sips??0)>=CUP_SIPS?'refill-cup':'cup-sip',extra:{sips:p.coffee.sips??0}}:null;}
   if(target==='candy'){

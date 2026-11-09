@@ -18,6 +18,7 @@ import './experience.css';
 import './play.css';
 import './first-person.css';
 import './direct-room.css';
+import './controls.css';
 const VaseStage=lazy(()=>import('./VaseStage'));
 const SandStage=lazy(()=>import('./SandStage'));
 const StoneStage=lazy(()=>import('./StoneStage'));
@@ -200,7 +201,7 @@ export default function Experience(){
    {panel==='album'&&me&&<Modal title="간식 기록" eyebrow="맛본 날의 작은 기억" onClose={()=>setPanel(null)}>
      <div className="album-page"><div className={'album-sticker '+(!discovered?'undiscovered':'')}><PiePreview/><span className="sticker-id">No. 001 / LEMON</span>{discovered&&<span className="album-stamp">맛본 날의 기록</span>}</div><h3>{discovered?'레몬 샌드파이':'아직 맛본 간식이 없어요'}</h3><p>{discovered?'레몬잼과 크림 사이, 오후에 찾은 작은 맛.':'간식을 한입 먹으면 여기에 남아요.'}</p>{discovered&&<div className="album-details"><span>첫 발견 <b>{new Date(lemonRecord!.discovered_at).toLocaleDateString('ko-KR')}</b></span><span>만난 곳 <b>{lemonRecord!.source==='shared'?'동료의 시식 접시':'창가의 간식 선반'}</b></span><span>내 탕비 예산 <b>{me.coins}</b></span></div>}{candyRecord&&<div className="candy-record"><span>🍬</span><div><strong>레몬꿀 사탕</strong><p>한 알의 달콤한 쉼표 · {new Date(candyRecord.discovered_at).toLocaleDateString('ko-KR')}</p></div></div>}<p className="small-print">같은 브라우저로 다시 오면 기록이 이어져요.</p></div>
    </Modal>}
-   {panel==='drink'&&me&&<Modal title="한 잔을 준비하러 갈까요?" eyebrow="자리 고르기" onClose={()=>setPanel(null)}><div className="help-content"><p>커피 머신에 컵을 놓고 커피를 내리거나, 냉장고에서 시원한 음료를 꺼낼 수 있어요.</p><button className="primary" onClick={explore}>갈곳 찾기</button></div></Modal>}
+   {panel==='drink'&&me&&<Modal title="한 잔을 준비하러 갈까요?" eyebrow="자리 고르기" onClose={()=>setPanel(null)}><div className="help-content"><p>커피 머신에 컵을 놓고 커피를 내리거나, 냉장고에서 시원한 음료를 꺼낼 수 있어요.</p><button className="secondary" onClick={explore}>갈곳 찾기</button></div></Modal>}
    {panel==='help'&&<Modal title="잠깐 쉬어가는 방법" eyebrow="탕비실" onClose={()=>setPanel(null)}><div className="help-content"><p>앉아 있을 때도 손가락으로 화면을 밀거나 마우스로 드래그해 주변을 둘러보세요. 키보드 방향키도 사용할 수 있어요. 바닥을 톡 누르면 그곳으로 걷고, 물체를 누르면 가까이 갑니다. 가까이에서 다시 누르면 사용할 수 있어요. 빈 의자를 누르면 앉아요. W·A·S·D를 누르는 동안 화면 방향으로 걷고, 키를 놓거나 Esc를 누르면 멈춥니다. 한글 입력 상태에서도 같은 키를 사용할 수 있어요. 바닥을 누른 곳에는 목적지 링이 나타납니다. 메뉴의 ‘갈곳 찾기’에서도 목적지를 고를 수 있어요. 창가 식물에 물을 뿌리거나, 말랑돌을 가져오거나, 보리차를 준비해도 좋아요. 걷는 중에도 목적지를 바꾸거나 멈출 수 있어요.</p><p>사탕은 집은 뒤 ‘포장 열기’를 한 번 누르면 열립니다. 내 테이블의 간식과 컵을 바로 눌러 한입, 한 모금씩 즐겨요. 포장만 잠깐 크게 볼 수 있고, 컵을 눌러 언제든 바꿀 수 있어요. 뜯던 포장과 남은 양은 그대로 이어져요.</p><p>포장을 연 뒤에는 ‘한 조각 나누기’로 공용 접시에 놓을 수 있어요. 다른 사람이 놓은 조각은 방 안의 ‘한 조각 맛보기’로 가져와요.</p><div className="help-invite"><strong>동료와 함께 쉬고 싶다면</strong><p>메뉴의 ‘동료 초대’로 링크를 복사하거나, 다른 방문자를 열어보세요.</p><button className="secondary" onClick={()=>{const u=new URL(location.href);u.search='';u.searchParams.set('visitor',crypto.randomUUID());u.searchParams.set('room',roomId);window.open(u.href,'_blank','noopener');}}>두 번째 방문자 열기 ↗</button></div></div></Modal>}
  </main></ToolsDockContext.Provider>;
 }
