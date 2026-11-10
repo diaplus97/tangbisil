@@ -47,7 +47,14 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
   const requesting=useRef(false),origin=useRef<number|null>(null);
   const stopKeyboard=useRef<()=>Promise<void>>(async()=>{});
   const usingObject=useRef(false),usedAt=useRef(-Infinity),usedTarget=useRef('');
-  async function useNearObject(id:string){if(disabled&&id!=='cup'||usingObject.current||usedTarget.current===id&&performance.now()-usedAt.current<380)return;usingObject.current=true;try{return await onUse(id);}finally{usedAt.current=performance.now();usedTarget.current=id;usingObject.current=false;}}
+  async function useNearObject(id:string){
+    const snapshot=latest.current;
+    const step=id==='candy'&&snapshot?directAction(snapshot,id)?.type??id:id;
+    if(disabled&&id!=='cup'||usingObject.current||usedTarget.current===step&&performance.now()-usedAt.current<380)return;
+    usingObject.current=true;
+    try{return await onUse(id);}
+    finally{usedAt.current=performance.now();usedTarget.current=step;usingObject.current=false;}
+  }
   const me=state?.room.members.find(m=>m.id===state.self.id),seat=me?.seat??0;
   const tabledDrink=me?.seat!=null&&state&&(tableDrink(state.self.pantry)==='tea'&&heldName(state.self.pantry)==='찻잔'||tableDrink(state.self.pantry)==='bottle'&&heldName(state.self.pantry)==='음료 병');
   useEffect(()=>{if(['tea-hold','bottle-hold'].includes(me?.action??''))container.current?.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>{d.open=false;});},[me?.actionAt]);

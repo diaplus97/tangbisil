@@ -36,14 +36,14 @@ export function bottleModel(kit:Workshop,parent:T.Object3D,sips=0){
 }
 export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   const foregroundScene=scene;if(!visible)scene=new T.Scene();
-  const fixed=new T.Group();scene.add(fixed);
   const hits:T.Mesh[]=[],hitMaterial=new T.MeshBasicMaterial({visible:false});
   for(const [id,p]of Object.entries(stations)){const hit=kit.mesh(scene,new T.BoxGeometry(1.2,2.1,1.35),hitMaterial,p.x,1.05,p.z);hit.userData.station=id;hit.castShadow=false;hits.push(hit);}
-  const bowl=new T.Group();bowl.position.set(stations.candy.x,1.34,stations.candy.z);fixed.add(bowl);
+  const bowl=new T.Group();bowl.position.set(stations.candy.x,1.34,stations.candy.z);scene.add(bowl);bowl.userData={directSurface:true,action:'candy',station:'candy'};
   const bowlGeo=new T.LatheGeometry([[0,0],[.25,0],[.34,.1],[.39,.19],[.38,.21],[.36,.19],[.31,.1],[.23,.035],[0,.035]].map(([r,y])=>new T.Vector2(r,y)),48);
   kit.mesh(bowl,bowlGeo,kit.mat('#b6c3aa',.36));
   for(let i=0;i<11;i++){const c=candyModel(kit,bowl);c.position.set(Math.sin(i*2.4)*.22,.12+Math.floor(i/4)*.055,Math.cos(i*2.4)*.22);c.rotation.set(i*.23,i*.8,i*.12);c.scale.setScalar(.8);}
   const candyTag=label(kit,bowl,'레몬꿀 사탕',.48,.12,.43,.09,0,'#547063','#f3eed9',90);candyTag.rotation.y=Math.PI/2;
+  consolidate(bowl,kit);
   const machine=new T.Group();machine.name='pantry-coffee-machine';machine.position.set(stations.coffee.x,1.34,stations.coffee.z);machine.rotation.y=Math.PI/2;scene.add(machine);machine.userData={directSurface:true,action:'coffee',station:'coffee'};
   kit.box(machine,.72,.82,.57,0,.42,0,'#dddccf',.075);
   kit.box(machine,.58,.54,.03,0,.35,.3,'#354e55',.015);
@@ -64,7 +64,7 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   const steam=new T.Group();cupRoot.add(steam);
   const steamMaterial=new T.MeshBasicMaterial({color:'#f3f5eb',transparent:true,opacity:.18,depthWrite:false});
   for(let i=0;i<6;i++){const p=kit.mesh(steam,new T.SphereGeometry(.025,10,8),steamMaterial,0,.3,.35);p.castShadow=false;}
-  const fridge=new T.Group();fridge.position.set(stations.fridge.x,0,stations.fridge.z);fridge.rotation.y=Math.PI/2;fixed.add(fridge);
+  const fridge=new T.Group();fridge.position.set(stations.fridge.x,0,stations.fridge.z);fridge.rotation.y=Math.PI/2;scene.add(fridge);
   const cream='#d9e2d8',inside='#eff2e7';
   kit.box(fridge,1.18,2.3,.14,0,1.17,-.4,cream,.035);
   for(const x of[-.56,.56])kit.box(fridge,.1,2.3,.92,x,1.17,0,cream,.035);
@@ -93,7 +93,7 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   // door meshes so the occlusion test accepts their own front surface.
   doorPieces.userData={directSurface:true,action:'fridge-door',station:'fridge'};
   // Static batch excludes the articulated door and the bottle being picked.
-  fridge.remove(hinge,bottles,pickupBottle);fixed.remove(fridge);consolidate(fridge,kit);consolidate(fixed,kit);scene.add(fridge);fridge.add(hinge,bottles,pickupBottle);
+  fridge.remove(hinge,bottles,pickupBottle);consolidate(fridge,kit);fridge.add(hinge,bottles,pickupBottle);
   for(const stock of [bottles,pickupBottle]){
     stock.userData={action:'fridge-bottle',station:'fridge',directSurface:false};
     // The glass shoulder and neck count as part of the bottle, too.
