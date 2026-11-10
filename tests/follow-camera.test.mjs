@@ -15,6 +15,16 @@ test('standing uses a wider middle-distance view while the seated tray remains c
  assert.ok((head.y-feet.y)/2<.36);
 });
 
+test('walking keeps the optical heading along a bent route and near the wall',()=>{
+ const yaw=-2.82,view=createFollowCamera({x:-3.7,z:1.75},yaw,'pantry',createCameraCollision('pantry'));
+ view.resize(390/844,true);assert.ok(view.camera.fov>=80);
+ for(const [x,z] of [[-3.7,1.75],[-5.85,1.75],[-5.85,-2.5],[.95,-3],[7,6.4]]){
+  for(let i=0;i<100;i++)view.follow({x,z,stableHeading:true},1/60,false);
+  const d=view.camera.getWorldDirection(new T.Vector3()),delta=Math.atan2(d.x,d.z)-yaw;
+  assert.ok(Math.abs(Math.atan2(Math.sin(delta),Math.cos(delta)))<.02);
+ }
+});
+
 test('room-scale camera solids stop the lens at the overhead cabinet without triangle picking',()=>{
  const clip=createCameraCollision('pantry'),origin=new T.Vector3(-5.85,2.05,-1.4),desired=new T.Vector3(-7.6,3,-1.4);
  clip(origin,desired);assert.ok(desired.x>-7.13);assert.ok(desired.distanceTo(origin)>.5);

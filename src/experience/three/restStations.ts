@@ -34,7 +34,7 @@ export function createRestStations(kit:Workshop,scene:T.Scene,visible=true){
  furniture.remove(parkedMister);shelf.add(parkedMister);consolidate(furniture,kit);
  const mistMaterial=new T.MeshBasicMaterial({color:'#e5fff4',transparent:true,opacity:.42,depthWrite:false});
  const mist=new T.InstancedMesh(new T.SphereGeometry(.007,5,4),mistMaterial,52);mist.frustumCulled=false;shelf.add(mist);const dummy=new T.Object3D();
- const basket=new T.Group();basket.position.set(stations.stone.x,0,stations.stone.z);scene.add(basket);
+ const basket=new T.Group();basket.userData={directSurface:true,station:'stone',action:'stone'};basket.position.set(stations.stone.x,0,stations.stone.z);scene.add(basket);
  kit.box(basket,1.15,.07,.7,0,.74,0,'#c6b79b',.06);for(const x of[-.48,.48])for(const z of[-.26,.26])kit.box(basket,.055,.74,.055,x,.37,z,'#769289',.018);
  const woven=kit.mat('#b2b69a',.92),profile=[[.18,0],[.24,0],[.29,.17],[.282,.2],[.26,.2],[.22,.04],[.18,.04]].map(([r,y])=>new T.Vector2(r,y));kit.mesh(basket,new T.LatheGeometry(profile,48),woven,0,.78,0);
  for(let j=0;j<10;j++){const ring=kit.mesh(basket,new T.TorusGeometry(.24+j*.004,.004,5,64),kit.mat(j%2?'#a2a78a':'#c4c8ae'),0,.79+j*.018,0);ring.rotation.x=Math.PI/2;}

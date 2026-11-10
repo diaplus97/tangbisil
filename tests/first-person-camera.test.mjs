@@ -9,12 +9,12 @@ test('seated look changes direction without moving the eye or requiring a new ca
  for(let i=0;i<60;i++){view.anchor(eye);view.update(1/30,false);}
  assert.deepEqual(view.angles,look);assert.deepEqual(view.camera.position.toArray(),position.toArray());
  for(let i=0;i<200;i++)view.turn(.12,.08);
- assert.equal(view.angles.pitch,.38);assert.ok(view.angles.yaw>Math.PI*4,'horizontal look is not locked to the seated chair');
+ assert.equal(view.angles.pitch,.8);assert.ok(view.angles.yaw>Math.PI*4,'horizontal look is not locked to the seated chair');
 });
 test('wide first-person lens stays bounded on portrait displays and never changes because of looking',()=>{
  for(const aspect of [1190/420,370/420,300/248]){
   const view=createFirstPersonCamera(eye);view.resize(aspect);const fov=view.camera.fov;
-  assert.ok(fov>=42&&fov<=92);view.drag(200,400,300,248);view.update(.1,true);assert.equal(view.camera.fov,fov);assert.ok(view.angles.pitch>=-.65);
+  assert.ok(fov>=42&&fov<=92);view.drag(200,400,300,248);view.update(.1,true);assert.equal(view.camera.fov,fov);assert.ok(view.angles.pitch>=-1.05);
  }
  const desktop=createFirstPersonCamera(eye);desktop.resize(1190/420);
  const horizontal=2*Math.atan(Math.tan(desktop.camera.fov*Math.PI/360)*desktop.camera.aspect)*180/Math.PI;

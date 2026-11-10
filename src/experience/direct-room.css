@@ -68,6 +68,10 @@
 .object-context.at-station{flex-wrap:wrap}
 .arrival-note{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);white-space:nowrap;font-size:15px;color:#314a40;background:#f9f6ec;padding:5px 10px;border-radius:9px;pointer-events:none}
 .brew-feedback{display:grid;gap:8px;width:220px;max-width:calc(100vw - 40px);padding:10px;border-radius:14px;background:#f9f6ec;color:#314a40;font-size:16px;text-align:center;box-shadow:0 3px 18px #2b443826;pointer-events:auto}
+@media(max-width:440px){
+ .object-context.at-station:has(.brew-feedback){width:calc(100% - 24px);flex-wrap:nowrap}
+ .brew-feedback{flex:0 1 210px;min-width:0;box-sizing:border-box}
+}
 .brew-feedback progress{appearance:none;width:100%;height:5px;border:0;border-radius:5px;background:#dce2d3;overflow:hidden}
 .brew-feedback progress::-webkit-progress-bar{background:#dce2d3}.brew-feedback progress::-webkit-progress-value{background:#80936b}
 .wrapper-progress{position:absolute;bottom:2px;left:15%;width:70%;height:4px;border-radius:3px;background:#e4e1cb;overflow:hidden;pointer-events:none}
@@ -103,6 +107,10 @@
 .settings-outfit{display:grid;gap:6px}.settings-outfit>span{font-size:13px;color:#4d6259}
 .outfit-choices button{padding:0;overflow:hidden;line-height:0}.outfit-choices img{display:block;width:100%;height:100%;object-fit:cover}
 .settings-outfit .outfit-choices{display:flex;gap:8px}.settings-outfit .outfit-choices button{width:54px;height:62px}
+
+.floor-tap-feedback{position:absolute;z-index:6;width:28px;height:14px;transform:translate(-50%,-50%);border:3px solid #fff8da;border-radius:50%;box-shadow:0 0 0 2px #235349,inset 0 0 0 2px #235349;opacity:0;pointer-events:none}
+.follow-mode .room-assist .view-guide{font-size:14px;padding:8px 10px}
+@media(max-width:359px){.follow-mode .room-assist:has(.view-guide) .look-window{font-size:13px;padding:8px}}
 
 /* Low third-person view: small labels stay beside the actual table objects. */
 .follow-mode .cup-world-hint{position:absolute;z-index:11;font-size:14px;min-height:44px;padding:8px 10px;max-width:140px}

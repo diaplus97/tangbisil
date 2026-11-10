@@ -44,7 +44,7 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   kit.mesh(bowl,bowlGeo,kit.mat('#b6c3aa',.36));
   for(let i=0;i<11;i++){const c=candyModel(kit,bowl);c.position.set(Math.sin(i*2.4)*.22,.12+Math.floor(i/4)*.055,Math.cos(i*2.4)*.22);c.rotation.set(i*.23,i*.8,i*.12);c.scale.setScalar(.8);}
   const candyTag=label(kit,bowl,'레몬꿀 사탕',.48,.12,.43,.09,0,'#547063','#f3eed9',90);candyTag.rotation.y=Math.PI/2;
-  const machine=new T.Group();machine.position.set(stations.coffee.x,1.34,stations.coffee.z);machine.rotation.y=Math.PI/2;scene.add(machine);machine.userData={directSurface:true,action:'coffee',station:'coffee'};
+  const machine=new T.Group();machine.name='pantry-coffee-machine';machine.position.set(stations.coffee.x,1.34,stations.coffee.z);machine.rotation.y=Math.PI/2;scene.add(machine);machine.userData={directSurface:true,action:'coffee',station:'coffee'};
   kit.box(machine,.72,.82,.57,0,.42,0,'#dddccf',.075);
   kit.box(machine,.58,.54,.03,0,.35,.3,'#354e55',.015);
   kit.box(machine,.36,.13,.12,0,.65,.35,'#78908e',.025);

@@ -92,7 +92,10 @@ export function createArchitecture(kit:Workshop,scene:T.Scene){
     geometry.computeVertexNormals();kit.mesh(furniture,geometry,s.wood,table.x,.53,table.z);
     contactShadow(kit,fixed,table.x,table.z,1.8,table.length*.7,.27);
   }
-  seats.forEach(([x,z,yaw],i)=>{const c=chair(kit,fixed,s,i%3);c.position.set(x,0,z);c.rotation.y=yaw;});
+  seats.forEach(([x,z,yaw],i)=>{
+    const c=chair(kit,scene,s,i%3);c.position.set(x,0,z);c.rotation.y=yaw;
+    consolidate(c,kit);c.userData={directSurface:true,seat:i};
+  });
   kit.cylinder(fixed,.26,.25,.028,sharedPlate.x,1.235,sharedPlate.z,'#f5f0dd');
   kit.cylinder(fixed,.215,.215,.009,sharedPlate.x,1.254,sharedPlate.z,'#e2e7dc');
   // A separate window seat frames the horizon without filling it.

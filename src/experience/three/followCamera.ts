@@ -1,7 +1,7 @@
 import * as T from 'three';
 
 type Focus={x:number;z:number;y?:number;yaw?:number;viewOffset?:number};
-type Subject={x:number;z:number;sit?:number;focus?:Focus|null;steering?:boolean};
+type Subject={x:number;z:number;sit?:number;focus?:Focus|null;steering?:boolean;stableHeading?:boolean};
 const deltaAngle=(a:number,b:number)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
 export function createFollowCamera(point:{x:number;z:number},yaw=Math.PI,area='pantry',resolve?:(origin:T.Vector3,desired:T.Vector3,ignoreNear?:number)=>void){
  const camera=new T.PerspectiveCamera(55,1,.08,70),anchor=new T.Vector3(point.x,0,point.z);
@@ -30,6 +30,20 @@ export function createFollowCamera(point:{x:number;z:number},yaw=Math.PI,area='p
    wasReduced=reduced;
    anchor.x+=(p.x-anchor.x)*damp;anchor.z+=(p.z-anchor.z)*damp;
    origin.set(anchor.x,2.05,anchor.z);
+   if(p.stableHeading){
+     // Shorten the boom along the same bearing at a wall instead of orbiting
+     // to the other shoulder as a path bends around a table or cabinet.
+     const bx=-Math.sin(yaw),bz=-Math.cos(yaw);
+     const edge=(v:number,offset:number,min:number,max:number)=>Math.abs(offset)<.0001?Infinity:((offset>0?max:min)-v)/offset;
+     const arm=Math.max(.1,Math.min(distance+1,edge(anchor.x,bx,-bounds.x,bounds.x),edge(anchor.z,bz,bounds.minZ,bounds.maxZ)));
+     desired.set(anchor.x+bx*arm,2.65,anchor.z+bz*arm);resolve?.(origin,desired);
+     camera.position.copy(desired);
+     aimPoint.set(anchor.x-bx*.6,1.42+pitch*3,anchor.z-bz*.6);
+     camera.lookAt(aimPoint);camera.updateMatrixWorld();
+     orbit=yaw+Math.PI;radius=Math.hypot(desired.x-anchor.x,desired.z-anchor.z);height=desired.y;
+     ready=true;manual=false;manualFocus=null;lastFocus=null;steeringOrbit=null;weight=0;headingOffset=0;pitchOffset=0;
+     return;
+   }
    const target=p.focus??null;
    if(target!==lastFocus){
      manualFocus=null;
@@ -101,7 +115,7 @@ export function createFollowCamera(point:{x:number;z:number},yaw=Math.PI,area='p
    manual=true;manualFocus=lastFocus;steeringOrbit=null;
  }
  return {camera,follow,
-   resize(aspect:number){camera.aspect=aspect;const portrait=1-T.MathUtils.smoothstep(aspect,.55,1.22);camera.fov=55+portrait*20;distance=5.3-portrait*.53;camera.updateProjectionMatrix();},
+   resize(aspect:number,walking=false){camera.aspect=aspect;const portrait=1-T.MathUtils.smoothstep(aspect,.55,1.22);camera.fov=walking?58+portrait*24:55+portrait*20;distance=5.3-portrait*.53;camera.updateProjectionMatrix();},
    drag(dx:number,dy:number,width:number,height:number){takeLook();yaw-=dx/Math.max(width,1)*Math.PI*1.35;pitch=T.MathUtils.clamp(pitch-dy/Math.max(height,1)*1.1,-.48,.23);},
    turn(horizontal:number,vertical:number){takeLook();yaw+=horizontal;pitch=T.MathUtils.clamp(pitch+vertical,-.48,.23);},
    aim(nextYaw:number,nextPitch=-.13){takeLook();yaw=nextYaw-(wasReduced?headingOffset:0);pitch=nextPitch-(wasReduced?pitchOffset:0);},
