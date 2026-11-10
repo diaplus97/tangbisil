@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {directActionKey} from '../src/experience/directActions.ts';
 import {keepsCupContact} from '../src/experience/cupContact.ts';
+test('consecutive coffee steps accept the first tap while repeated taps on one step share a debounce key',()=>{
+ const state={self:{id:'me',pantry:{rest:{},coffee:{stage:'carried'}}},room:{members:[{id:'me',action:'approach'}]}};
+ for(const [stage,key] of [['carried','coffee-place'],['placed','coffee-brew'],['ready','coffee-take']]){
+  state.self.pantry.coffee.stage=stage;
+  assert.equal(directActionKey(state,'coffee'),key);
+  assert.equal(directActionKey(structuredClone(state),'coffee'),key);
+  assert.equal(directActionKey(state,'cup'),'cup');
+ }
+});
 const member=(action,stage='carried',station=null)=>({action,actionAt:1080,connected:true,station,pantry:{coffee:{stage}}});
 test('cup contact survives compatible fast followups but not cancellation or replacement',()=>{
  assert.equal(keepsCupContact({action:'coffee-place',at:1000},member('coffee-brew','brewing','coffee')),true);

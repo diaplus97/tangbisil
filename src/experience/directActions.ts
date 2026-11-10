@@ -4,6 +4,12 @@ import {heldName} from '../../shared/rest.mjs';
 import type {Snapshot} from './types';
 
 export type DirectAction={label:string;type:string;extra?:Record<string,unknown>};
+// A newly labelled button can be used immediately even on the same object.
+export function directActionKey(state:Snapshot|null,target:string):string{
+  if(!state||(target!=='coffee'&&target!=='candy'))return target;
+  return directAction(state,target)?.type??target;
+}
+
 // World hits and their keyboard-accessible buttons use the same state transition.
 // Looking/approaching never consumes an item; a second, deliberate tap uses it.
 export function directAction(state:Snapshot,target:string):DirectAction|null{

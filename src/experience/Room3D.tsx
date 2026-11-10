@@ -16,7 +16,7 @@ import {createFirstPersonCamera,type Eye} from './three/firstPersonCamera';
 import {createKeyboardWalk,keyboardVector,movementCodes,bearingChanged} from './keyboardWalk';
 import {useInputMethod} from './useInputMethod';
 import {placeTableActions} from './tableActionPlacement';
-import {directAction} from './directActions';
+import {directAction,directActionKey} from './directActions';
 import {coffeePhase} from '../../shared/coffee.mjs';
 import {tableDrink} from '../../shared/table-drink.mjs';
 import {heldName} from '../../shared/rest.mjs';
@@ -48,8 +48,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
   const stopKeyboard=useRef<()=>Promise<void>>(async()=>{});
   const usingObject=useRef(false),usedAt=useRef(-Infinity),usedTarget=useRef('');
   async function useNearObject(id:string){
-    const snapshot=latest.current;
-    const step=id==='candy'&&snapshot?directAction(snapshot,id)?.type??id:id;
+    const step=directActionKey(latest.current,id);
     if(disabled&&id!=='cup'||usingObject.current||usedTarget.current===step&&performance.now()-usedAt.current<380)return;
     usingObject.current=true;
     try{return await onUse(id);}
