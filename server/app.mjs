@@ -1,4 +1,5 @@
 import http from 'node:http';
+import {smokingAction} from './smoking.mjs';
 import {expireThoughts,nextThoughtExpiry,thoughtAction} from './thoughts.mjs';
 import {sandContact} from './sand-contact.mjs';
 import {roomSnapshot,roomSnapshotBatch,validateSnackAction,actionNames as actions} from './room-view.mjs';
@@ -119,6 +120,10 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
           const input=actionInput(await body(req));
           const r=room(roomId), m=r.members.get(id);
           if(!m?.streams.size)throw new GameError('방에 연결하고 있어요. 잠시 후 다시 눌러 주세요.',409);
+          if(input.type.startsWith('smoke-')){
+            const result=smokingAction(m,input);if(!result.replay)broadcast(r,'smoking');
+            send(res,200,{...result,state:snapshot(r,id)});return;
+          }
           if(input.type==='thought-leave'||input.type==='thought-echo'){
             const result=thoughtAction(r,m,input);if(!result.replay){scheduleThoughtExpiry(r);broadcast(r,'smoking');}
             send(res,200,{...result,state:snapshot(r,id)});return;

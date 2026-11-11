@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {readFile} from 'node:fs/promises';
 import {createHash,randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
+import {SMOKE_LIGHT_MS,SMOKE_PUFF_MS,SMOKE_OUT_MS} from '../../shared/smoking.mjs';
 import {flowers} from '../../shared/vase.mjs';
 import {tvQueue} from '../../shared/room-media.mjs';
 const require=createRequire(import.meta.url),fromWrangler=createRequire(require.resolve('wrangler/package.json'));
@@ -101,6 +102,45 @@ test('Cloudflare terrace notes survive hibernation and expire even with exhauste
  await writer.wait(()=>writer.state.room.thoughts?.length===0,55000);
  const stored=await read();assert.equal(stored.retries,4);assert.equal(stored.retryAt,0);assert.ok(stored.pending[key]);assert.deepEqual(stored.thoughts,[]);
  await home.exec("UPDATE cf_json SET value=? WHERE key='record'",original);
+});
+
+test('Cloudflare smoking synchronizes per visitor and survives hibernation, replay and departure',{timeout:120000},async t=>{
+ const {mf,visitor,connect}=await setup(t),a=await visitor('흡연A'),b=await visitor('흡연B'),c=await connect(a),peer=await connect(b);
+ const own=(client,id=a.user.id)=>client.state.room.members.find(m=>m.id===id);
+ const smoking=()=>own(c).smoking;
+ const payload=()=>({itemId:smoking().id,revision:smoking().revision});
+ assert.equal((await c.act('smoke-take',{revision:0})).status,409);
+ await Promise.all([c.act('travel',{to:'smoking'}),peer.act('travel',{to:'smoking'})]);await Promise.all([c.arrive(),peer.arrive()]);
+ const key=randomUUID(),start={revision:0};
+ const result=await Promise.all([c.act('smoke-take',start,key),peer.act('smoke-take',start)]);
+ assert.ok(result.every(r=>r.status===200));
+ await peer.wait(()=>own(peer)?.smoking);
+ const session=smoking().id,litAt=smoking().litAt;
+ assert.notEqual(session,own(peer,b.user.id).smoking.id);
+ assert.equal((await c.act('smoke-take',start,key)).data.replay,true);
+ assert.equal(smoking().litAt,litAt);
+ assert.equal((await peer.act('smoke-out',payload())).status,409);
+ await delay(Math.max(0,litAt+SMOKE_LIGHT_MS-Date.now()+20));
+ const puffKey=randomUUID(),puff=payload();assert.equal((await c.act('smoke-puff',puff,puffKey)).status,200);
+ await peer.wait(()=>own(peer)?.smoking?.puffs===1);
+ assert.equal(own(peer,b.user.id).smoking.puffs,0);
+ await mf.unsafeEvictDurableObject('pantry-test','PantryRoom',{name:'window',webSockets:'hibernate'});
+ assert.equal((await c.act('smoke-puff',puff,puffKey)).data.replay,true);assert.equal(smoking().id,session);assert.equal(smoking().puffs,1);
+ assert.equal((await c.act('smoke-puff',puff)).status,409);
+ const duplicate=await connect(a);assert.equal(own(duplicate).smoking.id,session);assert.equal(own(duplicate).smoking.litAt,litAt);
+ await delay(Math.max(0,smoking().puffAt+SMOKE_PUFF_MS-Date.now()+20));
+ const current=payload(),race=await Promise.all([c.act('smoke-puff',current),duplicate.act('smoke-puff',current)]);
+ assert.deepEqual(race.map(r=>r.status).sort(),[200,409]);await c.wait(()=>smoking()?.puffs===2);
+ assert.equal((await c.act('thought-leave',{phrase:'quiet',sentAt:Date.now()})).status,200);await peer.wait(()=>peer.state.room.thoughts?.length);
+ assert.equal((await peer.act('thought-echo',{noteId:peer.state.room.thoughts[0].id})).status,200);
+ const outKey=randomUUID(),out=payload();assert.equal((await c.act('smoke-out',out,outKey)).status,200);assert.equal((await c.act('smoke-out',out,outKey)).data.replay,true);
+ await peer.wait(()=>own(peer)?.smoking?.endedAt);assert.equal(smoking().puffAt,0);assert.equal(own(peer,b.user.id).smoking.endedAt,0);
+ await delay(SMOKE_OUT_MS+20);assert.equal((await c.act('smoke-take',payload())).status,200);
+ const leaving=smoking().id;assert.notEqual(leaving,session);
+ assert.equal((await c.act('stand')).status,200);assert.ok(smoking().endedAt);assert.equal(smoking().puffAt,0);
+ await c.arrive();assert.equal((await c.act('smoke-puff',payload())).status,409);
+ assert.equal((await c.act('travel',{to:'pantry'})).status,200);await c.arrive();
+ assert.equal(own(c).smoking,null);assert.equal((await c.act('smoke-take',{revision:0})).status,409);
 });
 
 async function setup(t,overrides={}){

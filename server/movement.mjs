@@ -2,6 +2,7 @@ import {exitsFrom,getSpace,isWalkable,planMotion,sampleMotion} from '../shared/s
 import {reservedSeats,clearParkedTray} from './travel.mjs';
 import {GameError} from '../shared/errors.mjs';
 import {steeringTarget} from '../shared/steering.mjs';
+import {stopSmoking} from './smoking.mjs';
 
 export function moveVisitor(room,member,input,now=Date.now()){
   if(typeof input.requestId!=='string'||!/^[\w-]{8,80}$/.test(input.requestId))throw new GameError('요청 번호를 확인해 주세요.',400);
@@ -48,6 +49,7 @@ export function moveVisitor(room,member,input,now=Date.now()){
   if(departure.inSeat!=null&&departure.inSeat===member.seat&&departure.sit>.52)member.parkedSeat=departure.inSeat;
   if(seat!=null)clearParkedTray(room,area,seat,member.id);
   if(travel)clearParkedTray(room,travel.to,travel.seat);
+  stopSmoking(member,now);
   member.seat=seat;member.station=station;member.motion=motion;member.moves.set(input.requestId,signature);
   if(member.moves.size>64)member.moves.delete(member.moves.keys().next().value);
   return{replay:false};

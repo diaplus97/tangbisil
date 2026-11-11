@@ -16,6 +16,7 @@ import {createFirstPersonCamera,type Eye} from './three/firstPersonCamera';
 import {createKeyboardWalk,keyboardVector,movementCodes,bearingChanged} from './keyboardWalk';
 import {useInputMethod} from './useInputMethod';
 import {placeTableActions} from './tableActionPlacement';
+import {SmokingActions} from './SmokingActions';
 import {directAction,directActionKey} from './directActions';
 import {coffeePhase} from '../../shared/coffee.mjs';
 import {tableDrink} from '../../shared/table-drink.mjs';
@@ -164,6 +165,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     function positionLabels(){
       if(!container.current||!canvas.current)return;
       const points:Record<string,T.Vector3>={...anchors},width=container.current!.clientWidth,height=container.current!.clientHeight;
+      const smoke=room.smokingPositions();if(smoke){points['smoke-cigarette']=smoke.cigarette;points['smoke-ashtray']=smoke.ashtray;}
       const snack=room.snackPosition();if(snack)points['my-snack']=snack;const cup=room.cupPosition();if(cup)points['my-cup']=cup;
       const member=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),currentCue=cueState.current;
       const stationId=stationInArea(area,member?.station),travelling=Boolean(member?.motion&&member.motion.endsAt>room.now());
@@ -242,8 +244,8 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
         const point=points[id],p=point.clone().project(camera),w=el.offsetWidth,h=el.offsetHeight,distance=camera.position.distanceToSquared(point);
         const table=id==='my-snack'||id==='my-cup',slot=tableSlots.get(id);
         const rawX=(p.x+1)*width/2-w/2,rawY=(1-p.y)*height/2-h-8;
-        const x=slot?.x??(['discovery','destination'].includes(id)?Math.max(10,Math.min(width-w-10,rawX)):rawX);
-        let y=slot?.y??rawY;
+        const x=slot?.x??(['discovery','destination','smoke-cigarette','smoke-ashtray'].includes(id)?Math.max(10,Math.min(width-w-10,rawX)):rawX);
+        let y=slot?.y??(id==='smoke-ashtray'?(1-p.y)*height/2+42:rawY);
         if(id==='discovery'&&appliance&&x<appliance.right+4&&x+w>appliance.left-4&&y<appliance.bottom+4&&y+h>appliance.top-4){
           y=appliance.top-h-8>=110?appliance.top-h-8:appliance.bottom+8;
         }
@@ -256,7 +258,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
         if(id==='my-snack')el.style.setProperty('--pointer-x',Math.max(16,Math.min(w-28,(p.x+1)*width/2-x-7))+'px');
         el.style.visibility=show?'visible':'hidden';el.style.left=x+'px';el.style.top=y+'px';
         if(show)occupied.push(rect);
-        if(p.z>-1&&p.z<1&&!['my-snack','my-cup','plate','discovery','destination'].includes(id)){
+        if(p.z>-1&&p.z<1&&!['my-snack','my-cup','plate','discovery','destination','smoke-cigarette','smoke-ashtray'].includes(id)){
           const edge=point.clone().addScaledVector(right,.34).project(camera),bottom=point.clone().add(new T.Vector3(0,-1.2,0)).project(camera),half=Math.abs(edge.x-p.x)*width/2;
           bodies.push({x:(p.x+1)*width/2-half,y,w:half*2,h:Math.max(h,(p.y-bottom.y)*height/2+h),distance});
         }
@@ -387,6 +389,13 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       const {hit,surface}=pick;
       const retargeting=floorInFlight.current&&!hit&&surface?.object.userData.walkSurface;
       if(actions.current.disabled&&!retargeting&&hit?.object.userData.action!=='cup')return;
+      if(hit?.object.userData.smokingSeat!=null){
+        const own=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),index=hit.object.userData.smokingSeat;
+        if(own?.seat!==index){
+          if(latest.current?.room.members.some(m=>m.seat===index)){setWalkHint('동료가 쉬고 있는 자리예요.');return;}
+          void actions.current.chooseSeat(index);return;
+        }
+      }
       if(hit?.object.userData.action){dismissHint();const data=hit.object.userData,m=latest.current?.room.members.find(m=>m.id===latest.current?.self.id);if(data.station&&(m?.station!==data.station||m&&room.pose(m.id)?.moving))void actions.current.chooseObject(data.station);else void actions.current.onUse(data.action);return;}
       if(hit?.object.userData.portal){void actions.current.choosePortal(hit.object.userData.portal);return;}
       if(hit?.object.userData.station){void actions.current.chooseObject(hit.object.userData.station);return;}
@@ -432,8 +441,8 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     element.addEventListener('pointerdown',pointerDown);element.addEventListener('pointermove',pointerMove);element.addEventListener('pointerup',pointerUp);element.addEventListener('pointercancel',pointerCancel);element.addEventListener('lostpointercapture',pointerCancel);element.addEventListener('pointerleave',pointerLeave);element.addEventListener('keydown',keyDown);
     const gameSpace=container.current!.closest('.game-space');
     const overlayObserver=area==='smoking'&&gameSpace?new MutationObserver(records=>{
-      if(records.some(r=>r.target instanceof Element&&r.target.closest('.terrace-thoughts')||
-        [...r.addedNodes,...r.removedNodes].some(n=>n instanceof Element&&n.matches('.terrace-thoughts'))))labelSnapshot=null;
+      if(records.some(r=>r.target instanceof Element&&r.target.closest('.terrace-thoughts,.smoking-action')||
+        [...r.addedNodes,...r.removedNodes].some(n=>n instanceof Element&&n.matches('.terrace-thoughts,.smoking-action'))))labelSnapshot=null;
     }):null;
     if(overlayObserver&&gameSpace)overlayObserver.observe(gameSpace,{childList:true,subtree:true,attributes:true,attributeFilter:['open']});
     const observer=new ResizeObserver(resize);observer.observe(container.current!);
@@ -459,7 +468,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
         const now=room.now(),animated=current?.room.members.some(m=>m.motion&&m.motion.endsAt>now||now-m.actionAt<4500||m.pantry.coffee.stage==='brewing'||Boolean(m.pantry.rest.tea?.pourAt));
         if(shadowState!==current||animated&&time-shadowTime>100){renderer.shadowMap.needsUpdate=true;shadowState=current;shadowTime=time;}
         const cue=JSON.stringify([cueState.current,framingRef.current,foodRef.current,reduced]);
-        if(time-labelTime>120&&(labelSnapshot!==current||labelCue!==cue||!labelCamera.equals(camera.matrixWorld))){positionLabels();labelTime=time;labelSnapshot=current;labelCue=cue;labelCamera.copy(camera.matrixWorld);}
+        if(time-labelTime>120&&(labelSnapshot!==current||area==='smoking'&&animated||labelCue!==cue||!labelCamera.equals(camera.matrixWorld))){positionLabels();labelTime=time;labelSnapshot=current;labelCue=cue;labelCamera.copy(camera.matrixWorld);}
         if(brewProgress.current){const c=current?.self.pantry.coffee;brewProgress.current.value=coffeePhase(c?.stage,c?.readyAt??0,now).progress;}
         renderer.render(room.scene,camera);last=time;nextFrame=Math.max(nextFrame+frameInterval,time+frameInterval*.25);container.current.dataset.destination=room.destination.status;
       }
@@ -485,6 +494,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       {!ready&&!error&&<div className="three-message">창가의 빛을 들이는 중…</div>}
       {error?<div className="three-message" role="alert"><p>{error}</p><button className="primary" onClick={onFallback}>도트로 이어가기</button>{area!=='pantry'&&<button disabled={disabled} onClick={()=>void choosePortal()}>탕비실로 돌아가기</button>}</div>:<>
         {debug&&<><button ref={ref('shelf')} className="hotspot three-hotspot" onClick={onShelf} disabled={disabled}>오늘의 레몬파이</button><button ref={ref('drink')} className="hotspot three-hotspot" onClick={onDrink} disabled={disabled}>한 잔</button></>}
+        {!debug&&state&&area==='smoking'&&!moving&&me?.seat!=null&&<SmokingActions state={state} disabled={disabled} onUse={id=>void useNearObject(id)} anchor={ref}/>}
         {!debug&&state&&!tvOpen&&!foodInHand&&!moving&&!discovery&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-snack')} className="world-action snack-world-hint" disabled={disabled} onClick={()=>{setIntro(false);onShelf();}}>{directAction(state,'snack')?.label}</button>}
         {!debug&&state&&!tvOpen&&!moving&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-cup')} className="world-action cup-world-hint" disabled={disabled&&!foodInHand} onClick={()=>void useNearObject('cup')}>{directAction(state,'cup')?.label??'잔 준비 중'}</button>}
         {!debug&&!tvOpen&&!foodInHand&&discovery&&stations[discovery]&&(!moving||(!me?.travel&&me?.station===discovery))&&(moving?<span ref={ref('discovery')} className="world-status discovery-cue" role="status">{stations[discovery].name} · 이동 중</span>:<button ref={ref('discovery')} className="world-action discovery-cue" onFocus={()=>{cueFocus.current=true;}} onBlur={()=>{cueFocus.current=false;}} disabled={disabled||state?.room.members.some(m=>m.id!==state.self.id&&m.station===discovery)} onClick={()=>void chooseObject(discovery)}>{stations[discovery].name} 가기</button>)}

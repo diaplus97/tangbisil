@@ -1,5 +1,5 @@
 import {healingSeats,healingTables,healingBounds,healingStations,portals} from './healing.mjs';
-import {smokingSeats,smokingBounds,smokingEntrance,smokingExit} from './smoking.mjs';
+import {smokingSeats,smokingTable,smokingBounds,smokingEntrance,smokingExit} from './smoking.mjs';
 export {portals};
 export function exitsFrom(area='pantry'){
   if(area==='smoking')return [smokingExit];
@@ -48,6 +48,7 @@ const spaces={pantry:{id:'pantry',name:'탕비실',seats,tables,seatTables,stati
 spaces.smoking={id:'smoking',name:'흡연실',seats:smokingSeats,tables:[],seatTables:[],stations:{},
  approaches:smokingSeats.map(([x,z,yaw])=>({x:x-Math.sin(yaw)*.92,z:z-Math.cos(yaw)*.92})),
  walkBounds:smokingBounds,obstacles:[...smokingSeats.map(([x,z])=>({minX:x-.51,maxX:x+.51,minZ:z-.52,maxZ:z+.52})),
+ ...smokingSeats.map((_,i)=>{const t=smokingTable(i);return{minX:t.x-.35,maxX:t.x+.35,minZ:t.z-.35,maxZ:t.z+.35};}),
  ...[[-3.93,-3.55],[3.8,-3.57]].map(([x,z])=>({minX:x-.48,maxX:x+.48,minZ:z-.48,maxZ:z+.48}))],portal:smokingExit};
 export function getSpace(area='pantry'){return area==='healing'||area==='smoking'?spaces[area]:spaces.pantry;}
 export function isWalkable(p,area='pantry'){const {walkBounds,obstacles}=getSpace(area);return typeof p?.x==='number'&&typeof p?.z==='number'&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&p.x>=walkBounds.minX&&p.x<=walkBounds.maxX&&p.z>=walkBounds.minZ&&p.z<=walkBounds.maxZ&&!obstacles.some(o=>p.x>o.minX&&p.x<o.maxX&&p.z>o.minZ&&p.z<o.maxZ);}

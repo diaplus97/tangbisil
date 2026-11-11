@@ -1,3 +1,4 @@
+import {smokingPhase} from '../../shared/smoking.mjs';
 import {tableDrink} from '../../shared/table-drink.mjs';
 import {CUP_SIPS} from '../../shared/coffee.mjs';
 import {heldName} from '../../shared/rest.mjs';
@@ -6,13 +7,22 @@ import type {Snapshot} from './types';
 export type DirectAction={label:string;type:string;extra?:Record<string,unknown>};
 // A newly labelled button can be used immediately even on the same object.
 export function directActionKey(state:Snapshot|null,target:string):string{
-  if(!state||(target!=='coffee'&&target!=='candy'))return target;
+  if(!state||!['coffee','candy','cigarette','ashtray'].includes(target))return target;
   return directAction(state,target)?.type??target;
 }
 
 // World hits and their keyboard-accessible buttons use the same state transition.
 // Looking/approaching never consumes an item; a second, deliberate tap uses it.
 export function directAction(state:Snapshot,target:string):DirectAction|null{
+  if(target==='cigarette'||target==='ashtray'){
+    const m=state.room.members.find(m=>m.id===state.self.id),s=m?.smoking;
+    if(m?.area!=='smoking'||m.seat==null||m.travel)return null;
+    const now=Date.now()+(state.receivedAt!==undefined?state.serverTime-state.receivedAt:0),phase=smokingPhase(s,now);
+    const extra={revision:s?.revision??0,...(s?{itemId:s.id}:{})};
+    if(target==='ashtray')return s&&!s.endedAt?{label:'담배 끄기',type:'smoke-out',extra}:null;
+    if(phase==='idle')return{label:'담배 집기',type:'smoke-take',extra};
+    return phase==='ready'?{label:'한 모금 피우기',type:'smoke-puff',extra}:null;
+  }
   const p=state.self.pantry,r=p.rest,c=p.candy,b=p.bottle,t=r.tea;
   const pick=(label:string,type:string,except:string,extra:Record<string,unknown>={}):DirectAction=>({label,type,extra:{...extra,stow:Boolean(heldName(p,except))}});
   if(target==='held'){const kind=c?.held&&c.state!=='eaten'?'candy':b?.held&&b.sips<3?'bottle':r.sprayer?'plant':t?.held?'tea-held':r.stone?.held?'stone':null;if(!kind)return null;target=kind;}

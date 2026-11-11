@@ -1,3 +1,10 @@
+export function smokingTable(index:number):{x:number;y:number;z:number;yaw:number};
 export const thoughtPhrases:Record<'meetings'|'messages'|'tired'|'quiet',string>;
+export type Smoking={id:string;seat:number;litAt:number;puffAt:number;puffs:number;endedAt:number;ending:boolean;revision:number};
+export const SMOKE_LIGHT_MS:number;
+export const SMOKE_PUFF_MS:number;
+export const SMOKE_OUT_MS:number;
+export function smokingPhase(smoking:Smoking|null|undefined,now:number):'idle'|'lighting'|'puffing'|'ready'|'ending';
+export function smokingDeadline(smoking:Smoking|null|undefined,now:number):number;
 export const thoughtLifetime:number;
 export function ribbonState(notes:ReadonlyArray<{until:number;hasEcho:boolean}>|undefined,now:number):0|1|2;

@@ -4,6 +4,7 @@ import {sculptColleague} from './avatarSculpt';
 import {handSnack} from './handSnack';
 import type {Member} from '../types';
 import type {Pose} from '../../../shared/space.mjs';
+import {cigaretteModel,smokeGesture,smokePlume} from './smokeEffects';
 import {armReach} from './armReach';
 import {CUP_RETURN_MS,SIP_RETURN_MS} from '../gestureTiming';
 import {misterModel,stoneModel,teaModel} from './restModels';
@@ -24,6 +25,18 @@ export function createCharacter(kit:Workshop,member:Member){
   const biteReach=armReach(right.shoulder.position,new T.Vector3(.083,.692,.201));
   const rake=new T.Group();right.wrist.add(rake);rake.position.set(0,-.02,.08);
   kit.cylinder(rake,.011,.011,.19,0,.09,0,'#b7986b');kit.box(rake,.14,.012,.014,0,-.005,0,'#ae8f62',.004);for(const x of[-.055,0,.055])kit.box(rake,.008,.035,.009,x,-.02,0,'#b7986b',.003);rake.visible=false;
+  const cigarette=member.area==='smoking'?cigaretteModel(kit,right.wrist):null;
+  const smoke=member.area==='smoking'?smokePlume(kit,group):null;
+  const mouth=new T.Vector3(0,1.52,.26);
+  if(cigarette){cigarette.group.position.set(-.012,-.047,.025);cigarette.group.rotation.x=-.1;}
+  const cigaretteRest=armReach(right.shoulder.position,new T.Vector3(.24,.30,.31));
+  const cigaretteMouth=armReach(right.shoulder.position,new T.Vector3(.045,.70,.27));
+  const cigaretteOut=armReach(right.shoulder.position,new T.Vector3(.31,.22,.50));
+  const matchReach=armReach(left.shoulder.position,new T.Vector3(.02,.65,.37));
+  const lighter=new T.Group();left.wrist.add(lighter);
+  kit.box(lighter,.031,.052,.025,0,-.016,.02,'#668e87',.005);
+  const flameMaterial=new T.MeshBasicMaterial({color:'#ffcd76',transparent:true,opacity:.8});
+  const flame=kit.mesh(lighter,new T.SphereGeometry(.01,10,8),flameMaterial,0,.024,.02);flame.scale.set(.6,1.6,.6);lighter.visible=false;
   let sandBlend=0;
   let drink=member.drink,last=0,initialized=false,yaw=0,itemKey='',heldItem:T.Group|null=null;
   let restTea:ReturnType<typeof teaModel>|null=null,restStone:ReturnType<typeof stoneModel>|null=null;
@@ -50,8 +63,8 @@ export function createCharacter(kit:Workshop,member:Member){
     const amount=gesture?T.MathUtils.smoothstep(Math.min(1,age/360,(gestureLength-age)/310),0,1):0;
     const seatedDrink=gesture&&sit>.95&&['cup-sip','tea-sip','bottle-sip','wave'].includes(m.action);
     const drinking=seatedDrink||gesture&&['cup-sip','wave'].includes(m.action);
-    const c=m.pantry?.candy,b=m.pantry?.bottle,holdCandy=Boolean(c?.held&&c.state!=='eaten'||gesture&&m.action==='candy-eat'),holdBottle=!holdCandy&&Boolean(b?.held&&b.sips<3&&pose.inSeat==null||gesture&&!seatedDrink&&m.action==='bottle-sip');
-    const rest=m.pantry.rest,kind=rest?.sprayer?'sprayer':rest?.stone?.held?'stone':rest?.tea&&(rest.tea.held&&pose.inSeat==null||gesture&&!seatedDrink&&m.action==='tea-sip')?'tea':'';
+    const c=m.area==='smoking'?null:m.pantry?.candy,b=m.area==='smoking'?null:m.pantry?.bottle,holdCandy=Boolean(c?.held&&c.state!=='eaten'||gesture&&m.action==='candy-eat'),holdBottle=!holdCandy&&Boolean(b?.held&&b.sips<3&&pose.inSeat==null||gesture&&!seatedDrink&&m.action==='bottle-sip');
+    const rest=m.pantry.rest,kind=m.area==='smoking'?'':rest?.sprayer?'sprayer':rest?.stone?.held?'stone':rest?.tea&&(rest.tea.held&&pose.inSeat==null||gesture&&!seatedDrink&&m.action==='tea-sip')?'tea':'';
     const nextItem=JSON.stringify([kind,holdCandy,holdBottle,c?.progress,b?.sips]);
     if(itemKey!==nextItem){restTea?.dispose();restTea=null;restStone=null;if(heldItem)kit.release(heldItem);heldItem=kind==='sprayer'?misterModel(kit,right.wrist):kind==='stone'?(restStone=stoneModel(kit,right.wrist)).group:kind==='tea'?(restTea=teaModel(kit,right.wrist)).group:holdCandy?candyModel(kit,right.wrist,c?.progress??1):holdBottle?bottleModel(kit,right.wrist,b?.sips??0):null;itemKey=nextItem;if(heldItem){heldItem.scale.setScalar(holdCandy?.65:.7);heldItem.position.set(0,.025,.04);if(kind==='sprayer')heldItem.rotation.y=Math.PI;}}
     restTea?.update(rest?.tea??null,now,time,reduced);if(restStone&&rest?.stone)restStone.deform(now-rest.stone.pressAt,rest.stone.point,reduced);
@@ -85,6 +98,25 @@ export function createCharacter(kit:Workshop,member:Member){
       arm.shoulder.quaternion.slerp(reach.shoulder,amount);arm.elbow.quaternion.slerp(reach.elbow,amount);
       arm.wrist.quaternion.copy(arm.shoulder.quaternion).multiply(arm.elbow.quaternion).invert();
     }
+    if(cigarette&&smoke){
+      const g=smokeGesture(m.smoking,now),present=m.area==='smoking'&&pose.inSeat!=null&&!pose.moving;
+      cigarette.group.visible=present&&(g.active||g.phase==='ending');
+      lighter.visible=present&&g.phase==='lighting';flame.visible=!reduced&&g.age>280&&g.age<820;
+      if(cigarette.group.visible){
+        const lift=reduced?(g.phase==='puffing'?.55:0):g.lift;
+        right.shoulder.quaternion.copy(cigaretteRest.shoulder).slerp(cigaretteMouth.shoulder,lift);
+        right.elbow.quaternion.copy(cigaretteRest.elbow).slerp(cigaretteMouth.elbow,lift);
+        if(g.phase==='ending'){
+          const reach=reduced?1:T.MathUtils.smoothstep(g.age/700,0,1);
+          right.shoulder.quaternion.slerp(cigaretteOut.shoulder,reach);right.elbow.quaternion.slerp(cigaretteOut.elbow,reach);
+        }
+        right.wrist.quaternion.copy(right.shoulder.quaternion).multiply(right.elbow.quaternion).invert();
+        right.open.visible=false;right.grip.visible=true;
+        if(lighter.visible){left.shoulder.quaternion.copy(matchReach.shoulder);left.elbow.quaternion.copy(matchReach.elbow);left.wrist.quaternion.copy(left.shoulder.quaternion).multiply(left.elbow.quaternion).invert();left.open.visible=false;left.grip.visible=true;}
+        cigarette.update(g.phase==='ending'?g.age<300:g.phase!=='lighting'||g.age>650,lift);
+      }
+      if(present&&m.connected)smoke.update(mouth,0,g.phase==='puffing'?g.age:-1,reduced);else smoke.hide();
+    }
     cupGrip.rotation.x=drinking?(m.action==='wave'?-.08:-.40)*amount:0;
     heldCup.visible=drinking&&!seatedDrink;
     whole.visible=eating&&age<470;bitten.visible=eating&&age>=470;
@@ -93,5 +125,5 @@ export function createCharacter(kit:Workshop,member:Member){
     ring.visible=isMe&&sit<.95;group.updateMatrixWorld(true);
     return {cupSocket,lift:seatedDrink?amount:0,eating};
   }
-  return {group,avatar:member.avatar,update,labelPosition(pose:Pose){return new T.Vector3(pose.x,2.32-pose.sit*(member.area==='healing'?((pose.inSeat??0)<4?.67:.465):.32),pose.z);},dispose(){restTea?.dispose();(ring.material as T.Material).dispose();kit.release(group);}};
+  return {group,avatar:member.avatar,update,labelPosition(pose:Pose){return new T.Vector3(pose.x,2.32-pose.sit*(member.area==='healing'?((pose.inSeat??0)<4?.67:.465):.32),pose.z);},dispose(){cigarette?.dispose();smoke?.dispose();flameMaterial.dispose();restTea?.dispose();(ring.material as T.Material).dispose();kit.release(group);}};
 }
