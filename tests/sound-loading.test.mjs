@@ -11,7 +11,7 @@ test('wave-only mode skips all effects; enabling effects loads once and retries 
  globalThis.AudioContext=class{state='running';currentTime=0;destination=node();createGain=node;createDynamicsCompressor=node;createBufferSource=node;async resume(){}async decodeAudioData(){return{duration:3};}};
  const calls=[];let fail=true;globalThis.fetch=async url=>{calls.push(url);return new Response(new Uint8Array([0]),{status:fail&&url.includes('rustle-b')?503:200});};
  const sound=await import('../src/experience/sound.ts');sound.setActionSounds(false);assert.equal(await sound.enableSound(true),true);assert.equal(calls.length,0);await sound.setSeaSound(true);assert.equal(calls.length,1);assert.match(calls[0],/sea-waves/);
- sound.setActionSounds(true);sound.setActionSounds(true);await delay(20);assert.equal(calls.length,17);
- fail=false;await sound.enableSound(true);await delay(20);assert.equal(calls.length,18);assert.match(calls.at(-1),/rustle-b/);
- await sound.enableSound(false);await sound.enableSound(true);await delay(20);assert.equal(calls.length,18);await sound.enableSound(false);
+ sound.setActionSounds(true);sound.setActionSounds(true);await delay(20);assert.equal(calls.length,25);
+ fail=false;await sound.enableSound(true);await delay(20);assert.equal(calls.length,26);assert.match(calls.at(-1),/rustle-b/);
+ await sound.enableSound(false);await sound.enableSound(true);await delay(20);assert.equal(calls.length,26);await sound.enableSound(false);
 });

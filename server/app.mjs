@@ -13,6 +13,7 @@ import {serveStatic} from './static.mjs';
 import {getSpace} from '../shared/space.mjs';
 import {startRoomMedia,mediaAction,migrateTvQueue} from '../shared/room-media.mjs';
 import {objectInput,actionInput} from '../shared/requests.mjs';
+import {snackDisplay} from '../shared/snacks.mjs';
 
 export function createPantryServer({ database='data/pantry.sqlite', staticDir='dist', middleware, graceMs=5000 }={}) {
   const store = createStore(database);
@@ -34,6 +35,10 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
       if(!m.streams.size||(area&&m.area!==area))continue;
       const data=`event: state\ndata: ${JSON.stringify(view(m.id))}\n\n`;
       for (const res of m.streams) { if (!res.destroyed) res.write(data); }
+    }
+    clearTimeout(r.displayTimer);
+    if([...r.members.values()].some(m=>m.area==='pantry'&&m.streams.size)){
+      r.displayTimer=setTimeout(()=>broadcast(r,'pantry'),Math.max(1,snackDisplay().nextChangeAt-Date.now()+1));r.displayTimer.unref();
     }
   }
   function scheduleThoughtExpiry(r){
@@ -180,7 +185,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
   });
   return {server,store,close:async()=>{
     closing=true;
-    clearInterval(heartbeat);for(const r of rooms.values())clearTimeout(r.thoughtTimer);
+    clearInterval(heartbeat);for(const r of rooms.values()){clearTimeout(r.thoughtTimer);clearTimeout(r.displayTimer);}
     for(const r of rooms.values())for(const m of r.members.values()){clearTimeout(m.timer);clearTimeout(m.arrival);clearTimeout(m.brewTimer);store.activities.leave(m.id,r,m.station);for(const res of m.streams)res.end();}
     await new Promise(resolve=>server.close(resolve));store.close();
   }};

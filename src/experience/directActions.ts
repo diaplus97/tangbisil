@@ -1,3 +1,4 @@
+import {snackDefinition} from '../../shared/snacks.mjs';
 import {smokingPhase} from '../../shared/smoking.mjs';
 import {tableDrink} from '../../shared/table-drink.mjs';
 import {CUP_SIPS} from '../../shared/coffee.mjs';
@@ -9,6 +10,7 @@ export type DirectAction={label:string;type:string;extra?:Record<string,unknown>
 // A newly labelled button can be used immediately even on the same object.
 export function directActionKey(state:Snapshot|null,target:string):string{
   if(target==='cup')return target;
+  if(state&&target.startsWith('snack-slot-'))return JSON.stringify(directAction(state,target));
   return state?directAction(state,target)?.type??target:target;
 }
 
@@ -32,6 +34,7 @@ export function directAction(state:Snapshot,target:string|null|undefined):Direct
   if(target==='sand-held')return r.sand&&!r.sand.held?pick('모래 트레이 다시 집기','sand-hold','sand',{itemId:r.sand.id,held:true}):null;
   if(target==='vase-held')return r.vase&&!r.vase.held?pick('꽃병 다시 만지기','vase-hold','vase',{itemId:r.vase.id,held:true}):null;
   if(target==='held'){const kind=c?.held&&c.state!=='eaten'?'candy':b?.held&&b.sips<3?'bottle':r.sprayer?'plant':t?.held?'tea-held':r.stone?.held?'stone':null;if(!kind)return null;target=kind;}
+  if(target.startsWith('snack-slot-')){const slot=state.room.snackDisplay?.slots[Number(target.slice(11))],definition=slot&&snackDefinition(slot.snackId,slot.definitionVersion);return definition?{label:definition.name+' 집기',type:'snack-choice',extra:{snackId:definition.id,definitionVersion:definition.version,displayId:state.room.snackDisplay!.displayId}}:null;}
   if(target==='snack')return{label:state.self.serving?.state==='open'?'한입 먹기':state.self.serving?.state==='sealed'?'포장 열기':'간식 꺼내기',type:'snack'};
   if(target==='shared')return{label:'나눈 한 조각 집기',type:'shared'};
   if(target==='cup'){const drink=tableDrink(p);if(drink==='tea'&&t)return t.volume>0?{label:'보리차 한 모금',type:'tea-sip',extra:{itemId:t.id,table:true,volume:t.volume}}:{label:'빈 찻잔 · 다시 준비하기',type:'refill-tea'};if(drink==='bottle'&&b)return b.sips<3?{label:'음료 한 모금',type:'bottle-sip',extra:{itemId:b.id,table:true,sips:b.sips}}:{label:'빈 병 · 새 음료',type:'refill-bottle'};return p.coffee.stage==='carried'?{label:(p.coffee.sips??0)>=CUP_SIPS?'빈 잔 · 커피 준비하기':'한 모금',type:(p.coffee.sips??0)>=CUP_SIPS?'refill-cup':'cup-sip',extra:{sips:p.coffee.sips??0}}:null;}

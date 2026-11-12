@@ -13,6 +13,7 @@ import {sandContact} from '../server/sand-contact.mjs';
 import {roomSnapshot,roomSnapshotBatch,validateSnackAction,actionNames} from '../server/room-view.mjs';
 import {startRoomMedia,mediaAction,migrateTvQueue,needsTvQueueMigration} from '../shared/room-media.mjs';
 import {actionInput} from '../shared/requests.mjs';
+import {snackDisplay} from '../shared/snacks.mjs';
 
 const fresh=id=>({id,members:[],history:[],fixtures:{fridge:{open:false,owner:null,changedAt:0}},version:0,pending:{},releases:[],tastes:[],tickets:{},quota:{day:0,count:0},retryAt:0,retries:0});
 export class PantryRoom extends DurableObject {
@@ -63,7 +64,8 @@ export class PantryRoom extends DurableObject {
     // Overdue game timers cannot bypass a failed outbox's backoff or restart
     // automatic retries after its budget is exhausted. An explicit action can retry.
     const gameTimes=this.r.retries&&this.hasOutbox()?[this.r.retryAt]:[...this.r.members.values()].flatMap(m=>[m.departAt,m.arriveAt,m.readyAt]);
-    const times=[nextThoughtExpiry(this.r),...gameTimes].filter(t=>t>0);
+    const display=[...this.r.members.values()].some(m=>m.area==='pantry'&&this.sockets(m.id).length)?snackDisplay().nextChangeAt:0;
+    const times=[nextThoughtExpiry(this.r),display,...gameTimes].filter(t=>t>0);
     const next=times.length?Math.max(Date.now()+20,Math.min(...times)):null,current=await this.ctx.storage.getAlarm();
     if(next!==null){if(current!==next)await this.ctx.storage.setAlarm(next);}else if(current!==null)await this.ctx.storage.deleteAlarm();
   }
@@ -79,6 +81,7 @@ export class PantryRoom extends DurableObject {
   }
   async advance(){
     this.clearExpiredThoughts();
+    this.refreshSnackDisplay();
     const recovering=Object.keys(this.r.pending).length>0;await this.flush();if(recovering)this.broadcast();const now=Date.now();let changed=false;
     if(needsTvQueueMigration(this.r)){this.atomic(()=>{migrateTvQueue(this.r,now);this.r.version++;});this.broadcast();}
     const due=[...this.r.members.values()].some(m=>(m.departAt&&m.departAt<=now)||(m.arriveAt&&m.arriveAt<=now)||(m.readyAt&&m.readyAt<=now));
@@ -219,8 +222,10 @@ export class PantryRoom extends DurableObject {
   });}
   webSocketError(ws){try{ws.close(1011,'Connection interrupted');}catch{}return this.webSocketClose(ws);}
   hasOutbox(){return Object.keys(this.r.pending).length>0||this.r.tastes.length>0||this.r.releases.length>0;}
+  refreshSnackDisplay(){const day=snackDisplay().dayId;if(this.r.snackDay!==day){this.atomic(()=>{this.r.snackDay=day;this.r.version++;});this.broadcast('pantry');}}
   alarm(){return this.exclusive(async()=>{
     this.clearExpiredThoughts();
+    this.refreshSnackDisplay();
     if(this.r.retries&&this.hasOutbox()&&(!this.r.retryAt||this.r.retryAt>Date.now())){await this.schedule();return;}
     try{await this.advance();}catch(error){
       // flush already persisted the next bounded retry. Throwing here would also

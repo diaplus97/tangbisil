@@ -1,7 +1,8 @@
 import {useEffect,useRef,useState} from 'react';
 import type {Member,Snapshot} from './types';
 import {sampleMotion} from '../../shared/space.mjs';
-import {playSound,playMachine,playTeaPour,stopRoomSounds,peerSandSound,type SoundKind} from './sound';
+import {playSound,playMachine,playTeaPour,stopRoomSounds,peerSandSound,snackOpenSound,type SoundKind} from './sound';
+import {snackDefinition,LEGACY_SNACK_ID} from '../../shared/snacks.mjs';
 import {CUP_RETURN_MS,SIP_RETURN_MS} from './gestureTiming';
 import {COFFEE_BREW_MS,CUP_PLACE_MS} from '../../shared/coffee.mjs';
 import {keepsCupContact} from './cupContact';
@@ -40,7 +41,8 @@ export function useRoomSound(state:Snapshot|null,online=true){
       const current=latest.current.state;if(!current||!current.room.members.some(v=>v.id===m.id))return;
       const remote=m.id!==current.self.id,now=current.serverTime+performance.now()-latest.current.received;
       const self=current.room.members.find(v=>v.id===current.self.id),p=sampleMotion(m,now),q=self?sampleMotion(self,now):p;
-      playSound(kind,{remote,distance:Math.hypot(p.x-q.x,p.z-q.z),pan:remote?(p.x-q.x)/5:0});
+      const options={remote,distance:Math.hypot(p.x-q.x,p.z-q.z),pan:remote?(p.x-q.x)/5:0};
+      if(kind==='open')snackOpenSound(snackDefinition(m.food?.snack_id??LEGACY_SNACK_ID,m.food?.definition_version??1)?.kind??'lemonPie',options);else playSound(kind,options);
     }
     const door=state.room.fixtures?.fridge,previous=fridge.current;fridge.current=door;
     if(previous&&door&&previous.open!==door.open){

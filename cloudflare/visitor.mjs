@@ -25,7 +25,7 @@ export class PantryVisitor extends DurableObject {
     pantry.rest={...emptyRest(),...pantry.rest};pantry.rest.tea=sampleTea(pantry.rest.tea,Date.now());
     pantry.coffee.sips??=0;pantry.tableDrink??=tableDrink(pantry);
     if(pantry.coffee.stage==='brewing'&&pantry.coffee.readyAt<=Date.now())pantry.coffee.stage='ready';
-    return {...safe,serving:tables.servings[0]??null,discoveries:tables.discoveries,pantry};
+    return {...safe,serving:tables.servings[0]?{definition_version:1,...tables.servings[0]}:null,discoveries:tables.discoveries.map(d=>({definition_version:1,...d})),pantry};
   }
   claim(room){
     return this.ctx.storage.transactionSync(()=>{

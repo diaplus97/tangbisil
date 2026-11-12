@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {Workshop,mug} from './assets';
+import {Workshop,mug,consolidate} from './assets';
 import {sculptColleague} from './avatarSculpt';
-import {handSnack} from './handSnack';
+import {snackFood} from './snackModels';
 import type {Member} from '../types';
 import type {Pose} from '../../../shared/space.mjs';
 import {cigaretteModel,smokeGesture,smokePlume} from './smokeEffects';
@@ -21,8 +21,7 @@ export function createCharacter(kit:Workshop,member:Member){
   // The handle is on the thumb side of the left hand.
   cupSocket.position.set(.13*.75,-.139*.75,0);cupSocket.rotation.y=Math.PI;
   let heldCup=mug(kit,cupSocket,0,0,0,member.drink,.75,1,false);heldCup.visible=false;
-  const whole=handSnack(kit,right.wrist,false),bitten=handSnack(kit,right.wrist,true);
-  for(const piece of [whole,bitten]){piece.position.set(-.045,-.045,.052);piece.scale.setScalar(.8);piece.rotation.set(-.30,0,-.16);piece.visible=false;}
+  let whole=new T.Group(),bitten=new T.Group(),snackKey='';
   const ring=kit.mesh(group,new T.RingGeometry(.27,.29,48),new T.MeshBasicMaterial({color:'#87a698',transparent:true,opacity:.4,depthWrite:false}),0,-.018,0);ring.rotation.x=-Math.PI/2;ring.castShadow=false;ring.receiveShadow=false;
   const resting=[left,right].map((arm,i)=>armReach(arm.shoulder.position,new T.Vector3(i?.19:-.20,.49,.48)));
   const sipReach=armReach(left.shoulder.position,new T.Vector3(-.111,.718,.27));
@@ -140,6 +139,8 @@ export function createCharacter(kit:Workshop,member:Member){
     }
     cupGrip.rotation.x=drinking?(m.action==='wave'?-.08:-.40)*amount:0;
     heldCup.visible=drinking&&!seatedDrink;
+    const nextSnack=JSON.stringify([m.food?.snack_id,m.food?.definition_version,m.food?.bites,m.food?.portions]);
+    if(eating&&snackKey!==nextSnack){kit.release(whole);kit.release(bitten);whole=snackFood(kit,right.wrist,{...m.food,state:'open'},Math.max(0,(m.food?.bites??1)-1));bitten=snackFood(kit,right.wrist,m.food??{});for(const piece of[whole,bitten]){consolidate(piece,kit);piece.position.set(-.045,-.045,.052);piece.scale.setScalar(.18);piece.rotation.set(-.30,0,-.16);}snackKey=nextSnack;}
     whole.visible=eating&&age<470;bitten.visible=eating&&age>=470;
     head.rotation.x=gesture?amount*.045:0;
     const blink=((time+seed*31)%5200);for(const eye of eyes)eye.scale.y=!reduced&&blink<130?.004:.023;

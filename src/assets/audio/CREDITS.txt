@@ -57,3 +57,318 @@ Runtime playback update, 2026-11-06 (source files and licenses unchanged):
 - Wrapper drag uses 0.18s rustle grains, at most one start per 100ms and two active grains. Drag speed controls bounded gain and playback rate (0.92-1.13); release/cancel fades for 40ms and stops at 45ms. Inactivity clears grains after 90ms.
 - wrapper-open.wav plays once after successful opening. Bite recording remains opt-in and off by default.
 - Browser timing and source counts were instrumented. Headphone listening and subjective comfort have not been evaluated.
+
+SNACK MATERIAL FOLEY — 2026-11-12
+Eight edited CC0 clips are installed in src/assets/audio. Default mute, independent wave volume and mouth opt-in (off by default) remain. These are material proxies, not recordings of the represented branded foods. No subjective listening or real-phone audio evaluation is claimed. Source inputs are public HQ MP3 previews, not lossless originals.
+
+{
+  "file": "paper-thin-a.wav",
+  "name": "paper-thin-a.wav",
+  "sourceId": 535240,
+  "creator": "pbimal",
+  "source": "https://freesound.org/people/pbimal/sounds/535240/",
+  "sourcePreview": "https://cdn.freesound.org/previews/535/535240_11830391-hq.mp3",
+  "license": "CC0-1.0",
+  "sourcePreviewSha256": "3ba6235db8864b47d20933ec9f48429c6b90fa48e624c5d6db0680fd83d16278",
+  "startSeconds": 0,
+  "durationSeconds": 0.29,
+  "selection": "First overlapping window of one 0.406-second recording; not an independent take.",
+  "processing": {
+    "floatPreAttenuationDb": -12,
+    "highpassHz": 120,
+    "lowpassHz": 6500,
+    "dcMeanRemoved": 0.00003642657312495744,
+    "fadeShape": "sin squared",
+    "fadeInMs": 20,
+    "fadeOutMs": 20,
+    "postFilterGainDb": 5.641002,
+    "finalPeakTargetDbFS": -12,
+    "format": "mono 44.1 kHz PCM16 WAV derived from compressed MP3 preview; not original lossless recording"
+  },
+  "outputSha256": "1e3fb09e2abca290f9e80b1df12d3dd22e8a9f8e33d43b45c780e14d4eb6cfd1",
+  "bytes": 25622,
+  "measurements": {
+    "duration": 0.29,
+    "peakDbFS": -11.999947,
+    "rmsDbFS": -26.877128,
+    "mean": -0.000067,
+    "clippedSamples": 0,
+    "firstSample": 0,
+    "lastSample": 0,
+    "maxAdjacentSampleStep": 0.109711
+  },
+  "auditionStatus": "Not heard. Numerical headroom/endpoints only; semantic selection, audible clicks and subjective suitability NOT approved."
+}
+
+{
+  "file": "paper-thin-b.wav",
+  "name": "paper-thin-b.wav",
+  "sourceId": 535240,
+  "creator": "pbimal",
+  "source": "https://freesound.org/people/pbimal/sounds/535240/",
+  "sourcePreview": "https://cdn.freesound.org/previews/535/535240_11830391-hq.mp3",
+  "license": "CC0-1.0",
+  "sourcePreviewSha256": "3ba6235db8864b47d20933ec9f48429c6b90fa48e624c5d6db0680fd83d16278",
+  "startSeconds": 0.116,
+  "durationSeconds": 0.29,
+  "selection": "Second overlapping window of the same recording; not an independent take.",
+  "processing": {
+    "floatPreAttenuationDb": -12,
+    "highpassHz": 120,
+    "lowpassHz": 6500,
+    "dcMeanRemoved": -0.000007491844772634056,
+    "fadeShape": "sin squared",
+    "fadeInMs": 20,
+    "fadeOutMs": 20,
+    "postFilterGainDb": 5.64391,
+    "finalPeakTargetDbFS": -12,
+    "format": "mono 44.1 kHz PCM16 WAV derived from compressed MP3 preview; not original lossless recording"
+  },
+  "outputSha256": "686d8a3eddc7ce98d9da96b4ad87aab35a33dab71a62612bbe74c1867c0b16bd",
+  "bytes": 25622,
+  "measurements": {
+    "duration": 0.29,
+    "peakDbFS": -11.999947,
+    "rmsDbFS": -26.693206,
+    "mean": 0.000013,
+    "clippedSamples": 0,
+    "firstSample": 0,
+    "lastSample": 0,
+    "maxAdjacentSampleStep": 0.124023
+  },
+  "auditionStatus": "Not heard. Numerical headroom/endpoints only; semantic selection, audible clicks and subjective suitability NOT approved."
+}
+
+{
+  "file": "paper-wax-a.wav",
+  "name": "paper-wax-a.wav",
+  "sourceId": 431216,
+  "creator": "buzzatsea",
+  "source": "https://freesound.org/people/buzzatsea/sounds/431216/",
+  "sourcePreview": "https://cdn.freesound.org/previews/431/431216_3298379-hq.mp3",
+  "license": "CC0-1.0",
+  "sourcePreviewSha256": "a8d3341d9f8b91a1b1c86e340ad6a655423aa3b789d9688cf49ddb1f07a12e54",
+  "startSeconds": 4.73,
+  "durationSeconds": 0.55,
+  "selection": "Highest mean-square 550 ms window, raw peak constrained below -8 dBFS to avoid the strongest tear/impact candidates; semantics unverified.",
+  "processing": {
+    "floatPreAttenuationDb": -12,
+    "highpassHz": 150,
+    "lowpassHz": 6500,
+    "dcMeanRemoved": -0.0000015434145807042173,
+    "fadeShape": "sin squared",
+    "fadeInMs": 20,
+    "fadeOutMs": 20,
+    "postFilterGainDb": 12.688223,
+    "finalPeakTargetDbFS": -12,
+    "format": "mono 44.1 kHz PCM16 WAV derived from compressed MP3 preview; not original lossless recording"
+  },
+  "outputSha256": "c749f2f56939d23283bd4d8adc83183cd2571c77203699cb69364ca3c5caee90",
+  "bytes": 48554,
+  "measurements": {
+    "duration": 0.55,
+    "peakDbFS": -11.999947,
+    "rmsDbFS": -26.047996,
+    "mean": 0.000006,
+    "clippedSamples": 0,
+    "firstSample": 0,
+    "lastSample": 0,
+    "maxAdjacentSampleStep": 0.175781
+  },
+  "auditionStatus": "Not heard. Numerical headroom/endpoints only; semantic selection, audible clicks and subjective suitability NOT approved."
+}
+
+{
+  "file": "paper-wax-b.wav",
+  "name": "paper-wax-b.wav",
+  "sourceId": 431216,
+  "creator": "buzzatsea",
+  "source": "https://freesound.org/people/buzzatsea/sounds/431216/",
+  "sourcePreview": "https://cdn.freesound.org/previews/431/431216_3298379-hq.mp3",
+  "license": "CC0-1.0",
+  "sourcePreviewSha256": "a8d3341d9f8b91a1b1c86e340ad6a655423aa3b789d9688cf49ddb1f07a12e54",
+  "startSeconds": 23.59,
+  "durationSeconds": 0.55,
+  "selection": "Same energy rule, at least four seconds from A; semantics unverified.",
+  "processing": {
+    "floatPreAttenuationDb": -12,
+    "highpassHz": 150,
+    "lowpassHz": 6500,
+    "dcMeanRemoved": -4.3602464706927826e-8,
+    "fadeShape": "sin squared",
+    "fadeInMs": 20,
+    "fadeOutMs": 20,
+    "postFilterGainDb": 14.181366,
+    "finalPeakTargetDbFS": -12,
+    "format": "mono 44.1 kHz PCM16 WAV derived from compressed MP3 preview; not original lossless recording"
+  },
+  "outputSha256": "2a16a15bff8d431729ab1958e18306e5404bddbe52aca98fb0c700c58f5e7333",
+  "bytes": 48554,
+  "measurements": {
+    "duration": 0.55,
+    "peakDbFS": -11.999947,
+    "rmsDbFS": -28.864525,
+    "mean": 0,
+    "clippedSamples": 0,
+    "firstSample": 0,
+    "lastSample": 0,
+    "maxAdjacentSampleStep": 0.172211
+  },
+  "auditionStatus": "Not heard. Numerical headroom/endpoints only; semantic selection, audible clicks and subjective suitability NOT approved."
+}
+
+{
+  "file": "peel-seal.wav",
+  "name": "peel-seal.wav",
+  "sourceId": 475169,
+  "creator": "Rvgerxini",
+  "source": "https://freesound.org/people/Rvgerxini/sounds/475169/",
+  "sourcePreview": "https://cdn.freesound.org/previews/475/475169_9453283-hq.mp3",
+  "license": "CC0-1.0",
+  "sourcePreviewSha256": "34b9050464a11a58970aa25b77fdd98da6bbe330581aa0e4571d776638fec6b4",
+  "startSeconds": 0.66,
+  "durationSeconds": 0.4,
+  "selection": "Highest mean-square 400 ms window in 0.1–1.5 s; label peel proxy, actual food seal not recorded.",
+  "processing": {
+    "floatPreAttenuationDb": -12,
+    "highpassHz": 150,
+    "lowpassHz": 6000,
+    "dcMeanRemoved": 0.00003128199976875081,
+    "fadeShape": "sin squared",
+    "fadeInMs": 20,
+    "fadeOutMs": 20,
+    "postFilterGainDb": 10.482655,
+    "finalPeakTargetDbFS": -12,
+    "format": "mono 44.1 kHz PCM16 WAV derived from compressed MP3 preview; not original lossless recording"
+  },
+  "outputSha256": "26fbac7b532028c74dcdfb564e05b53225af34c37627cb8ef23c2e49d4a56ca4",
+  "bytes": 35324,
+  "measurements": {
+    "duration": 0.4,
+    "peakDbFS": -11.999947,
+    "rmsDbFS": -27.870154,
+    "mean": -0.000104,
+    "clippedSamples": 0,
+    "firstSample": 0,
+    "lastSample": 0,
+    "maxAdjacentSampleStep": 0.135651
+  },
+  "auditionStatus": "Not heard. Numerical headroom/endpoints only; semantic selection, audible clicks and subjective suitability NOT approved."
+}
+
+{
+  "file": "peel-release.wav",
+  "name": "peel-release.wav",
+  "sourceId": 475169,
+  "creator": "Rvgerxini",
+  "source": "https://freesound.org/people/Rvgerxini/sounds/475169/",
+  "sourcePreview": "https://cdn.freesound.org/previews/475/475169_9453283-hq.mp3",
+  "license": "CC0-1.0",
+  "sourcePreviewSha256": "34b9050464a11a58970aa25b77fdd98da6bbe330581aa0e4571d776638fec6b4",
+  "startSeconds": 1.38,
+  "durationSeconds": 0.23,
+  "selection": "Highest mean-square 230 ms end-region window; a proposed release cue, not aurally verified as release.",
+  "processing": {
+    "floatPreAttenuationDb": -12,
+    "highpassHz": 150,
+    "lowpassHz": 6000,
+    "dcMeanRemoved": 0.00004552828859538321,
+    "fadeShape": "sin squared",
+    "fadeInMs": 20,
+    "fadeOutMs": 20,
+    "postFilterGainDb": 14.61192,
+    "finalPeakTargetDbFS": -14,
+    "format": "mono 44.1 kHz PCM16 WAV derived from compressed MP3 preview; not original lossless recording"
+  },
+  "outputSha256": "66f780db48d3cbe4fdd1fad1f642d58d43476c0ea7f689dda7c3bf2fb2a086bf",
+  "bytes": 20332,
+  "measurements": {
+    "duration": 0.230023,
+    "peakDbFS": -14.0001,
+    "rmsDbFS": -31.625914,
+    "mean": -0.000207,
+    "clippedSamples": 0,
+    "firstSample": 0,
+    "lastSample": 0,
+    "maxAdjacentSampleStep": 0.165283
+  },
+  "auditionStatus": "Not heard. Numerical headroom/endpoints only; semantic selection, audible clicks and subjective suitability NOT approved."
+}
+
+{
+  "file": "dry-crisp-a.wav",
+  "name": "dry-crisp-a.wav",
+  "sourceId": 398762,
+  "creator": "Anthousai",
+  "source": "https://freesound.org/people/Anthousai/sounds/398762/",
+  "sourcePreview": "https://cdn.freesound.org/previews/398/398762_5923045-hq.mp3",
+  "license": "CC0-1.0",
+  "sourcePreviewSha256": "ae0952832f307946224fc618151d508ae51de417e27c18d63d8d25e5ea6c825a",
+  "startSeconds": 33.19,
+  "durationSeconds": 0.2,
+  "selection": "Highest post-filter mean-square 200 ms window with crest factor at most 18 dB to reject isolated high-crest impulse candidates; cereal/mortar source, dry crack vs mortar knock not aurally distinguished.",
+  "processing": {
+    "floatPreAttenuationDb": -12,
+    "highpassHz": 180,
+    "lowpassHz": 5500,
+    "dcMeanRemoved": -1.1773185981908892e-7,
+    "fadeShape": "sin squared",
+    "fadeInMs": 20,
+    "fadeOutMs": 20,
+    "postFilterGainDb": 17.693291,
+    "finalPeakTargetDbFS": -14,
+    "format": "mono 44.1 kHz PCM16 WAV derived from compressed MP3 preview; not original lossless recording"
+  },
+  "outputSha256": "89ef62b112e09c79fbec997137783e73003c92f22199291e78126271162edd92",
+  "bytes": 17684,
+  "measurements": {
+    "duration": 0.2,
+    "peakDbFS": -14.0001,
+    "rmsDbFS": -28.665744,
+    "mean": 0.000001,
+    "clippedSamples": 0,
+    "firstSample": 0,
+    "lastSample": 0,
+    "maxAdjacentSampleStep": 0.099854
+  },
+  "auditionStatus": "Not heard. Numerical headroom/endpoints only; semantic selection, audible clicks and subjective suitability NOT approved."
+}
+
+{
+  "file": "dry-crisp-b.wav",
+  "name": "dry-crisp-b.wav",
+  "sourceId": 398762,
+  "creator": "Anthousai",
+  "source": "https://freesound.org/people/Anthousai/sounds/398762/",
+  "sourcePreview": "https://cdn.freesound.org/previews/398/398762_5923045-hq.mp3",
+  "license": "CC0-1.0",
+  "sourcePreviewSha256": "ae0952832f307946224fc618151d508ae51de417e27c18d63d8d25e5ea6c825a",
+  "startSeconds": 49.59,
+  "durationSeconds": 0.2,
+  "selection": "Same filtered energy and crest rule, at least six seconds from A; semantics unverified.",
+  "processing": {
+    "floatPreAttenuationDb": -12,
+    "highpassHz": 180,
+    "lowpassHz": 5500,
+    "dcMeanRemoved": 0.0000011138764823205629,
+    "fadeShape": "sin squared",
+    "fadeInMs": 20,
+    "fadeOutMs": 20,
+    "postFilterGainDb": 19.301798,
+    "finalPeakTargetDbFS": -14,
+    "format": "mono 44.1 kHz PCM16 WAV derived from compressed MP3 preview; not original lossless recording"
+  },
+  "outputSha256": "7de350b900b3e2b43c07143ee2b76e94c331b94f47a6866dac83db49c3f34253",
+  "bytes": 17684,
+  "measurements": {
+    "duration": 0.2,
+    "peakDbFS": -14.0001,
+    "rmsDbFS": -31.915096,
+    "mean": -0.000014,
+    "clippedSamples": 0,
+    "firstSample": 0,
+    "lastSample": 0,
+    "maxAdjacentSampleStep": 0.176483
+  },
+  "auditionStatus": "Not heard. Numerical headroom/endpoints only; semantic selection, audible clicks and subjective suitability NOT approved."
+}

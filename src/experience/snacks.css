@@ -1,0 +1,7 @@
+.snack-records{display:grid;gap:12px}.snack-records article{display:flex;gap:16px;padding:18px;border:1px solid #d7ddcf;border-radius:16px;background:#f4f4e9;color:#899086}.snack-records article.found{color:#3c5144;background:#faf7eb}.snack-records h3{margin:0 0 7px;font-size:17px}.snack-records p{margin:0 0 7px;line-height:1.6}.record-number{font:italic 26px Georgia;color:#9fa992}
+.pantry-app .room-assist button:disabled{color:#68746c;background:#e5eadd;opacity:1}
+.first-person-mode.view-3d .wrapper-inset .food-stage{aspect-ratio:1.6;height:auto;bottom:54px}
+.first-person-mode .wrapper-inset .simple-tray-head h2{display:block;position:static;clip-path:none;overflow:visible;white-space:normal;width:auto;height:auto;min-height:0;margin:0;padding:5px 8px;grid-column:1;font-size:13px;line-height:1.5;background:#f9f6ecee;border-radius:10px;color:#405548}
+.first-person-mode .wrapper-inset .simple-tray-foot{display:contents}
+.first-person-mode .wrapper-inset .drag-hint{max-width:calc(100% - 8px);font-size:12px;line-height:1.6;white-space:normal;bottom:1px;padding:6px 9px;box-sizing:border-box}
+@media(max-height:620px){.first-person-mode.view-3d .wrapper-inset{width:min(290px,calc(100vw - 24px))}.first-person-mode .wrapper-inset .simple-tray-head h2{font-size:12px}.first-person-mode .wrapper-inset .drag-hint{font-size:11px}}

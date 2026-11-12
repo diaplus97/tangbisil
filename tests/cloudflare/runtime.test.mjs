@@ -13,7 +13,8 @@ const {Miniflare,convertV4MiniflareOptions}=fromWrangler('miniflare');
 const config=JSON.parse((await readFile(new URL('../../wrangler.pantry.jsonc',import.meta.url),'utf8')).replace(/^\s*\/\/.*$/gm,''));
 test('Cloudflare direct bite and table sip synchronize once and persist across hibernation and room changes',{timeout:30000},async t=>{
  const {mf,visitor,connect}=await setup(t),a=await visitor('탁상A'),b=await visitor('탁상B'),c=await connect(a),peer=await connect(b);
- await c.act('take');const servingId=c.state.self.serving.id;await c.act('unwrap',{servingId,progress:.51});
+ await c.takeSnack();const servingId=c.state.self.serving.id;await c.act('unwrap',{servingId,progress:.51});
+ await c.act('sit',{seat:0});await c.arrive();
  const key=randomUUID();assert.equal((await c.act('cup-sip',{sips:0},key)).status,200);assert.equal(c.state.self.serving.open_progress,.51);
  const actionAt=c.state.room.members.find(m=>m.id===a.user.id).actionAt;
  assert.equal((await c.act('cup-sip',{sips:0},key)).data.replay,true);assert.equal(c.state.room.members.find(m=>m.id===a.user.id).actionAt,actionAt);
@@ -26,7 +27,7 @@ test('Cloudflare direct bite and table sip synchronize once and persist across h
 
 test('Cloudflare appearance changes broadcast, persist and replay without disturbing a serving',{timeout:30000},async t=>{
  const {visitor,connect}=await setup(t),a=await visitor('의상A'),b=await visitor('의상B'),c=await connect(a),peer=await connect(b);
- await c.act('take');const saved=structuredClone(c.state.self);
+ await c.takeSnack();const saved=structuredClone(c.state.self);
  const appearanceKey=randomUUID(),seat=c.state.room.members.find(m=>m.id===a.user.id).seat;
  assert.equal((await c.act('appearance',{avatar:3},appearanceKey)).status,200);
  await peer.wait(()=>peer.state.room.members.find(m=>m.id===a.user.id)?.avatar===3);
@@ -181,6 +182,8 @@ async function setup(t,overrides={}){
     const wait=async(predicate,timeout=6000)=>{const end=Date.now()+timeout;while(Date.now()<end){const found=predicate();if(found)return found;await delay(20);}assert.fail('Expected Cloudflare state was not received');};
     const c={ws,status:200,states,messages,get state(){return states.at(-1);},wait,
       async act(type,extra={},requestId=randomUUID()){ws.send(JSON.stringify({type:'action',input:{type,requestId,...extra}}));const result=await wait(()=>replies.get(requestId));replies.delete(requestId);return result;},
+      async prepareSnack(){const member=c.state.room.members.find(m=>m.id===user.user.id);if(member.station!=='snacks'){assert.equal((await c.act('approach',{station:'snacks'})).status,200);await c.arrive();}const display=c.state.room.snackDisplay,slot=display.slots[0];return {snackId:slot.snackId,definitionVersion:slot.definitionVersion,displayId:display.displayId};},
+      async takeSnack(){return c.act('take',await c.prepareSnack());},
       async arrive(){await wait(()=>{const m=c.state.room.members.find(m=>m.id===user.user.id);return m&&!m.travel&&(!m.motion||Date.now()>m.motion.endsAt+40);},25000);await delay(100);},
     };
     connections.push(c);await wait(()=>c.state);return c;
@@ -217,7 +220,7 @@ test('Cloudflare rejects malformed frames and isolates another visitor’s food 
  const xss=await mf.dispatchFetch('http://example.test/api/session',{method:'POST',body:JSON.stringify({name:'<svg>'})});assert.equal(xss.status,400);
  const large=await mf.dispatchFetch('http://example.test/api/session',{method:'POST',body:'x'.repeat(8193)});assert.equal(large.status,413);
  const a=await visitor('별명 “A”'),b=await visitor('별명 B'),first=await connect(a),second=await connect(b);
- const taken=await first.act('take'),id=taken.data.state.self.serving.id;
+ const taken=await first.takeSnack(),id=taken.data.state.self.serving.id;
  assert.equal((await second.act('open',{servingId:id,userId:a.user.id})).status,409);
  assert.equal((await second.act('take',{},'<bad>')).status,400);
  assert.equal((await second.act({nested:'take'})).status,400);
@@ -233,7 +236,7 @@ test('Cloudflare rejects malformed frames and isolates another visitor’s food 
 });
 test('Cloudflare migrates an occupied old TV queue once without changing personal records', {timeout:30000},async t=>{
  const {mf,visitor,connect,storage}=await setup(t),a=await visitor('목록교체'),c=await connect(a);
- await c.act('take');const before=structuredClone(c.state.self),session=c.state.room.media.sessionId;
+ await c.takeSnack();const before=structuredClone(c.state.self),session=c.state.room.media.sessionId;
  const sql=await storage('PantryRoom','window'),saved=JSON.parse((await sql.exec("SELECT value FROM cf_json WHERE key='room'"))[0].value);
  saved.media.tv={queueVersion:'old',index:2,videoId:'retired-clip',startedAt:Date.now()-10000,version:9};
  await sql.exec("UPDATE cf_json SET value=? WHERE key='room'",JSON.stringify(saved));
@@ -245,7 +248,7 @@ test('Cloudflare migrates an occupied old TV queue once without changing persona
 test('Cloudflare two visitors share exactly once; hibernation and cross-room personal records survive', {timeout:60000},async t=>{
   const {mf,visitor,connect,storage}=await setup(t),a=await visitor('CF동료A'),b=await visitor('CF동료B'),first=await connect(a),second=await connect(b);
   await first.wait(()=>first.state.room.members.length===2);
-  const taken=await first.act('take');assert.equal(taken.status,200);const servingId=taken.data.state.self.serving.id;
+  const taken=await first.takeSnack();assert.equal(taken.status,200);const servingId=taken.data.state.self.serving.id;
   await first.act('unwrap',{servingId,progress:.42});await first.act('open',{servingId});await first.act('offer');
   await second.wait(()=>second.state.room.offers[0]);const offerId=second.state.room.offers[0].id;
   const requestId=randomUUID(),sample=await second.act('sample',{offerId},requestId);assert.equal(sample.status,200);
@@ -269,7 +272,7 @@ test('Cloudflare two visitors share exactly once; hibernation and cross-room per
 });
 test('Cloudflare arrivals, coffee alarm, fridge and personal sand/vase survive hibernation', {timeout:180000},async t=>{
   const {mf,visitor,connect}=await setup(t),a=await visitor('생활검사A'),b=await visitor('생활검사B'),c=await connect(a),peer=await connect(b);
-  const take=await c.act('take'),servingId=take.data.state.self.serving.id;await c.act('unwrap',{servingId,progress:.42});
+  const take=await c.takeSnack(),servingId=take.data.state.self.serving.id;await c.act('unwrap',{servingId,progress:.42});
   assert.equal((await c.act('approach',{station:'coffee'})).status,200);
   assert.equal((await peer.act('approach',{station:'coffee'})).status,409);await c.arrive();
   assert.equal((await c.act('coffee-place')).status,200);assert.equal((await c.act('coffee-brew')).status,200);
@@ -294,7 +297,7 @@ test('Cloudflare arrivals, coffee alarm, fridge and personal sand/vase survive h
 });
 test('Cloudflare pending personal commit recovers after failure without an extra bite', {timeout:30000},async t=>{
   const {visitor,connect,storage}=await setup(t),a=await visitor('복구검사'),c=await connect(a);
-  const take=await c.act('take'),servingId=take.data.state.self.serving.id;await c.act('open',{servingId});
+  const take=await c.takeSnack(),servingId=take.data.state.self.serving.id;await c.act('open',{servingId});
   const key=createHash('sha256').update(a.token).digest('hex'),home=await storage('PantryVisitor',key);
   const original=(await home.exec("SELECT value FROM cf_json WHERE key='record'"))[0].value;
   const changed=JSON.parse(original);changed.epoch+=99;await home.exec("UPDATE cf_json SET value=? WHERE key='record'",JSON.stringify(changed));
@@ -304,9 +307,10 @@ test('Cloudflare pending personal commit recovers after failure without an extra
 });
 test('Cloudflare disconnect during a failed save still schedules departure without losing the pending item',{timeout:30000},async t=>{
  const {visitor,connect,storage}=await setup(t),a=await visitor('퇴장복구'),c=await connect(a);
+ const choice=await c.prepareSnack();
  const key=createHash('sha256').update(a.token).digest('hex'),home=await storage('PantryVisitor',key),room=await storage('PantryRoom','window');
  const original=(await home.exec("SELECT value FROM cf_json WHERE key='record'"))[0].value,changed=JSON.parse(original);changed.epoch+=99;
- await home.exec("UPDATE cf_json SET value=? WHERE key='record'",JSON.stringify(changed));assert.equal((await c.act('take')).status,503);c.ws.close();
+ await home.exec("UPDATE cf_json SET value=? WHERE key='record'",JSON.stringify(changed));assert.equal((await c.act('take',choice)).status,503);c.ws.close();
  await delay(200);const read=async()=>JSON.parse((await room.exec("SELECT value FROM cf_json WHERE key='room'"))[0].value),pending=await read();
  assert.ok(pending.members[0].departAt>0);assert.ok(pending.pending[key]);await home.exec("UPDATE cf_json SET value=? WHERE key='record'",original);
  await delay(5100);const b=await visitor('동료'),peer=await connect(b);assert.equal(peer.state.room.members.some(m=>m.id===a.user.id),false);
@@ -341,7 +345,7 @@ test('Cloudflare room capacity, unsupported rooms and daily allowance fail gentl
 });
 test('Cloudflare concurrent duplicate requests and interrupted room claims keep one personal owner', {timeout:30000},async t=>{
   const {mf,visitor,connect,storage}=await setup(t),a=await visitor('동시검사'),first=await connect(a),second=await connect(a);
-  const requestId=randomUUID(),results=await Promise.all([first.act('take',{},requestId),second.act('take',{},requestId)]);
+  const choice=await first.prepareSnack(),requestId=randomUUID(),results=await Promise.all([first.act('take',choice,requestId),second.act('take',choice,requestId)]);
   assert.ok(results.every(result=>result.status===200));assert.equal(results.filter(result=>result.data.replay).length,1);
   assert.equal(results[0].data.state.self.serving.id,results[1].data.state.self.serving.id);
   const b=await visitor('중단검사'),key=createHash('sha256').update(b.token).digest('hex'),home=await storage('PantryVisitor',key);

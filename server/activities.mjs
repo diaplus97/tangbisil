@@ -64,7 +64,7 @@ export function createActivities(db,GameError){
       }else if(type==='candy-eat'){
         ownCandy();if(!p.candy.held||p.candy.state!=='open')throw new GameError('포장을 모두 벗긴 뒤 먹을 수 있어요.');
         p.candy.state='eaten';p.candy.held=false;
-        db.prepare('INSERT OR IGNORE INTO discoveries VALUES(?,?,?,?)').run(id,'honey-lemon-candy',now,'bowl');
+        db.prepare('INSERT OR IGNORE INTO discoveries(user_id,snack_id,discovered_at,source) VALUES(?,?,?,?)').run(id,'honey-lemon-candy',now,'bowl');
       }else if(type==='candy-hold'){
         ownCandy();if(typeof input.held!=='boolean'||(pose.inSeat==null&&!(member.station==='candy'&&input.held)))throw new GameError('자리에 앉으면 사탕을 내려놓거나 다시 집을 수 있어요.');if(input.held)freeHand(p,input,'candy',GameError);p.candy.held=input.held;
       }else if(type==='coffee-place'){

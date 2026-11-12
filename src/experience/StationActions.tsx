@@ -3,8 +3,9 @@ import {RestActions} from './RestActions';
 import {heldName} from '../../shared/rest.mjs';
 import type {Snapshot} from './types';
 import {playSound} from './sound';
+import {snackDefinition} from '../../shared/snacks.mjs';
 
-type Props={state:Snapshot;busy:boolean;online:boolean;onExplore:()=>void;onSnack:()=>void;snackLabel:string;act:(type:string,extra?:Record<string,unknown>)=>Promise<unknown>};
+type Props={state:Snapshot;busy:boolean;online:boolean;onExplore:()=>void;onSnack:(choice?:Record<string,unknown>)=>void;snackLabel:string;act:(type:string,extra?:Record<string,unknown>)=>Promise<unknown>};
 export function StationActions({state,busy,online,onExplore,onSnack,snackLabel,act}:Props){
   const me=state.room.members.find(m=>m.id===state.self.id)!,p=state.self.pantry,c=p.candy,b=p.bottle,station=me.station,disabled=busy||!online;
   async function openCandy(){if(!c||disabled)return;const result=await act('candy-unwrap',{itemId:c.id,progress:1});if(result)playSound('open');}
@@ -18,7 +19,9 @@ export function StationActions({state,busy,online,onExplore,onSnack,snackLabel,a
     {c.state==='wrapped'?<button className="primary candy-open" disabled={disabled} onClick={()=>void openCandy()}>포장 열기</button>:<button className="primary" disabled={disabled} onClick={()=>action('candy-eat',{itemId:c.id})}>사탕 한 알 먹기</button>}
     {!station&&(rest?.stone||rest?.tea)&&<PersonalItems label="휴식 도구">{rest.stone&&!rest.stone.held&&<button disabled={disabled} onClick={()=>pick('stone-hold','stone',{itemId:rest.stone!.id,held:true})}>{pickup('말랑돌 다시 집기','stone')}</button>}{rest.tea&&!rest.tea.held&&<button disabled={disabled} onClick={()=>pick('tea-hold','tea',{itemId:rest.tea!.id,held:true})}>{pickup('찻잔 다시 집기','tea')}</button>}</PersonalItems>}{!station&&<button className="quiet-action" disabled={disabled} onClick={()=>action('candy-hold',{itemId:c.id,held:false})}>사탕 내려놓기</button>}
   </>:null;
-  if(station==='candy'){
+  if(station==='snacks'){
+    title='오늘은 이 세 가지';content=state.room.snackDisplay?.slots.map(slot=><button key={slot.slot} disabled={disabled} onClick={()=>onSnack({snackId:slot.snackId,definitionVersion:slot.definitionVersion,displayId:state.room.snackDisplay!.displayId})}>{snackDefinition(slot.snackId,slot.definitionVersion)?.name}</button>);
+  }else if(station==='candy'){
     title=c?.state==='eaten'?'사탕을 맛봤어요. 기록에 남겨뒀어요.':c?.state==='open'?'레몬꿀 사탕 · 한 알 먹어볼까요?':c?'레몬꿀 사탕 · 포장을 열어 한 알':'작고 달콤한 쉼표';
     content=candyActions??(c&&c.state!=='eaten'?<button className="primary" disabled={disabled} onClick={()=>pick('candy-hold','candy',{itemId:c.id,held:true})}>{pickup('내 사탕 다시 집기','candy')}</button>:<button className="primary" disabled={disabled} onClick={()=>pick('candy-take','candy')}>{pickup('사탕 하나 집기','candy')}</button>);
   }else if(station==='coffee'){
@@ -34,5 +37,5 @@ export function StationActions({state,busy,online,onExplore,onSnack,snackLabel,a
     content=<>{candyActions}{c&&c.state!=='eaten'&&!c.held&&<button className="secondary" disabled={disabled} onClick={()=>pick('candy-hold','candy',{itemId:c.id,held:true})}>{pickup('사탕 다시 집기','candy')}</button>}{b&&b.sips<3&&<><button className={b.held?'primary':'secondary'} disabled={disabled} onClick={()=>pick(b.held?'bottle-sip':'bottle-hold','bottle',b.held?{itemId:b.id}:{itemId:b.id,held:true})}>{b.held?'음료 한 모금':pickup('음료 다시 집기','bottle')}</button>{b.held&&<button className="quiet-action" disabled={disabled} onClick={()=>action('bottle-hold',{itemId:b.id,held:false})}>병 내려놓기</button>}</>}</>;
   }
   if(!station&&!title)return null;
-  return <section className="object-actions" aria-label="오브젝트 조작"><p role="status">{title}</p><div className="object-action-buttons">{content}{!station&&<button className="quiet-action" disabled={disabled} onClick={onSnack}>{snackLabel}</button>}</div></section>;
+  return <section className="object-actions" aria-label="오브젝트 조작"><p role="status">{title}</p><div className="object-action-buttons">{content}{!station&&<button className="quiet-action" disabled={disabled} onClick={()=>onSnack()}>{snackLabel}</button>}</div></section>;
 }

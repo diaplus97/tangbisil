@@ -76,11 +76,7 @@ export function createArchitecture(kit:Workshop,scene:T.Scene){
   const counterCups=new T.Group();counterCups.position.copy(pantry.position);scene.add(counterCups);
   for(let i=0;i<3;i++)mug(kit,counterCups,-4.25,1.34,-.5+i*.3,'empty',.7);
   consolidate(counterCups,kit);counterCups.userData={directSurface:true,action:'coffee',station:'coffee'};
-  for(const row of [0,1]){
-    const shelf=new T.Group();shelf.position.set(-4.82,1.73+row*.42,.9);shelf.rotation.y=Math.PI/2;pantry.add(shelf);
-    kit.box(shelf,1.14,.045,.4,0,0,0,'#dcc29d',.012).material=s.wood;
-    for(let j=0;j<4;j++)packet(kit,shelf,-.4+j*.27,.03,0,.65);
-  }
+
   }
   // Three real tables, each with an unobstructed approach behind its chairs.
   for(const table of tables){

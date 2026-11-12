@@ -20,6 +20,7 @@ export const seats=[
 ];
 export const seatTables=[0,0,0,0,1,1,2,2];
 export const stations={
+ snacks:{name:'오늘의 간식',x:-7.05,z:.65,y:1.87,approach:{x:-5.85,z:.65},yaw:-Math.PI/2},
  candy:{name:'사탕 그릇',x:-7.05,z:-.1,y:1.4,approach:{x:-5.85,z:-.1},yaw:-Math.PI/2},
  coffee:{name:'커피 머신',x:-7.05,z:-2.5,y:1.6,approach:{x:-5.85,z:-2.5},yaw:-Math.PI/2},
  plant:{name:'창가 식물',x:-4.75,z:-5.55,y:1.3,approach:{x:-4.75,z:-4.25},yaw:Math.PI},

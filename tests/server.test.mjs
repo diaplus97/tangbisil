@@ -50,7 +50,8 @@ async function setup(t) {
     }};
   }
   const act=(user,type,extra={},room='window')=>request(`/api/action?room=${room}`,user.token,{type,requestId:randomUUID(),...extra});
-  return {visitor,connect,act,request,base};
+  async function takeSnack(user,room='window'){const moved=await act(user,'approach',{station:'snacks'},room);assert.equal(moved.status,200);const state=moved.data.state,m=state.room.members.find(m=>m.id===user.user.id);if(m.motion)await delay(Math.max(0,m.motion.endsAt-Date.now())+80);const slot=state.room.snackDisplay.slots[0];return act(user,'take',{snackId:slot.snackId,definitionVersion:slot.definitionVersion,displayId:state.room.snackDisplay.displayId},room);}
+  return {visitor,connect,act,takeSnack,request,base};
 }
 
 test('malformed JSON shapes and action IDs are rejected before touching visitor state',async t=>{
@@ -68,7 +69,7 @@ test('malformed JSON shapes and action IDs are rejected before touching visitor 
 });
 
 test('two authenticated streams share food state, isolate private data and update other room tabs',async t=>{
-  const {visitor,connect,act,request}=await setup(t);
+  const {visitor,connect,act,takeSnack,request}=await setup(t);
   const a=await visitor('레몬'),b=await visitor('창가');
   assert.equal((await act(a,'take')).status,409);
   const first=await connect(a),second=await connect(b),otherRoom=await connect(a,'quiet');
@@ -76,7 +77,7 @@ test('two authenticated streams share food state, isolate private data and updat
   assert.equal(together.self.id,a.user.id);
   assert.equal('coins' in together.room.members.find(m=>m.id===b.user.id),false);
   assert.equal('token' in together.room.members[0],false);
-  const taken=await act(a,'take');assert.equal(taken.status,200);
+  const taken=await takeSnack(a);assert.equal(taken.status,200);
   const servingId=taken.data.state.self.serving.id;
   await second.waitFor(s=>s.room.members.find(m=>m.id===a.user.id)?.food?.state==='sealed');
   await otherRoom.waitFor(s=>s.self.serving?.id===servingId);
@@ -120,9 +121,9 @@ test('six seats, same-visitor reconnect and disconnected-seat release are enforc
 });
 
 test('tasting a carried sample updates its original shared plate after leaving that room',async t=>{
-  const {visitor,connect,act}=await setup(t),a=await visitor('나누는 동료'),b=await visitor('가져가는 동료');
+  const {visitor,connect,act,takeSnack}=await setup(t),a=await visitor('나누는 동료'),b=await visitor('가져가는 동료');
   const first=await connect(a),second=await connect(b);
-  const taken=await act(a,'take'),servingId=taken.data.state.self.serving.id;
+  const taken=await takeSnack(a),servingId=taken.data.state.self.serving.id;
   await act(a,'open',{servingId});await act(a,'bite',{servingId});await act(a,'offer');
   const offered=await second.waitFor(s=>s.room.offers.length===1);
   const sample=await act(b,'sample',{offerId:offered.room.offers[0].id});
@@ -136,7 +137,7 @@ test('tasting a carried sample updates its original shared plate after leaving t
 });
 
 test('movement is shared, a seat has one owner, and walking does not create extra room capacity',async t=>{
-  const {visitor,connect,act}=await setup(t),a=await visitor('걷는 동료'),b=await visitor('앉는 동료');
+  const {visitor,connect,act,takeSnack}=await setup(t),a=await visitor('걷는 동료'),b=await visitor('앉는 동료');
   const first=await connect(a),second=await connect(b);
   const [one,two]=await Promise.all([act(a,'sit',{seat:2}),act(b,'sit',{seat:2})]);
   assert.deepEqual([one.status,two.status].sort(),[200,409]);
@@ -151,8 +152,8 @@ test('movement is shared, a seat has one owner, and walking does not create extr
 });
 
 test('walking through doors scopes presence and fixtures, keeps food, cancels disconnected travel and restores sharing on return',async t=>{
- const {visitor,connect,act}=await setup(t),a=await visitor('힐링 A'),b=await visitor('힐링 B');let first=await connect(a),second=await connect(b);
- const taken=await act(a,'take'),servingId=taken.data.state.self.serving.id;await act(a,'open',{servingId});await act(a,'bite',{servingId});await act(a,'offer');
+ const {visitor,connect,act,takeSnack}=await setup(t),a=await visitor('힐링 A'),b=await visitor('힐링 B');let first=await connect(a),second=await connect(b);
+ const taken=await takeSnack(a),servingId=taken.data.state.self.serving.id;await act(a,'open',{servingId});await act(a,'bite',{servingId});await act(a,'offer');
  const offered=await second.waitFor(s=>s.room.offers.length===1),offerId=offered.room.offers[0].id;
  async function travel(user,stream,to){const r=await act(user,'travel',{to});assert.equal(r.status,200);assert.notEqual(r.data.state.room.area,to);const m=r.data.state.room.members.find(m=>m.id===user.user.id);assert.ok(m.travel.enterAt>r.data.state.serverTime);return stream.waitFor(s=>s.room.area===to&&s.room.members.some(m=>m.id===user.user.id&&m.motion?.id.endsWith('-inside')&&m.motion.endsAt<=s.serverTime),20000);}
  const healing=await travel(a,first,'healing');assert.equal(healing.self.serving.bites,1);assert.equal(healing.room.offers.length,0);assert.equal(healing.room.total,2);assert.equal(healing.room.members.length,1);

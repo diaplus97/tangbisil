@@ -1,4 +1,5 @@
 import {useEffect,useRef} from 'react';
+import {snackDefinition} from '../../shared/snacks.mjs';
 import {FoodStage} from './FoodStage';
 import type {Snapshot} from './types';
 
@@ -13,7 +14,7 @@ export function SnackTray({onFlush,state,appearance,busy,online,onClose,onProgre
   return <section ref={ref} className={'snack-tray simple-tray'+(appearance==='3d'?' wrapper-inset':'')} aria-label="간식 먹기" tabIndex={-1}
     onPointerDown={e=>e.stopPropagation()} onPointerUp={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()}
     onKeyDown={e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();onClose();}}}>
-    <header className="simple-tray-head"><h2>{food.source==='shared'?'동료가 나눈 레몬파이':'레몬 샌드파이'}</h2>
+    <header className="simple-tray-head"><h2>{(food.source==='shared'?'나눔 · ':'')+(snackDefinition(food.snack_id,food.definition_version??1)?.name??'내 간식')}</h2>
       <button className={food.state==='empty'?'primary tray-rest':'tray-rest'} aria-label="포장 자세히 보기 닫기" onClick={onClose}><span className="desktop-label">닫기</span><span className="compact-label">닫기</span> <span aria-hidden="true">⌄</span></button>
     </header>
     <FoodStage onFlush={onFlush} key={food.id} appearance={appearance} serving={food} busy={disabled} onProgress={onProgress} onOpen={onOpen} onBite={onBite}/>

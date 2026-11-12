@@ -2,6 +2,8 @@ import * as T from 'three';
 import {createCameraCollision} from './cameraCollision';
 import {createDestinationMarker} from './destinationMarker';
 import {createSeatMarkers} from './seatMarkers';
+import {snackModel,snackFood} from './snackModels';
+import {snackShelf} from './snackShelf';
 import {Workshop,mug,mugSaucer,packet,pie,consolidate} from './assets';
 import type {Snapshot} from '../types';
 import {windowLandscape,type LandscapeStatus} from './environment';
@@ -34,12 +36,12 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
   const seatMarkers=createSeatMarkers(kit,scene,area);
   const people=new Map<string,ReturnType<typeof createCharacter>>();
   const trays=new Map<string,{group:T.Group;food:T.Group;cup:T.Group;key:string;tea?:ReturnType<typeof teaModel>}>();
-  const dynamic=new T.Group();scene.add(dynamic);let clockOffset=0,current:Snapshot|null=null,firstPerson:string|null=null,selectionViewer:string|null=null,holding=false;
-  const shared=pie(kit,dynamic);consolidate(shared,kit);shared.scale.setScalar(.25);shared.position.set(sharedPlate.x,1.265,sharedPlate.z);shared.visible=false;
+  const dynamic=new T.Group();scene.add(dynamic);let clockOffset=0,current:Snapshot|null=null,firstPerson:string|null=null,selectionViewer:string|null=null,holding=false,inHand=false;
+  const shelf=area==='pantry'?snackShelf(kit,scene):null;
+  const shared=new T.Group();dynamic.add(shared);shared.scale.setScalar(.25);shared.position.set(sharedPlate.x,1.265,sharedPlate.z);shared.visible=false;let sharedFood:T.Group|null=null,sharedKey='';
   const hitMaterial=new T.MeshBasicMaterial({visible:false});
   function hit(parent:T.Object3D,action:string,x:number,y:number,z:number,w:number,h:number,d:number){const mesh=kit.mesh(parent,new T.BoxGeometry(w,h,d),hitMaterial,x,y,z);mesh.userData.action=action;mesh.castShadow=false;mesh.receiveShadow=false;return mesh;}
-  const shelfHit=area!=='pantry'?null:hit(scene,'snack',-7.22,1.98,.1,.42,.65,1.06);
-  if(shelfHit)shelfHit.userData.station='candy';
+
   const plateHit=hit(shared,'shared',0,0,0,2.4,1.3,1.7);
   const objectTargets=healing?Object.entries(map.stations).map(([id,station])=>{const hit=kit.mesh(scene,new T.BoxGeometry(1.8,1.2,.7),hitMaterial,station!.x,.6,station!.z);hit.userData.station=id;hit.castShadow=false;hit.receiveShadow=false;return hit;}):objects?.hits??[];
   const seatTargets=seats.map(([x,z],index)=>{const wide=healing&&index<4?1.36:smoking?.98:.84;const mesh=kit.mesh(scene,new T.BoxGeometry(wide,1.45,wide),hitMaterial,x,.725,z);mesh.castShadow=false;mesh.receiveShadow=false;mesh.userData.seat=index;return mesh;});
@@ -51,6 +53,7 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
   const constrainCamera=createCameraCollision(area);
   function pose(id:string){const m=current?.room.members.find(m=>m.id===id);return m?sampleMotion(m,Date.now()+clockOffset):null;}
   function sync(state:Snapshot|null){
+    shelf?.sync(state?.room.snackDisplay);
     current=state;if(state)clockOffset=state.serverTime-(state.receivedAt??Date.now());
     const members=state?.room.members??[];
     for(const [id,p]of people)if(!members.some(m=>m.id===id)){p.dispose();people.delete(id);const tray=trays.get(id);if(tray){tray.tea?.dispose();kit.release(tray.group);trays.delete(id);}}
@@ -63,15 +66,7 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
       const g=new T.Group();dynamic.add(g);
       kit.box(g,.79,.035,.44,0,.01,0,'#bda584',.05);kit.box(g,.74,.015,.4,0,.032,0,'#e8dfc8',.045);
       const foodGroup=new T.Group();g.add(foodGroup);
-      if(!healing&&m.food?.state==='sealed'&&m.food.open_progress>0){
-        const progress=m.food.open_progress,pack=new T.Group();foodGroup.add(pack);pack.position.set(.16,.05,0);pack.scale.setScalar(.24);
-        kit.box(pack,2.05,.018,1.18,0,0,0,'#c2cecc',.04);pie(kit,pack);
-        const width=2.05*(1-progress),edge=-1.025+2.05*progress;
-        kit.box(pack,width,.55,1.02,edge+width/2,.28,0,'#efe4c3',.025);
-        for(const z of[-.49,.49])kit.box(pack,width,.014,.055,edge+width/2,.56,z,'#97b1bd',.004);
-        const curl=kit.cylinder(pack,.105,.105,1.04,edge,.61,0,'#e8d9b1');curl.rotation.x=Math.PI/2;
-      }else if(!healing&&(m.food?.state==='sealed'||m.id===state?.self.id&&(!m.food||m.food.state==='empty'))){const pack=packet(kit,foodGroup,.16,.08,0,.65);pack.rotation.x=-Math.PI/2;pack.position.z=.14;}
-      else if(!healing&&m.food?.state==='open'){const snack=pie(kit,foodGroup,m.food.bites,m.food.portions===1);snack.scale.setScalar(.24);snack.position.set(.16,.05,0);}
+      if(!healing&&m.food&&m.food.state!=='empty'){const snack=snackModel(kit,foodGroup,m.food);snack.scale.setScalar(.24);snack.position.set(.16,.05,0);snack.rotation.y=Math.PI;}
       if(m.pantry?.candy&&!m.pantry.candy.held&&m.pantry.candy.state!=='eaten'){const candy=candyModel(kit,g,m.pantry.candy.progress);candy.position.set(.29,.12,.12);candy.scale.setScalar(.55);}
       foodGroup.removeFromParent();consolidate(foodGroup,kit);consolidate(g,kit);g.add(foodGroup);
       const rest=m.pantry.rest,drinkKind=tableDrink(m.pantry);let tea:ReturnType<typeof teaModel>|undefined;
@@ -99,7 +94,8 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
       }
       trays.set(m.id,{group:g,food:foodGroup,cup,key,tea});
     }
-    shared.visible=Boolean(state?.room.offers.length);
+    const offer=state?.room.offers.find(o=>o.owner_id!==state.self.id&&!o.claimed)??state?.room.offers[0],nextShared=JSON.stringify([offer?.id,offer?.snack_id,offer?.definition_version]);
+    if(nextShared!==sharedKey){if(sharedFood)kit.release(sharedFood);sharedFood=offer?snackFood(kit,shared,{snack_id:offer.snack_id,definition_version:offer.definition_version??1,state:'open',portions:1,bites:0}):null;sharedKey=nextShared;}shared.visible=Boolean(offer);
   }
   function tick(time:number,state:Snapshot|null,reduced:boolean){
     const now=Date.now()+clockOffset;smokingObjects?.tick(state,now,reduced);architecture.tickDoor(state,now,reduced);
@@ -115,7 +111,7 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
           tray.group.rotation.set(0,a,0);
           tray.group.position.set(x+Math.sin(a)*.88,healing?map.tables[map.seatTables[seat]].y+.055:1.215,z+Math.cos(a)*.88);
           tray.cup.visible=tableDrink(m.pantry)!=='cup'||m.pantry.coffee.stage==='carried';
-          tray.food.visible=!(gesture.eating&&(!m.food||m.food.state==='empty'));
+          tray.food.visible=!(inHand&&m.id===firstPerson)&&!(gesture.eating&&(!m.food||m.food.state==='empty'));
           tray.cup.position.set(healing?.25:-.23,.048,healing?-.15:0);tray.cup.rotation.set(0,Math.PI,0);
           if(gesture.lift>0){
             gesture.cupSocket.getWorldPosition(handPosition);tray.group.worldToLocal(handPosition);
@@ -154,5 +150,5 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
     return station?new T.Vector3(station.x,station.y,station.z):undefined;
   }
   function lighting(warm:boolean){lights.setWarm(warm);architecture.lighting(warm);landscape.lighting(warm);}
-  return {scene,sync,tick,lighting,seatMarkers,objectPoint,constrainCamera,destination,now:()=>Date.now()+clockOffset,interactionTargets(){const tray=ownTable(),ownCharacter=people.get(current?.self.id??'');return [...(ownCharacter?[ownCharacter.group]:[]),...(smokingObjects?.targets()??[]),...(objects?.interactionTargets??[]),...(restObjects?.interactionTargets??[]),...(shelfHit?[shelfHit]:[]),...(shared.visible?[plateHit]:[]),...(tray?[tray.group]:[])];},landscape:landscape.select,reveal(camera:T.Camera,actor:{x:number;z:number}|null,reduced:boolean){architecture.reveal(camera,actor,reduced,destination.point);objects?.reveal?.(camera,actor,reduced);},seaMotion:landscape.motion,active:landscape.active,seatTargets,objectTargets,portalTargets:architecture.portalTargets,foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null,reduced=false){if(healing&&show&&!objects){objects=createStations(kit,scene,false);restObjects=createRestStations(kit,scene,false);}const r=state?.self.pantry.rest;smokingObjects?.foreground(camera,state,firstPerson!==null,reduced,Date.now()+clockOffset);objects?.foreground(camera,state,show&&!r?.sprayer&&!r?.stone?.held&&!r?.tea?.held,pull,reduced,Date.now()+clockOffset);restObjects?.foreground(camera,state,show);},smokingPositions(){return smokingObjects?.positions()??null;},cupPosition(){const tray=ownTable();return tray?.group.visible?tray.group.localToWorld(new T.Vector3(-.23,.20,0)):null;},snackPosition(){const tray=ownTable();return tray?.group.visible?tray.group.localToWorld(new T.Vector3(.16,.20,0)):null;},pose,selectionViewer(id:string|null){selectionViewer=id;},firstPerson(id:string|null,foodInHand=false){firstPerson=id;holding=foodInHand;},labelPosition(id:string){const p=pose(id);return p?people.get(id)?.labelPosition(p):undefined;},interior(enabled:boolean,perspective=enabled){architecture.interior(enabled);landscape.interior(perspective);},dispose(){seatMarkers.dispose();smokingObjects?.dispose();for(const p of people.values())p.dispose();objects?.dispose();restObjects?.dispose();for(const tray of trays.values())tray.tea?.dispose();landscape.dispose();kit.dispose();steamMaterial.dispose();hitMaterial.dispose();destination.dispose();}};
+  return {scene,sync,tick,lighting,foodInHand(value:boolean){inHand=value;},seatMarkers,objectPoint,constrainCamera,destination,now:()=>Date.now()+clockOffset,interactionTargets(){const tray=ownTable(),ownCharacter=people.get(current?.self.id??'');return [...(ownCharacter?[ownCharacter.group]:[]),...(smokingObjects?.targets()??[]),...(objects?.interactionTargets??[]),...(restObjects?.interactionTargets??[]),...(shelf?.hits??[]),...(shared.visible?[plateHit]:[]),...(tray?[tray.group]:[])];},landscape:landscape.select,reveal(camera:T.Camera,actor:{x:number;z:number}|null,reduced:boolean){architecture.reveal(camera,actor,reduced,destination.point);objects?.reveal?.(camera,actor,reduced);},seaMotion:landscape.motion,active:landscape.active,seatTargets,objectTargets,portalTargets:architecture.portalTargets,foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null,reduced=false){if(healing&&show&&!objects){objects=createStations(kit,scene,false);restObjects=createRestStations(kit,scene,false);}const r=state?.self.pantry.rest;smokingObjects?.foreground(camera,state,firstPerson!==null,reduced,Date.now()+clockOffset);objects?.foreground(camera,state,show&&!r?.sprayer&&!r?.stone?.held&&!r?.tea?.held,pull,reduced,Date.now()+clockOffset);restObjects?.foreground(camera,state,show);},smokingPositions(){return smokingObjects?.positions()??null;},cupPosition(){const tray=ownTable();return tray?.group.visible?tray.group.localToWorld(new T.Vector3(-.23,.20,0)):null;},snackPosition(){const tray=ownTable();return tray?.group.visible?tray.group.localToWorld(new T.Vector3(.16,.20,0)):null;},pose,selectionViewer(id:string|null){selectionViewer=id;},firstPerson(id:string|null,foodInHand=false){firstPerson=id;holding=foodInHand;},labelPosition(id:string){const p=pose(id);return p?people.get(id)?.labelPosition(p):undefined;},interior(enabled:boolean,perspective=enabled){architecture.interior(enabled);landscape.interior(perspective);},dispose(){shelf?.dispose();seatMarkers.dispose();smokingObjects?.dispose();for(const p of people.values())p.dispose();objects?.dispose();restObjects?.dispose();for(const tray of trays.values())tray.tea?.dispose();landscape.dispose();kit.dispose();steamMaterial.dispose();hitMaterial.dispose();destination.dispose();}};
 }

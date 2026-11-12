@@ -1,8 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {directAction,directActionKey} from '../src/experience/directActions.ts';
+import {snackDisplay} from '../shared/snacks.mjs';
 
 function state(){return{receivedAt:Date.now(),serverTime:10000,self:{id:'me',pantry:{coffee:{stage:'carried'},candy:null,bottle:null,rest:{sprayer:false,stone:null,tea:null,sand:null,vase:null}}},room:{area:'pantry',members:[{id:'me',area:'pantry',seat:null,station:'tea'}],fixtures:{fridge:{open:false}}}};}
+
+test('display choice carries recipe and date; a rotation cancels a pending automatic pickup',()=>{
+ const s=state();s.room.snackDisplay=snackDisplay(Date.parse('2026-11-12T00:00:00+09:00'));const key=directActionKey(s,'snack-slot-0'),choice=directAction(s,'snack-slot-0');assert.equal(choice.extra.snackId,s.room.snackDisplay.slots[0].snackId);assert.equal(choice.extra.definitionVersion,1);
+ s.room.snackDisplay=snackDisplay(Date.parse('2026-11-13T00:00:00+09:00'));assert.notEqual(directActionKey(s,'snack-slot-0'),key);assert.equal(directAction(s,'snack-slot-99'),null);
+});
 test('empty and non-object targets from seat focus have no direct action',()=>{
  const s=state();s.room.members[0].station=null;s.room.members[0].seat=0;
  for(const target of [null,undefined,'','seat-1','unknown'])assert.equal(directAction(s,target),null);

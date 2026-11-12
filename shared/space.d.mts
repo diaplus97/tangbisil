@@ -5,7 +5,7 @@ export const tableCenter:{x:number;z:number;y:number};
 export const tables:{id:string;name:string;x:number;z:number;y:number;width:number;length:number}[];
 export const seatTables:number[];
 export type Area='pantry'|'healing'|'smoking';
-export type StationId='candy'|'coffee'|'fridge'|'plant'|'stone'|'tea'|'sand'|'flower';
+export type StationId='snacks'|'candy'|'coffee'|'fridge'|'plant'|'stone'|'tea'|'sand'|'flower';
 export const stations:Record<StationId,{name:string;x:number;z:number;y:number;approach:Point;yaw:number}>;
 export const seats:[number,number,number][];
 export const approaches:Point[];

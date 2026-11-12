@@ -14,7 +14,7 @@ export function ObjectAccess({state,disabled,moving,sampleAvailable,onUse,onSeat
  if(!moving){
   if(state.room.area==='smoking'&&me?.seat!=null)targets.push('cigarette','ashtray');
   else{
-   if(me?.station)targets.push(...(me.station==='plant'?['plant','plant-stand','leaf']:me.station==='stone'?['stone-basket']:me.station==='tea'?['tea-cup','tea-kettle','tea-tin','tea-bag']:me.station==='flower'?['flower-cosmos','flower-poppy','flower-cornflower']:me.station==='fridge'?['fridge-door','fridge-bottle']:[me.station]));
+   if(me?.station)targets.push(...(me.station==='snacks'?['snack-slot-0','snack-slot-1','snack-slot-2']:me.station==='plant'?['plant','plant-stand','leaf']:me.station==='stone'?['stone-basket']:me.station==='tea'?['tea-cup','tea-kettle','tea-tin','tea-bag']:me.station==='flower'?['flower-cosmos','flower-poppy','flower-cornflower']:me.station==='fridge'?['fridge-door','fridge-bottle']:[me.station]));
    if(me?.seat!=null){targets.push('cup','held');if(state.room.area==='pantry')targets.push('snack');if(sampleAvailable)targets.push('shared');
     if(p.candy&&!p.candy.held&&p.candy.state!=='eaten')targets.push('candy');
     if(p.rest.stone&&!p.rest.stone.held)targets.push('stone-held');

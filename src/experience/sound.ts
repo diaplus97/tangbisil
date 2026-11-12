@@ -12,13 +12,22 @@ import fridgeOpen from '../assets/audio/fridge-open.wav';
 import spray from '../assets/audio/plant-spray.wav';
 import {COFFEE_BREW_MS} from '../../shared/coffee.mjs';
 import fridgeClose from '../assets/audio/fridge-close.wav';
+import thinA from '../assets/audio/paper-thin-a.wav';
+import thinB from '../assets/audio/paper-thin-b.wav';
+import waxA from '../assets/audio/paper-wax-a.wav';
+import waxB from '../assets/audio/paper-wax-b.wav';
+import peel from '../assets/audio/peel-seal.wav';
+import release from '../assets/audio/peel-release.wav';
+import crispA from '../assets/audio/dry-crisp-a.wav';
+import crispB from '../assets/audio/dry-crisp-b.wav';
+import type {SnackKind} from '../../shared/snacks.mjs';
 
 import sandA from '../assets/audio/sand-a.wav';
 import sandB from '../assets/audio/sand-b.wav';
 import sandC from '../assets/audio/sand-c.wav';
 import sandStone from '../assets/audio/sand-stone.wav';
 
-const urls={sandA,sandB,sandC,sandStone,rustleA,rustleB,rustleC,touch,open,cup,pour,bite,coffeeMachine,fridgeOpen,fridgeClose,spray};
+const urls={thinA,thinB,waxA,waxB,peel,release,crispA,crispB,sandA,sandB,sandC,sandStone,rustleA,rustleB,rustleC,touch,open,cup,pour,bite,coffeeMachine,fridgeOpen,fridgeClose,spray};
 type Clip=keyof typeof urls;
 type Voice={source:AudioBufferSourceNode;gain:GainNode;panner:StereoPannerNode;remote:boolean;rustle:boolean;stop:()=>void};
 let context:AudioContext|undefined,master:GainNode|undefined,limiter:DynamicsCompressorNode|undefined;
@@ -52,7 +61,7 @@ export async function setSeaSound(on:boolean){
   }catch{if(ticket===seaGeneration)seaWanted=false;seaLoading=undefined;return false;}
 }
 export function setSoundVolume(value:number){volume=Math.max(0,Math.min(1,value));if(context&&master){master.gain.cancelAndHoldAtTime(context.currentTime);master.gain.linearRampToValueAtTime(enabled?volume:0,context.currentTime+.04);}}
-export function setBiteSound(on:boolean){mouth=on;}
+export function setBiteSound(on:boolean){mouth=on;if(!on)stopSnackSound();}
 export function setOtherSounds(on:boolean){others=on;if(!on)for(const v of voices)if(v.remote)v.stop();}
 export function setActionSounds(on:boolean){actions=on;if(!on){stopRoomSounds();document.dispatchEvent(new Event('pantry-audio-muted'));}else{loadActionSounds();document.dispatchEvent(new Event('pantry-audio-ready'));}}
 export function stopRoomSounds(){stopSandSound();stopWrapperSound();for(const voice of voices)voice.stop();}
@@ -111,15 +120,25 @@ export function playMachine(offset:number,options:{remote:boolean;distance:numbe
 }
 export function playTeaPour(offset:number,seconds:number,options:{remote:boolean;distance:number;pan:number}){const rate=2.15/3;return play('pour',{offset:Math.max(0,offset*rate),duration:Math.max(.01,seconds*rate),rate,gain:options.remote?.17/(1+options.distance*.4):.65,remote:options.remote,pan:options.pan});}
 export function candyWrapperMotion(){const now=performance.now();if(now-lastGrain<120)return;lastGrain=now;play('rustleA',{rustle:true,duration:.15,offset:.2,gain:.5,rate:1.22});}
-export function wrapperMotion(speed:number,progress:number){
+export function wrapperMotion(speed:number,progress:number,kind:SnackKind='lemonPie'){
   if(!enabled||speed<.015){stopWrapperSound();return;}
   clearTimeout(dragTimer);dragTimer=setTimeout(stopWrapperSound,90);
   const now=performance.now();if(now-lastGrain<100)return;lastGrain=now;
-  const key=(['rustleA','rustleB','rustleC'] as const)[variant++%3],buffer=buffers.get(key);if(!buffer)return;
+  const choices:Clip[]=kind==='fruitMochi'?['thinA','thinB']:kind==='layeredMochi'?['waxA','thinA']:kind==='dubaiCookie'?(progress<.2?['peel','release']:['waxA','waxB']):['rustleA','rustleB','rustleC'];
+  const key=choices[variant++%choices.length],buffer=buffers.get(key);if(!buffer)return;
   const offset=((progress*.81+variant*.27)%1)*Math.max(0,buffer.duration-.26);
   const grains=[...voices].filter(v=>v.rustle);while(grains.length>=2)grains.shift()?.stop();
   play(key,{rustle:true,duration:.18,offset,gain:Math.min(.78,.15+Math.sqrt(speed)*.27),rate:Math.min(1.13,.92+speed*.045)});
 }
+const snackVoices=new Set<Voice>();
+export function stopSnackSound(){for(const v of snackVoices)v.stop();snackVoices.clear();}
+export function snackBiteSound(kind:SnackKind){
+ if(!mouth)return;
+ // Material Foley, not a recording of a branded food or a person's chewing.
+ const clip:Clip=kind==='lemonPie'?'bite':kind==='dubaiCookie'?(variant++%2?'crispA':'crispB'):'release';
+ const v=play(clip,{gain:kind==='lemonPie'?.5:kind==='dubaiCookie'?.32:.14,rate:kind==='fruitMochi'?.72:1,duration:kind==='lemonPie'?.28:.16});if(v){snackVoices.add(v);v.source.addEventListener('ended',()=>snackVoices.delete(v),{once:true});}
+}
+export function snackOpenSound(kind:SnackKind,options:{remote?:boolean;distance?:number;pan?:number}={}){if(kind==='lemonPie'){playSound('open',options);return;}const v=play(kind==='fruitMochi'?'thinB':kind==='layeredMochi'?'waxB':'release',{gain:.35*(options.remote?.22/(1+(options.distance??0)*.4):1),duration:.18,remote:options.remote,pan:options.pan});if(v){snackVoices.add(v);v.source.addEventListener('ended',()=>snackVoices.delete(v),{once:true});}}
 export function stopWrapperSound(){clearTimeout(dragTimer);for(const v of voices)if(v.rustle)v.stop();lastGrain=-Infinity;}
 let sandVariant=0,lastSand=-Infinity,sandTimer:ReturnType<typeof setTimeout>|undefined;
 const sandVoices=new Set<Voice>();
