@@ -41,7 +41,7 @@ export function createRestStations(kit:Workshop,scene:T.Scene,visible=true){
  for(let j=0;j<32;j++){const a=j/32*Math.PI*2;kit.tube(basket,[new T.Vector3(Math.sin(a)*.237,.79,Math.cos(a)*.237),new T.Vector3(Math.sin(a)*.28,.965,Math.cos(a)*.28)],.003,'#d1d2bb');}
  const sampleStone=stoneModel(kit,basket);sampleStone.group.position.set(0,.92,0);sampleStone.group.rotation.x=.25;
  label(kit,basket,'말랑돌 · 가져가 쉬어요',.68,.105,0,.65,-.355,'#557269','#ecebdb',72).rotation.y=Math.PI;
- const tray=new T.Group();tray.position.set(stations.tea.x+.12,1.34,stations.tea.z);tray.rotation.y=Math.PI/2;scene.add(tray);
+ const tray=new T.Group();tray.name='tea-tray';tray.position.set(stations.tea.x+.12,1.34,stations.tea.z);tray.rotation.y=Math.PI/2;scene.add(tray);
  tray.userData={directSurface:true,station:'tea',action:'tea'};
  const counter=new T.Group();scene.add(counter);kit.box(counter,1.1,1.23,.86,stations.tea.x,.615,stations.tea.z,'#c9c7ae',.045);kit.box(counter,1.15,.065,.9,stations.tea.x,1.305,stations.tea.z,'#e8e3d0',.025);consolidate(counter,kit);
  kit.box(tray,.84,.035,.66,0,.018,0,'#929f83',.035);kit.box(tray,.79,.008,.61,0,.04,0,'#cdd3bb',.02);
@@ -58,7 +58,7 @@ export function createRestStations(kit:Workshop,scene:T.Scene,visible=true){
  label(kit,tray,'따뜻한 보리차',.6,.08,0,-.085,.49,'#5b735d','#e8e3d0',84);
  const touchMat=new T.MeshBasicMaterial({visible:false});
  const touch=(parent:T.Object3D,action:string,x:number,y:number,z:number,w:number,h:number,d:number)=>{const hit=kit.mesh(parent,new T.BoxGeometry(w,h,d),touchMat,x,y,z);hit.userData={action,station:'tea'};hit.castShadow=false;return hit;};
- touch(tray,'tea-cup',-.2,.19,.12,.24,.3,.24);touch(tray,'tea-tin',.3,.12,.2,.16,.2,.16);touch(tray,'tea-bag',.06,.07,.22,.17,.06,.17);
+ touch(tray,'tea-cup',-.2,.19,.12,.24,.3,.24);touch(tray,'tea-tin',.3,.12,.2,.16,.2,.16);touch(tray,'tea-bag',.06,.105,.22,.22,.15,.22);
  const hand=new T.Group();hand.userData={action:'held',directSurface:true};foregroundScene.add(hand);let handKind='',held:T.Group|null=null,heldTea:ReturnType<typeof teaModel>|null=null;
  function foreground(camera:T.Camera,state:Snapshot|null,show:boolean){
   const me=state?.room.members.find(m=>m.id===state.self.id),r=state?.self.pantry.rest,kind=r?.sprayer?'sprayer':r?.tea?.held&&me?.seat==null?'tea':'';hand.visible=show&&Boolean(kind);if(!hand.visible)return;
@@ -82,7 +82,7 @@ export function createRestStations(kit:Workshop,scene:T.Scene,visible=true){
   mist.visible=!reduced&&spray>0&&age>=0&&age<650;
   if(mist.visible)for(let i=0;i<52;i++){const t=Math.max(0,(age-i*3)/650),a=i*2.399,r=.025+((i*37)%53)/53*.21;dummy.position.set(.5*(1-t)+Math.cos(a)*r*t,1.42+Math.sin(a)*r*t-.13*t*t,.55-.7*t);dummy.scale.setScalar(t>0?Math.sin(Math.PI*Math.min(1,t)):.001);dummy.updateMatrix();mist.setMatrixAt(i,dummy.matrix);}if(mist.visible)mist.instanceMatrix.needsUpdate=true;
   const owner=members.find(m=>m.station==='tea'&&m.pantry.rest?.tea?.location==='station'),raw=owner?.pantry.rest.tea??null,t=sampleTea(raw as Tea|null,now),pouring=Boolean(t?.pourAt&&t.pourEnd>now);
-  tea.group.visible=Boolean(t);tea.update(raw,now,time,reduced);usedBag.visible=Boolean(t?.bagUsed&&!t.bagIn);saucer.visible=true;tin.visible=true;stream.visible=pouring;const surface=.095+(t?.volume??0)*.155;stream.position.y=(.38+surface)/2;stream.scale.y=(.38-surface)/.13;stream.scale.x=reduced?1:1+Math.sin(time*.023)*.08;
+  tea.group.visible=Boolean(t)||!members.some(m=>m.station==='tea'&&m.pantry.rest?.tea?.held);tea.update(raw,now,time,reduced);usedBag.visible=Boolean(t?.bagUsed&&!t.bagIn);saucer.visible=true;tin.visible=true;stream.visible=pouring;const surface=.095+(t?.volume??0)*.155;stream.position.y=(.38+surface)/2;stream.scale.y=(.38-surface)/.13;stream.scale.x=reduced?1:1+Math.sin(time*.023)*.08;
   kettle.position.set(.16,.16,-.12);kettle.rotation.z=0;tap.position.y=pouring?.172:.18;
  }
  return{interactionTargets:[hand,shelf,basket,tray],tick,foreground,dispose(){touchMat.dispose();mist.geometry.dispose();mistMaterial.dispose();tea.dispose();heldTea?.dispose();}};

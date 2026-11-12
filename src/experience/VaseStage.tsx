@@ -8,7 +8,7 @@ export default function VaseStage({vase,disabled,act}:Props){
  const canvas=useRef<HTMLCanvasElement>(null),latest=useRef({vase,disabled,act}),refresh=useRef<()=>void>();latest.current={vase,disabled,act};
  useEffect(()=>{refresh.current?.();},[vase]);
  useEffect(()=>{
-  const el=canvas.current!,c=el.getContext('2d')!;let position=vase.position,tilt=vase.tilt,drag:{id:number;x:number;position:number;tilt:number;mode:'position'|'tilt'}|null=null,pending=false;
+  const el=canvas.current!,c=el.getContext('2d',{willReadFrequently:true})!;let position=vase.position,tilt=vase.tilt,drag:{id:number;x:number;position:number;tilt:number;mode:'position'|'tilt'}|null=null,pending=false;
   function ellipse(x:number,y:number,rx:number,ry:number,fill:string|CanvasGradient){c.fillStyle=fill;c.beginPath();c.ellipse(x,y,rx,ry,0,0,Math.PI*2);c.fill();}
   function draw(){
    c.clearRect(0,0,420,340);ellipse(212,312,101,12,'#20392815');ellipse(210,309,57,7,'#20392825');
@@ -27,7 +27,9 @@ export default function VaseStage({vase,disabled,act}:Props){
   const clamp=(v:number,max:number)=>Math.max(-max,Math.min(max,v));
   async function save(){pending=true;try{await latest.current.act('vase-edit',{itemId:latest.current.vase.id,revision:latest.current.vase.revision,position,tilt});}finally{pending=false;sync();}}
   function down(e:PointerEvent){if(e.button!==0||!e.isPrimary||pending||latest.current.disabled)return;const b=el.getBoundingClientRect(),px=(e.clientX-b.left)/b.width*420,py=(e.clientY-b.top)/b.height*340;
-   let touches=false;for(let y=-12;y<=12;y+=4)for(let x=-12;x<=12;x+=4){const sx=Math.round(px+x),sy=Math.round(py+y);if(sx>=0&&sx<420&&sy>=0&&sy<340&&c.getImageData(sx,sy,1,1).data[3]>96)touches=true;}
+   const left=Math.max(0,Math.floor(px-12)),top=Math.max(0,Math.floor(py-12)),right=Math.min(420,Math.ceil(px+13)),bottom=Math.min(340,Math.ceil(py+13));
+   const pixels=right>left&&bottom>top?c.getImageData(left,top,right-left,bottom-top).data:null;
+   const touches=pixels?.some((alpha,i)=>i%4===3&&alpha>96)??false;
    if(!touches){passPointerToRoom(e,el);return;}e.preventDefault();e.stopPropagation();el.focus({preventScroll:true});drag={id:e.pointerId,x:e.clientX,position,tilt,mode:(e.clientY-b.top)/b.height<.48?'tilt':'position'};el.setPointerCapture(e.pointerId);}
   function move(e:PointerEvent){if(!drag||e.pointerId!==drag.id)return;e.preventDefault();e.stopPropagation();const dx=(e.clientX-drag.x)/el.getBoundingClientRect().width;if(drag.mode==='position')position=clamp(drag.position+dx*3,.6);else tilt=clamp(drag.tilt+dx*1.7,.35);draw();}
   function up(e:PointerEvent){if(!drag||e.pointerId!==drag.id)return;e.preventDefault();e.stopPropagation();const d=drag;drag=null;if(Math.abs(e.clientX-d.x)<3){const x=(e.clientX-el.getBoundingClientRect().left)/el.getBoundingClientRect().width-.5;if(d.mode==='position')position=clamp(x*2,.6);else tilt=clamp(x,.35);}draw();void save();el.releasePointerCapture(e.pointerId);}

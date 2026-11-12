@@ -156,7 +156,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     let cameraAspect=container.current!.clientWidth/Math.max(1,container.current!.clientHeight);
     function eyeFor(f:Framing):Eye{
       const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id),p=m?room.pose(m.id):null;
-      if(f==='activity'&&m?.station){const station=stations[m.station],fridge=m.station==='fridge',closeTea=m.station==='tea'&&matchMedia('(max-width:650px)').matches;return{x:station.x-Math.sin(station.yaw)*(fridge?2.45:m.station==='coffee'?1.45:m.station==='tea'?(closeTea?.9:1.3):1.65),y:m.station==='coffee'?2.02:m.station==='tea'?1.95:1.75,z:station.z-Math.cos(station.yaw)*(fridge?2.45:m.station==='coffee'?1.45:m.station==='tea'?(closeTea?.9:1.3):1.65),yaw:station.yaw,pitch:m.station==='coffee'?-.31:m.station==='sand'?-.3:fridge?-.24:m.station==='stone'?-.42:m.station==='tea'?(closeTea?-.48:-.36):m.station==='plant'?-.28:-.15};}
+      if(f==='activity'&&m?.station){const station=stations[m.station],fridge=m.station==='fridge',closeTea=m.station==='tea'&&matchMedia('(max-width:650px)').matches;return{x:station.x-Math.sin(station.yaw)*(fridge?2.45:m.station==='coffee'?1.45:m.station==='tea'?(closeTea?.98:1.3):1.65),y:m.station==='coffee'?2.02:m.station==='tea'?1.95:1.75,z:station.z-Math.cos(station.yaw)*(fridge?2.45:m.station==='coffee'?1.45:m.station==='tea'?(closeTea?.98:1.3):1.65),yaw:station.yaw,pitch:m.station==='coffee'?-.31:m.station==='sand'?-.3:fridge?-.24:m.station==='stone'?-.42:m.station==='tea'?(closeTea?-.60:-.36):m.station==='plant'?-.28:-.15};}
       if(f==='walking'&&p)return{x:p.x,y:T.MathUtils.lerp(1.78,area==='healing'?(m?.seat!=null&&m.seat<4?1.27:1.48):1.623,p.sit),z:p.z,yaw:p.yaw,pitch:-.06};
       const seat=m?.seat??0,seated=seatedView(seat,area);
       if(area==='pantry'){
@@ -300,7 +300,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     function setCamera(f:Framing){
       const reduced=reduceRef.current;
       const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id),personal=isPersonal(f);
-      const atEye=personal&&Boolean(m)&&(f==='seated'||(f==='activity'&&m?.station==='coffee'));
+      const atEye=personal&&Boolean(m)&&(f==='seated'||(f==='activity'&&(m?.station==='coffee'||m?.station==='tea')));
       if(f==='choosing'&&!debug){
         if(!chooser){
           savedView={first,follower,camera,framing:previousFraming,seat:previousSeat};
