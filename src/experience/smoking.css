@@ -15,7 +15,7 @@
 @media(max-width:650px){.terrace-note{top:clamp(102px,15dvh,140px);padding:9px 14px}.thought-picker{bottom:68px}.room-three .tv-entry{top:82px}}
 .pixel-return{position:absolute;bottom:8px;right:8px;min-height:44px;padding:6px 12px;border:1px solid #a9baad;border-radius:9px;background:#f5f5e9;color:#3e5b51;font:inherit}
 .view-pixel .world-action.smoking-action,.world-status.smoking-action{position:absolute;z-index:9;font-size:14px;min-height:44px;padding:8px 12px;visibility:hidden}
-.terrace-thoughts{position:relative;display:grid;gap:8px;padding:10px 0}
+.view-pixel .terrace-thoughts{position:relative;display:grid;gap:8px;padding:10px 0}
 .view-pixel .terrace-note,.view-pixel .thought-picker{position:static;transform:none;max-width:100%;margin:0}
 .view-pixel .thought-picker>div{position:static;box-sizing:border-box;width:min(100%,480px);margin-top:6px}
 @media(orientation:landscape) and (max-height:460px){
