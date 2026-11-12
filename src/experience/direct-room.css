@@ -154,6 +154,7 @@
 @media(max-height:650px){.first-person-mode .room-navigation .move-picker{gap:5px}.move-picker .picker-header{padding-bottom:2px}}
 
 .object-access-group{position:absolute;inset:0;pointer-events:none;z-index:15}
+.object-access-group>.sr-only[role=status]{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
 .object-access{position:absolute;left:var(--object-x,14px);top:var(--object-y,60%);width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;pointer-events:none;border:0;padding:0}
 .object-access:focus-visible{width:auto;height:auto;max-width:220px;min-height:44px;clip-path:none;overflow:visible;white-space:normal;pointer-events:auto;padding:9px 12px;background:#fffaf0;color:#254337;border:1px solid #697c71;border-radius:10px;outline:3px solid #527b68;outline-offset:3px;font-size:14px;line-height:1.5}
 .object-access kbd{margin-left:8px;font-size:11px;color:#536c5d}
