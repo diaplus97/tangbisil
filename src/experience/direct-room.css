@@ -165,3 +165,9 @@
 .first-person-mode .simple-tray-head .tray-rest{grid-column:2}
 .room-three[data-area=smoking] .direct-hint{top:100px;bottom:auto;max-width:calc(100% - 28px)}
 .game-space:has(.terrace-note) .room-three[data-area=smoking] .direct-hint{display:none}
+.object-context.at-station[data-station=tea]{left:auto;right:14px;top:auto;bottom:14px}
+.object-context.at-station[data-station=tea] .arrival-note{left:auto;right:0;transform:none}
+@media(max-width:650px){
+ .object-context.at-station[data-station=tea]{left:10px;right:auto;bottom:10px}
+ .object-context.at-station[data-station=tea] .arrival-note{left:0;right:auto}
+}
