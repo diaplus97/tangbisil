@@ -5,6 +5,7 @@ import {handSnack} from './handSnack';
 import type {Member} from '../types';
 import type {Pose} from '../../../shared/space.mjs';
 import {cigaretteModel,smokeGesture,smokePlume} from './smokeEffects';
+import {lighterModel} from './smokingModels';
 import {armReach} from './armReach';
 import {CUP_RETURN_MS,SIP_RETURN_MS} from '../gestureTiming';
 import {misterModel,stoneModel,teaModel} from './restModels';
@@ -32,11 +33,10 @@ export function createCharacter(kit:Workshop,member:Member){
   const cigaretteRest=armReach(right.shoulder.position,new T.Vector3(.24,.30,.31));
   const cigaretteMouth=armReach(right.shoulder.position,new T.Vector3(.045,.70,.27));
   const cigaretteOut=armReach(right.shoulder.position,new T.Vector3(.31,.22,.50));
-  const matchReach=armReach(left.shoulder.position,new T.Vector3(.02,.65,.37));
-  const lighter=new T.Group();left.wrist.add(lighter);
-  kit.box(lighter,.031,.052,.025,0,-.016,.02,'#668e87',.005);
+  const matchPoint=new T.Vector3();
+  const lighterProp=lighterModel(kit,left.wrist),lighter=lighterProp.group;lighter.position.set(0,-.016,.02);
   const flameMaterial=new T.MeshBasicMaterial({color:'#ffcd76',transparent:true,opacity:.8});
-  const flame=kit.mesh(lighter,new T.SphereGeometry(.01,10,8),flameMaterial,0,.024,.02);flame.scale.set(.6,1.6,.6);lighter.visible=false;
+  const flame=kit.mesh(lighter,new T.SphereGeometry(.01,10,8),flameMaterial,-.007,.057,0);flame.scale.set(.55,1.5,.55);lighter.visible=false;
   let sandBlend=0;
   let drink=member.drink,last=0,initialized=false,yaw=0,itemKey='',heldItem:T.Group|null=null;
   let restTea:ReturnType<typeof teaModel>|null=null,restStone:ReturnType<typeof stoneModel>|null=null;
@@ -112,8 +112,12 @@ export function createCharacter(kit:Workshop,member:Member){
         }
         right.wrist.quaternion.copy(right.shoulder.quaternion).multiply(right.elbow.quaternion).invert();
         right.open.visible=false;right.grip.visible=true;
-        if(lighter.visible){left.shoulder.quaternion.copy(matchReach.shoulder);left.elbow.quaternion.copy(matchReach.elbow);left.wrist.quaternion.copy(left.shoulder.quaternion).multiply(left.elbow.quaternion).invert();left.open.visible=false;left.grip.visible=true;}
-        cigarette.update(g.phase==='ending'?g.age<300:g.phase!=='lighting'||g.age>650,lift);
+        if(lighter.visible){
+          body.updateWorldMatrix(true,true);matchPoint.copy(cigarette.tip);cigarette.group.localToWorld(matchPoint);body.worldToLocal(matchPoint);matchPoint.sub(lighter.position).sub(lighterProp.flameTip);
+          const matchReach=armReach(left.shoulder.position,matchPoint);
+          left.shoulder.quaternion.copy(matchReach.shoulder);left.elbow.quaternion.copy(matchReach.elbow);left.wrist.quaternion.copy(left.shoulder.quaternion).multiply(left.elbow.quaternion).invert();left.open.visible=false;left.grip.visible=true;
+        }
+        cigarette.update(g.phase==='ending'?g.age<490:g.phase!=='lighting'||g.age>650,lift);
       }
       if(present&&m.connected)smoke.update(mouth,0,g.phase==='puffing'?g.age:-1,reduced);else smoke.hide();
     }

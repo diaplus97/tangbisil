@@ -41,6 +41,8 @@
   background: var(--control-face);
   border-color: var(--control-line);
 }
+.pantry-app .room-assist .move-primary{--control-face:var(--pine);--control-line:var(--pine-edge);--control-ink:#fffdf6;--control-weight:650;--control-shadow:inset 0 -2px var(--pine-edge),0 2px 8px #162b2326}
+.pantry-app .destination-sections button[aria-pressed=true]{--control-face:var(--mist);--control-line:var(--pine);--control-ink:var(--pine);--control-weight:650}
 
 /* Personal inventory lists equal choices. Closing a panel is also secondary. */
 .pantry-app .object-context:has(> .object-options[open]) > .world-action,

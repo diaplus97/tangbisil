@@ -118,7 +118,11 @@ export default function Experience(){
  async function sample(){if(!availableSample)return;closeMenu();const r=await act('sample',{offerId:availableSample.id});if(r){setPanel(null);setMovementMode(false);playSound('cup');}}
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),4500);return()=>clearTimeout(t);},[toast]);
  useEffect(()=>{const outside=(e:PointerEvent)=>{if(menu.current&&!menu.current.contains(e.target as Node))menu.current.open=false;};document.addEventListener('pointerdown',outside);return()=>document.removeEventListener('pointerdown',outside);},[]);
- function explore(){closeMenu();setPanel(null);setMovementMode(true);}
+ async function explore(){
+  if(tableLock.current)return;tableLock.current=true;
+  try{if(foodFlush.current&&!await foodFlush.current())return;closeMenu();setPanel(null);setMovementMode(true);}
+  finally{tableLock.current=false;}
+ }
  const held=me?heldName(me.pantry):null,snackLabel=(held?held+' 내려놓고 ':'')+(hasFood?resumeLabel:'간식 꺼내기');
  async function take(){if(tableLock.current||busy)return;tableLock.current=true;try{if(member?.station&&!await act('stand'))return;setMovementMode(false);if(food?.state==='open'){setPanel(null);return await bite();}if(hasFood){setPanel('food');return;}const r=await act('take');if(r){setPanel('food');playSound('paper');}return r;}finally{tableLock.current=false;}}
  async function useObject(target:string){if(!state||busy&&target!=='cup'||!online)return;const action=directAction(state,target);if(!action)return;if(action.type==='snack')return take();if(action.type==='shared')return sample();if(target==='cup'){if(tableLock.current||lastTableTarget.current==='cup'&&performance.now()-lastTableAction.current<600)return;tableLock.current=true;try{if(foodFlush.current&&!await foodFlush.current())return;setPanel(null);if(action.type.startsWith('refill-')){if(healing){setToast('탕비실에서 차나 새 음료를 준비할 수 있어요.');return;}return await act('approach',{station:action.type==='refill-tea'?'tea':action.type==='refill-bottle'?'fridge':'coffee'});}const r=await act(action.type,action.extra);if(r){lastTableAction.current=performance.now();lastTableTarget.current='cup';}return r;}finally{tableLock.current=false;}}const result=await act(action.type,action.extra);if(result&&action.type==='candy-unwrap')playSound('open');return result;}

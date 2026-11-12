@@ -122,3 +122,33 @@
 .follow-mode .wrapper-inset .simple-tray-foot{display:none}
 .follow-mode .wrapper-inset .drag-hint{font-size:13px;background:#f9f6eceb;border-radius:10px}
 .follow-mode .room-assist .look-window{font-size:14px;padding:8px 10px}
+
+/* A compact destination popover leaves the room and the travel controls visible. */
+.first-person-mode .room-navigation .destination-bar{top:auto;bottom:0;z-index:2}
+.first-person-mode .room-navigation .move-picker{top:auto;bottom:76px;width:min(340px,calc(100vw - 24px));height:auto;max-height:min(360px,48dvh);box-sizing:border-box;display:flex;flex-direction:column;padding:12px;overflow:hidden;gap:8px;border-radius:18px;box-shadow:0 8px 32px #263f3526}
+.destination-dismiss{position:absolute;inset:0;pointer-events:auto;z-index:1;background:transparent}
+.move-picker .picker-header{position:static;flex:none;margin:0;padding:0 0 4px;min-height:44px}
+.move-picker .picker-header strong{font-size:16px;font-weight:650}
+.move-picker .picker-header button{font-size:14px;padding:6px 10px}
+.destination-sections{display:flex;gap:6px;flex:none}
+.destination-sections button{flex:1;min-width:0;min-height:44px;padding:6px;font-size:14px;line-height:1.5}
+.destination-list{overflow:auto;overscroll-behavior:contain;min-height:0;scroll-padding:8px;flex:1;padding:2px}
+.move-picker .destination-list fieldset{padding-top:6px;margin-bottom:10px}
+.move-picker .destination-list legend{font-size:12px;color:#4b6356}
+.move-picker .destination-seats{gap:6px}
+.move-picker .destination-seats button{flex-direction:column;align-items:flex-start;justify-content:center;gap:0;min-height:48px;text-align:left}
+.first-person-mode .move-picker .destination-objects{gap:6px}
+.first-person-mode .move-picker .destination-objects button{min-height:48px;padding:8px;font-size:14px;line-height:1.5}
+.move-picker .portal-choice{width:100%;min-height:48px;margin:0 0 6px;padding:10px 12px;display:flex;justify-content:space-between;font-size:14px}
+.destination-caption{font-size:12px;line-height:1.5;margin:0;color:#51665b;flex:none}
+.room-assist{max-width:calc(100% - 24px)}
+.room-assist button{white-space:nowrap}
+.room-assist .move-primary{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:11px 16px;font-size:16px}
+.room-assist .move-primary svg{flex:none}
+.room-assist.with-wrapper{bottom:auto;top:96px}
+.room-assist.at-object{left:auto;right:14px}
+.destination-shortcuts{display:flex;gap:6px;flex:none;border-top:1px solid #dce5d8;padding-top:8px}
+.destination-shortcuts button{flex:1;min-height:44px;font-size:13px;padding:6px 8px}
+@media(max-width:650px){.room-assist.at-object{right:10px}}
+@media(max-width:359px){.room-three[data-area=smoking] .room-assist .look-window{display:none}}
+@media(max-height:650px){.first-person-mode .room-navigation .move-picker{gap:5px}.move-picker .picker-header{padding-bottom:2px}}

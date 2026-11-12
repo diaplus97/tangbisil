@@ -47,6 +47,9 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
   const [target,setTarget]=useState<number|null>(null),[objectTarget,setObjectTarget]=useState<StationId|null>(null);
   const requesting=useRef(false),origin=useRef<number|null>(null);
   const stopKeyboard=useRef<()=>Promise<void>>(async()=>{});
+  const moveButton=useRef<HTMLButtonElement>(null);
+  function closeDestinations(){onFinishMove();requestAnimationFrame(()=>moveButton.current?.focus({preventScroll:true}));}
+  function openDestinations(){void stopKeyboard.current().then(()=>onExplore());}
   const usingObject=useRef(false),usedAt=useRef(-Infinity),usedTarget=useRef('');
   async function useNearObject(id:string){
     const step=directActionKey(latest.current,id);
@@ -244,8 +247,13 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
         const point=points[id],p=point.clone().project(camera),w=el.offsetWidth,h=el.offsetHeight,distance=camera.position.distanceToSquared(point);
         const table=id==='my-snack'||id==='my-cup',slot=tableSlots.get(id);
         const rawX=(p.x+1)*width/2-w/2,rawY=(1-p.y)*height/2-h-8;
-        const x=slot?.x??(['discovery','destination','smoke-cigarette','smoke-ashtray'].includes(id)?Math.max(10,Math.min(width-w-10,rawX)):rawX);
-        let y=slot?.y??(id==='smoke-ashtray'?(1-p.y)*height/2+42:rawY);
+        let x=slot?.x??(['discovery','destination','smoke-cigarette','smoke-ashtray'].includes(id)?Math.max(10,Math.min(width-w-10,rawX)):rawX);
+        let y=slot?.y??(id==='smoke-ashtray'?(1-p.y)*height/2+26:rawY);
+        if(id==='smoke-ashtray'&&width>=650){
+          // The wide lens puts the bowl at the bottom edge: use its free left side, keeping the bowl clickable.
+          const side=point.clone().addScaledVector(right,-.35).project(camera);
+          x=Math.max(10,Math.min(width-w-10,(side.x+1)*width/2-w/2));
+        }
         if(id==='discovery'&&appliance&&x<appliance.right+4&&x+w>appliance.left-4&&y<appliance.bottom+4&&y+h>appliance.top-4){
           y=appliance.top-h-8>=110?appliance.top-h-8:appliance.bottom+8;
         }
@@ -511,14 +519,18 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
         {!me?.station&&heldName(state.self.pantry)&&directAction(state,'held')&&<button className="world-action" disabled={disabled} onClick={()=>void useNearObject('held')}>{directAction(state,'held')!.label}</button>}
         {(me?.station||heldName(state.self.pantry)||state.self.pantry.rest.stone||state.self.pantry.rest.tea||state.self.pantry.rest.sand||state.self.pantry.rest.vase||state.self.pantry.candy&&state.self.pantry.candy.state!=='eaten'||state.self.pantry.bottle&&state.self.pantry.bottle.sips<3)&&<details className="object-options" onKeyDown={e=>{if(e.key==='Escape'){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();e.stopPropagation();}}} onToggle={e=>{if(e.currentTarget.open)dismissHint();}}><summary aria-label="이 물건의 다른 행동">{me?.station||heldName(state.self.pantry)?'더보기':'내 물건'}</summary><div className="object-options-panel">{contextContent}</div></details>}
       </div>}
-      {!debug&&!tvOpen&&!foodInHand&&<div className={'room-assist'+(me?.station?' at-object':'')}>{!debug&&area==='pantry'&&!moving&&me?.seat!=null&&<button className="view-guide" onClick={()=>pointView.current?.('coffee')}>커피 머신 보기</button>}{!debug&&me?.station==='coffee'&&!moving&&me.action==='coffee-take'&&state?.self.pantry.coffee.stage==='carried'&&map.seatTables.some((table,i)=>map.tables[table]?.id==='window'&&!state.room.members.some(m=>m.seat===i))&&<button className="view-guide" onClick={()=>pointView.current?.('window-seat')}>창가 자리 보기</button>}{!moving&&<button className="look-window" onClick={()=>lookAtSea.current?.()} aria-label="창밖 풍경 보기">풍경 보기</button>}{moving&&<><button disabled={disabled} onClick={()=>void stand()}>멈추기</button><button disabled={disabled} onClick={onExplore}>다른 곳</button></>}{(me?.station||origin.current!=null&&(moving||me?.seat==null))&&<button disabled={disabled} onClick={()=>void returnToRest()} aria-label="자리로 돌아가기">자리로<span className="seat-return-verb"> 돌아가기</span></button>}{!moving&&me?.seat!=null&&<button disabled={disabled} onClick={()=>void stand()}>일어나기</button>}</div>}
+      {!debug&&!tvOpen&&<div className={'room-assist'+(me?.station?' at-object':'')+(foodInHand?' with-wrapper':'')}>
+        {!foodInHand&&!moving&&<button className="look-window" onClick={()=>lookAtSea.current?.()} aria-label="창밖 풍경 보기">풍경 보기</button>}
+        {!foodInHand&&moving&&<button disabled={disabled} onClick={()=>void stand()}>멈추기</button>}
+        <button ref={moveButton} className="move-primary" disabled={disabled} aria-expanded={movementMode} aria-haspopup="dialog" onClick={openDestinations}><svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true"><path d="M3 10h13m-5-5 5 5-5 5M3 4v12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>{moving?'목적지 바꾸기':'자리 옮기기'}</button>
+      </div>}
       {!debug&&!tvOpen&&!foodInHand&&(showFloorHint||walkHint||hovered&&!hovered.startsWith('station-')&&hovered!=='action-snack')&&<div className="direct-hint" role="status">{walkHint||hovered&&hoverText||(input==='touch'?'바닥을 누르면 걸어가요':'WASD로 걷거나 바닥을 누르세요')}{showFloorHint&&!hovered&&<button aria-label="조작 안내 닫기" onClick={dismissHint}>×</button>}</div>}
       {windowContent}
       {debug&&<div className="camera-switch" role="group" aria-label="개발용 시점">{(Object.keys(frames) as Study[]).map(f=><button key={f} aria-pressed={study===f} onClick={()=>setStudy(f)}>{frames[f]}</button>)}</div>}
       {debug&&<button className="light-switch" onClick={()=>setWarm(v=>!v)}>조명 비교</button>}
     </div>
     <div className={"room-navigation"+(foodInHand?" food-navigation":"")}>{!debug&&<div className="look-controls"><p>{walkHint||hoverText}</p><button onClick={()=>lookAtSea.current?.()}>풍경 보기</button></div>}
-    {state&&!foodInHand&&!tvOpen&&(debug||movementMode)&&<ExploreDestinations onTravel={choosePortal} state={state} disabled={disabled} showSeats={movementMode} onClose={onFinishMove} onSeat={chooseSeat} onObject={chooseObject} onSea={()=>lookAtSea.current?.()} waves={waves} onWaves={onWaves}/>}</div>
+    {state&&!foodInHand&&!tvOpen&&movementMode&&<ExploreDestinations onTravel={choosePortal} state={state} disabled={disabled} moving={moving} canReturn={origin.current!=null&&!originOwner&&(me?.seat!==origin.current||moving)} onReturn={returnToRest} onStand={stand} onClose={closeDestinations} onSeat={chooseSeat} onObject={chooseObject}/>}</div>
     {debug&&sampleAvailable&&!moving&&<button className="shared-sample-action secondary" onClick={onPlate} disabled={disabled}>{sampleLabel}</button>}
     {debug&&moving&&<div className="walk-actions" role="group" aria-label="이동 중"><button className="secondary" disabled={disabled} onClick={()=>{setTarget(null);setObjectTarget(null);void stand();}}>멈추기</button>{origin.current!=null&&!originOwner&&<button className="secondary" disabled={disabled} onClick={()=>void chooseSeat(origin.current!)}>원래 자리로</button>}</div>}
   </>;
