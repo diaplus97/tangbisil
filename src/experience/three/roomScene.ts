@@ -102,7 +102,7 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
     shared.visible=Boolean(state?.room.offers.length);
   }
   function tick(time:number,state:Snapshot|null,reduced:boolean){
-    const now=Date.now()+clockOffset;smokingObjects?.tick(state,now);architecture.tickDoor(state,now,reduced);
+    const now=Date.now()+clockOffset;smokingObjects?.tick(state,now,reduced);architecture.tickDoor(state,now,reduced);
     objects?.tick(state,now,time,reduced);restObjects?.tick(state,now,time,reduced);
     for(const m of state?.room.members??[]){
       const p=people.get(m.id);if(!p)continue;const position=sampleMotion(m,now),gesture=p.update(m,position,time,now,reduced,m.id===state?.self.id),tray=trays.get(m.id);

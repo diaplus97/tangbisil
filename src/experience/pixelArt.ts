@@ -2,6 +2,7 @@ import type {Member} from './types';
 import {appearance} from '../../shared/appearance.mjs';
 import {getSpace,sampleMotion,type Area} from '../../shared/space.mjs';
 import {CUP_RETURN_MS} from './gestureTiming';
+import {smokingCenter} from '../../shared/smoking.mjs';
 const visibleAction=(m:Member,now:number)=>now-m.actionAt<(m.action==='wave'?CUP_RETURN_MS:3500)?m.action:'rest';
 type C=CanvasRenderingContext2D;
 const pal={ink:'#344653',edge:'#66798a',blue:'#a9bccb',cream:'#f8f3df',wood:'#c8a67f',darkWood:'#907457'};
@@ -87,9 +88,10 @@ function drawSideRoom(c:C,members:Member[],area:'healing'|'smoking',now:number,m
   plant(c,51,185,1.5);plant(c,532,188,1.2);
   const seats=getSpace(area).seats;
   const figures=members.map(m=>({m,...pixelMemberPosition(m,motionNow)}));
-  const rows=[...seats.map(([x,z],index)=>({...sideRoomPosition(x,z),seat:index,m:null})),...figures.map(f=>({...f,seat:-1}))].sort((a,b)=>a.y-b.y||b.seat-a.seat);
+  const rows=[...seats.map(([x,z],index)=>({...sideRoomPosition(x,z),seat:index,m:null})),...figures.map(f=>({...f,seat:-1})),...(area==='smoking'?[{...sideRoomPosition(smokingCenter.x,smokingCenter.z),seat:-2,m:null}]:[])].sort((a,b)=>a.y-b.y||b.seat-a.seat);
   for(const row of rows){
     const {x,y}=row;
+    if(row.seat===-2){rect(c,x-11,y-15,22,35,'#879d8c');c.fillStyle='#bca17a';c.beginPath();c.ellipse(x,y-23,54,24,0,0,Math.PI*2);c.fill();c.fillStyle='#eee1bd';c.beginPath();c.ellipse(x,y-26,54,23,0,0,Math.PI*2);c.fill();continue;}
     if(row.m){drawAvatar(c,x,y,row.m.avatar,visibleAction(row.m,motionNow),true,now,row.m.id);continue;}
     if(area==='healing'&&row.seat<4){
       poly(c,[[x-26,y+19],[x-22,y-3],[x-9,y-15],[x+6,y-17],[x+23,y-6],[x+28,y+16],[x+16,y+26],[x-16,y+26]],row.seat%2?'#9aaea9':'#b2aaa2');

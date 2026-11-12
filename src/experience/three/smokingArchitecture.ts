@@ -1,7 +1,7 @@
 import * as T from 'three';
 import {getSpace} from '../../../shared/space.mjs';
 import {Workshop,consolidate} from './assets';
-import {ribbonState} from '../../../shared/smoking.mjs';
+import {ribbonState,smokingCenter} from '../../../shared/smoking.mjs';
 import type {Snapshot} from '../types';
 import {entryDoor} from './entryDoor';
 import {roomSurfaces} from './surfaces';
@@ -58,6 +58,8 @@ export function createSmokingArchitecture(kit:Workshop,scene:T.Scene){
    for(let i=0;i<5;i++){const plank=kit.box(seat,.91,.095,.122,0,.683,-.27+i*.135,wood,.021);plank.material=s.wood;metricUvs(plank.geometry);}
    for(let i=0;i<2;i++){const back=kit.box(seat,.93,.165,.062,0,.958+i*.18,-.31,wood,.026);back.material=s.wood;metricUvs(back.geometry);}
  }
+ const circle=kit.cylinder(fixed,2.14,2.14,.006,smokingCenter.x,-.002,smokingCenter.z,'#c4cdc1');circle.userData.walkSurface=true;
+ const border=kit.mesh(fixed,new T.TorusGeometry(2.14,.008,6,120),kit.mat('#aab8ab',.9),smokingCenter.x,.002,smokingCenter.z);border.rotation.x=Math.PI/2;
  // Coastal grasses soften the ends of the sill without hiding the horizon.
  for(const [x,z,phase] of [[-3.93,-3.55,1.8],[3.8,-3.57,3.1]]){
    kit.cylinder(fixed,.285,.225,.48,x,.24,z,'#adb9a9');
@@ -84,7 +86,7 @@ export function createSmokingArchitecture(kit:Workshop,scene:T.Scene){
  const door=entryDoor(kit,scene,map.portal);consolidate(fixed,kit);consolidate(shell,kit);
  return {portalTargets:[door.hit],tickDoor(state:Snapshot|null,now:number,reduced:boolean){
    door.tick(state,now,reduced);
-   const next=ribbonState(state?.room.thoughts,now);
+   const next=ribbonState(state?.room.messages??state?.room.thoughts,now);
    if(next!==previous){changedAt=now;previous=next;}
    voice.visible=next>0;echo.visible=next===2;
    const settling=reduced?0:Math.max(0,1-(now-changedAt)/450);

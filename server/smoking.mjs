@@ -26,7 +26,7 @@ export function smokingAction(member,input,now=Date.now()){
     if(phase!=='idle')throw new GameError('손에 든 담배를 먼저 꺼 주세요.');
     member.smoking={id:crypto.randomUUID(),seat:member.seat,litAt:now,puffAt:0,puffs:0,endedAt:0,ending:false,revision:(s?.revision??0)+1};
   }else{
-    if(!s||s.endedAt)throw new GameError('담배를 먼저 집어 주세요.');
+    if(!s||s.endedAt||phase==='idle')throw new GameError('담배를 먼저 집어 주세요.');
     if(input.type==='smoke-puff'){
       if(phase!=='ready')throw new GameError('한 모금 뒤에 천천히 이어 주세요.');
       member.smoking={...s,puffAt:now,puffs:s.puffs+1,revision:s.revision+1};

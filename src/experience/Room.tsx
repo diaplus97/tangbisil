@@ -15,7 +15,7 @@ export function Room({state,onShelf,onPlate,onDrink,onReturn,reduceMotion,disabl
    const c=ref.current!.getContext('2d')!;let raf=0,last=0;
    const reduced=reduceMotion;
    function frame(now:number){
-     if(now-last>1000/24){const s=latest.current;drawRoom(c,s?.room.members??[],s?.self.id,s?.room.offers.length??0,reduced?1000:Date.now(),Date.now()+offset.current,s?.room.area,s?.room.area==='smoking'?ribbonState(s.room.thoughts,Date.now()+offset.current):0);for(const m of s?.room.members??[]){const el=names.current.get(m.id),p=pixelMemberPosition(m,Date.now()+offset.current);if(el){el.style.setProperty('--seat-x',`${p.x/640*100}%`);el.style.top=`${(p.y-56)/360*100}%`;}}last=now;}
+     if(now-last>1000/24){const s=latest.current;drawRoom(c,s?.room.members??[],s?.self.id,s?.room.offers.length??0,reduced?1000:Date.now(),Date.now()+offset.current,s?.room.area,s?.room.area==='smoking'?ribbonState(s.room.messages??s.room.thoughts,Date.now()+offset.current):0);for(const m of s?.room.members??[]){const el=names.current.get(m.id),p=pixelMemberPosition(m,Date.now()+offset.current);if(el){el.style.setProperty('--seat-x',`${p.x/640*100}%`);el.style.top=`${(p.y-56)/360*100}%`;}}last=now;}
      raf=requestAnimationFrame(frame);
    }
    raf=requestAnimationFrame(frame);return()=>cancelAnimationFrame(raf);

@@ -1,4 +1,5 @@
 import {smokingAction} from '../server/smoking.mjs';
+import {migrateSmokingLayout} from '../server/smoking-layout.mjs';
 import {expireThoughts,nextThoughtExpiry,thoughtAction} from '../server/thoughts.mjs';
 import {DurableObject} from 'cloudflare:workers';
 import {sqliteAdapter,jsonStore} from './sql.mjs';
@@ -26,6 +27,7 @@ export class PantryRoom extends DurableObject {
   load(){
     this.r=this.json.get('room',fresh(null));
     this.r.members=new Map(this.r.members.map(m=>[m.id,{...m,moves:new Map(m.moves),contacts:new Map(m.contacts??[])}]));
+    if(migrateSmokingLayout(this.r))this.save();
   }
   encoded(){return {...this.r,members:[...this.r.members.values()].map(m=>({...m,moves:[...m.moves],contacts:[...(m.contacts??new Map())]}))};}
   save(){this.json.set('room',this.encoded());}
@@ -168,7 +170,7 @@ export class PantryRoom extends DurableObject {
       actionInput(input);
       this.atomic(()=>{
         if(input.type.startsWith('smoke-'))result=smokingAction(m,input);
-        else if(input.type==='thought-leave'||input.type==='thought-echo')result=thoughtAction(this.r,m,input);
+        else if(input.type==='thought-leave'||input.type==='thought-say'||input.type==='thought-echo')result=thoughtAction(this.r,m,input);
         else if(m.area==='smoking'&&!['move','sit','stand','travel','approach','appearance'].includes(input.type))throw new GameError('이 행동은 원래 공간에서 이어갈 수 있어요.');
         else if(input.type==='tv-join'||input.type==='tv-next')result=mediaAction(this.r,m,input,GameError);
         else if(input.type==='sand-contact'){const changed=sandContact(m,this.store.activities.get(m.id).rest.sand,input,GameError);result={ok:true,replay:!changed};}

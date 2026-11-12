@@ -37,8 +37,16 @@ export function lighterModel(kit:Workshop,parent:T.Object3D){
  consolidate(group,kit);return{group,flameTip:new T.Vector3(-.007,.072,0)};
 }
 
-export function smokingTableModel(kit:Workshop,parent:T.Group){
+export function smokingTableModel(kit:Workshop,parent:T.Group,central=false){
  const base=new T.Group();parent.add(base);
+ if(central){
+  const profile=[[0,-.042],[1.055,-.042],[1.085,-.026],[1.09,-.006],[1.083,.012],[1.06,.020],[0,.020]].map(([r,y])=>new T.Vector2(r,y));
+  kit.mesh(base,new T.LatheGeometry(profile,96),kit.mat('#c9b28e',.68));
+  kit.cylinder(base,1.055,1.055,.006,0,.020,0,'#e1d4bb');
+  kit.cylinder(base,.23,.31,.91,0,-.49,0,'#84958a');
+  kit.cylinder(base,.43,.46,.045,0,-.985,0,'#75887d');
+  return base;
+ }
  const profile=[[0,-.018],[.225,-.018],[.234,-.014],[.238,-.007],[.238,.002],[.233,.008],[0,.008]].map(([r,y])=>new T.Vector2(r,y));
  kit.mesh(base,new T.LatheGeometry(profile,32),kit.mat('#cfba98',.65));
  kit.cylinder(base,.226,.226,.003,0,.008,0,'#dfcfb3');

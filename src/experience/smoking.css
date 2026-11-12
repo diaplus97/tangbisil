@@ -26,3 +26,39 @@
 }
 .reduce-room-motion .terrace-note{animation:none}
 @media(prefers-reduced-motion:reduce){.terrace-note{animation:none}}
+
+/* A few temporary cards leave the room visible; the input stays optional. */
+.terrace-notes{position:absolute;top:108px;right:14px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;width:min(300px,calc(100% - 28px));pointer-events:none}
+.pantry-app .terrace-notes .terrace-note{position:relative;inset:auto;transform:none;max-width:100%;padding:8px 12px;background:rgb(247 249 241 / .76);border:1px solid rgb(224 233 221 / .6);border-radius:14px 14px 4px 14px;box-shadow:0 3px 16px #243e3812;backdrop-filter:blur(2px);pointer-events:none}
+.terrace-notes .terrace-note p{font-size:16px;line-height:1.4;margin:0 0 3px;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal}
+.terrace-notes .note-actions{justify-content:flex-end}
+.pantry-app .terrace-notes .note-actions button{min-height:44px;padding:7px 9px;font-size:13px;background:transparent;border:0;pointer-events:auto}
+.terrace-notes .note-actions span{font-size:12px;color:#53645d}
+.thought-picker{z-index:11;bottom:calc(12px + var(--chat-keyboard-offset,0px))}
+.thought-picker[open]>summary{display:none}
+.thought-picker>div{bottom:0;width:min(340px,calc(100vw - 24px));box-sizing:border-box;padding:12px;max-height:calc(100dvh - 112px)}
+.thought-composer{display:grid;gap:8px}
+.thought-composer label{font-size:13px;color:#53645d}
+.thought-composer textarea{box-sizing:border-box;width:100%;min-height:60px;max-height:100px;resize:none;border:1px solid #a9bbae;border-radius:9px;padding:8px 10px;background:#fffff8;color:#30483d;font:inherit;font-size:16px;line-height:1.45}
+.thought-compose-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.thought-compose-actions small{margin-right:auto;font-size:12px;color:#607068}
+.thought-compose-actions button{min-height:40px;padding:7px 10px;text-align:center;font-size:14px}
+.thought-compose-actions button[type=submit]{background:#29594d;color:#fff;border-color:#29594d}
+.thought-compose-actions button:disabled{opacity:.5;cursor:default}
+@media(max-width:650px){
+ .terrace-notes{top:100px;left:12px;right:auto;align-items:flex-start;width:calc(100% - 24px)}
+ .terrace-notes .terrace-note:nth-last-child(n+3){display:none}
+ .terrace-thoughts[data-writing=true] .terrace-note:not(:last-child){display:none}
+ .thought-picker{bottom:68px}
+ .terrace-thoughts[data-keyboard=true] .thought-picker{bottom:calc(12px + var(--chat-keyboard-offset,0px))}
+ .terrace-thoughts[data-keyboard=true] .terrace-notes{display:none}
+}
+.view-pixel .terrace-notes{position:static;width:100%;align-items:flex-start}
+.view-pixel .terrace-notes .terrace-note{position:static}
+.view-pixel .thought-picker[open]>div{width:100%;max-height:none}
+@media(max-width:650px) and (max-height:650px){
+ .view-3d .terrace-notes{top:auto;bottom:156px}
+ .view-3d .terrace-notes .note-actions{justify-content:flex-start}
+ .view-3d .terrace-thoughts[data-writing=true] .terrace-notes,.view-3d .terrace-thoughts[data-gesture=true] .terrace-notes{display:none}
+}
+@media(orientation:landscape) and (max-height:460px){.thought-picker{bottom:12px}.thought-picker>div{grid-template-columns:1fr}.thought-composer label{display:none}.terrace-notes{top:90px}.terrace-notes .terrace-note:not(:last-child){display:none}}

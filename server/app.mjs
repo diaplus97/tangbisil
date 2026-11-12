@@ -124,7 +124,7 @@ export function createPantryServer({ database='data/pantry.sqlite', staticDir='d
             const result=smokingAction(m,input);if(!result.replay)broadcast(r,'smoking');
             send(res,200,{...result,state:snapshot(r,id)});return;
           }
-          if(input.type==='thought-leave'||input.type==='thought-echo'){
+          if(input.type==='thought-leave'||input.type==='thought-say'||input.type==='thought-echo'){
             const result=thoughtAction(r,m,input);if(!result.replay){scheduleThoughtExpiry(r);broadcast(r,'smoking');}
             send(res,200,{...result,state:snapshot(r,id)});return;
           }

@@ -21,7 +21,7 @@ export function directAction(state:Snapshot,target:string|null|undefined):Direct
     if(m?.area!=='smoking'||m.seat==null||m.travel)return null;
     const now=Date.now()+(state.receivedAt!==undefined?state.serverTime-state.receivedAt:0),phase=smokingPhase(s,now);
     const extra={revision:s?.revision??0,...(s?{itemId:s.id}:{})};
-    if(target==='ashtray')return s&&!s.endedAt?{label:'담배 끄기',type:'smoke-out',extra}:null;
+    if(target==='ashtray')return s&&!s.endedAt&&phase!=='idle'?{label:'담배 끄기',type:'smoke-out',extra}:null;
     if(phase==='idle')return{label:'담배 집기',type:'smoke-take',extra};
     return phase==='ready'?{label:'한 모금 피우기',type:'smoke-puff',extra}:null;
   }

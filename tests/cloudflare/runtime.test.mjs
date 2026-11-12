@@ -79,7 +79,7 @@ test('Cloudflare keyboard intent synchronizes, releases without polling and stop
 test('Cloudflare terrace notes survive hibernation and expire even with exhausted personal retries',{timeout:100000},async t=>{
  const {mf,visitor,connect,storage}=await setup(t);
  const a=await visitor('바람'),b=await visitor('물결'),outside=await visitor('창가');
- const [writer,listener,other]=await Promise.all([connect(a),connect(b),connect(outside)]);
+ let [writer,listener,other]=await Promise.all([connect(a),connect(b),connect(outside)]);
  await Promise.all([writer.act('travel',{to:'smoking'}),listener.act('travel',{to:'smoking'})]);
  await Promise.all([writer.arrive(),listener.arrive()]);
  assert.equal(writer.state.room.area,'smoking');
@@ -93,15 +93,35 @@ test('Cloudflare terrace notes survive hibernation and expire even with exhauste
  assert.equal((await listener.act('thought-echo',{noteId:note.id})).data.replay,true);
  await writer.wait(()=>writer.state.room.thoughts[0]?.hasEcho);
  assert.equal(other.states.some(s=>s.room.thoughts!==undefined),false);
+ const freeKey=randomUUID(),free={text:'바다 보니까 좀 낫네요.',sentAt:Date.now()};
+ assert.equal((await listener.act('thought-say',free,freeKey)).status,200);
+ await writer.wait(()=>writer.state.room.messages?.length===2);
+ const freeNote=writer.state.room.messages.find(n=>n.text===free.text);
+ assert.equal(writer.state.room.thoughts.length,1);
+ assert.equal((await listener.act('thought-say',free,freeKey)).data.replay,true);
+ assert.equal((await listener.act('thought-say',{...free,text:'바꾼 내용'},freeKey)).status,409);
+ assert.equal((await listener.act('thought-say',{text:'너무 빠름',sentAt:Date.now()})).status,409);
+ assert.equal((await other.act('thought-say',{text:'다른 방',sentAt:Date.now()})).status,409);
+ assert.equal((await writer.act('thought-echo',{noteId:freeNote.id})).status,200);
+ await mf.unsafeEvictDurableObject('pantry-test','PantryRoom',{name:'window',webSockets:'hibernate'});
+ assert.equal((await listener.act('thought-say',free,freeKey)).data.replay,true);
+ assert.equal(listener.state.room.messages.find(n=>n.id===freeNote.id).until,freeNote.until);
+ assert.equal(other.states.some(s=>s.room.messages!==undefined),false);
+ listener.ws.close();await writer.wait(()=>!writer.state.room.members.some(m=>m.id===b.user.id),7000);
+ listener=await connect(b);assert.equal(listener.state.room.area,'smoking');
+ assert.equal((await listener.act('thought-say',free,freeKey)).data.replay,true);
+ assert.equal(listener.state.room.messages.find(n=>n.id===freeNote.id).until,freeNote.until);
  const key=createHash('sha256').update(a.token).digest('hex'),home=await storage('PantryVisitor',key),room=await storage('PantryRoom','window');
  const read=async()=>JSON.parse((await room.exec("SELECT value FROM cf_json WHERE key='room'"))[0].value);
  const original=(await home.exec("SELECT value FROM cf_json WHERE key='record'"))[0].value;
  assert.equal(original.includes(note.id),false);
  const changed=JSON.parse(original);changed.epoch+=99;await home.exec("UPDATE cf_json SET value=? WHERE key='record'",JSON.stringify(changed));
  assert.equal((await writer.act('appearance',{avatar:3})).status,503);
- await writer.wait(()=>writer.state.room.thoughts?.length===0,55000);
- const stored=await read();assert.equal(stored.retries,4);assert.equal(stored.retryAt,0);assert.ok(stored.pending[key]);assert.deepEqual(stored.thoughts,[]);
+ await writer.wait(()=>writer.state.room.thoughts?.length===0&&writer.state.room.messages?.length===0,55000);
+ const stored=await read();assert.equal(stored.retries,4);assert.equal(stored.retryAt,0);assert.ok(stored.pending[key]);assert.deepEqual(stored.thoughts,[]);assert.deepEqual(stored.thoughtCards,[]);
+ assert.equal(JSON.stringify(stored).includes(free.text),false);
  await home.exec("UPDATE cf_json SET value=? WHERE key='record'",original);
+ assert.equal((await listener.act('thought-say',free,freeKey)).status,409);
 });
 
 test('Cloudflare smoking synchronizes per visitor and survives hibernation, replay and departure',{timeout:120000},async t=>{
