@@ -95,6 +95,7 @@ export default function Experience(){
    const ticket=++soundTicket.current;++waveTicket.current;const on=mode!=='mute';
    setSound(on);setWaves(on);setActions(mode==='all');setActionSounds(mode==='all');setAudioStatus(on?'소리를 준비하고 있어요.':'');
    const ok=await enableSound(on);if(ticket!==soundTicket.current)return;
+   if(ok&&on)setAudioStatus('파도 소리를 준비하고 있어요.');
    const seaOk=ok&&on?await setSeaSound(true):ok;if(ticket!==soundTicket.current)return;
    if(!ok||!seaOk){setSound(false);setWaves(false);await enableSound(false);setAudioStatus('소리를 준비하지 못했어요. 다시 눌러 주세요.');}else setAudioStatus('');
  }

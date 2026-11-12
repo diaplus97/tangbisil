@@ -29,8 +29,8 @@ export function useRoomSound(state:Snapshot|null,online=true){
   const seen=useRef(new Map<string,string>()),pending=useRef(new Map<string,{timer:ReturnType<typeof setTimeout>;action:string;at:number}>());
   const brews=useRef(new Map<string,{end:number;voice:ReturnType<typeof playMachine>}>()),fridge=useRef<Snapshot['room']['fixtures']['fridge']|null>(null),doorTimer=useRef<ReturnType<typeof setTimeout>>();
   useEffect(()=>{const mute=()=>{for(const b of brews.current.values())b.voice?.stop();brews.current.clear();for(const item of pending.current.values())clearTimeout(item.timer);pending.current.clear();};document.addEventListener('pantry-audio-muted',mute);return()=>document.removeEventListener('pantry-audio-muted',mute);},[]);
-  useEffect(()=>{if(!online){for(const item of pending.current.values())clearTimeout(item.timer);pending.current.clear();}},[online]);
   const pours=useRef(new Map<string,{end:number;voice:ReturnType<typeof playTeaPour>}>());
+  useEffect(()=>{if(!online){for(const item of pending.current.values())clearTimeout(item.timer);pending.current.clear();for(const b of brews.current.values())b.voice?.stop();brews.current.clear();for(const p of pours.current.values())p.voice?.stop();pours.current.clear();}},[online]);
   useEffect(()=>{const stop=()=>{for(const p of pours.current.values())p.voice?.stop();pours.current.clear();};document.addEventListener('pantry-audio-muted',stop);return()=>{stop();document.removeEventListener('pantry-audio-muted',stop);};},[]);
   useEffect(()=>{stopRoomSounds();seen.current.clear();for(const item of pending.current.values())clearTimeout(item.timer);pending.current.clear();clearTimeout(doorTimer.current);fridge.current=null;for(const b of brews.current.values())b.voice?.stop();brews.current.clear();for(const p of pours.current.values())p.voice?.stop();pours.current.clear();},[state?.room.area]);
   const latest=useRef({state,received:performance.now()});
@@ -49,11 +49,11 @@ export function useRoomSound(state:Snapshot|null,online=true){
       clearTimeout(doorTimer.current);const owner=state.room.members.find(m=>m.id===(door.owner??previous.owner));
       if(owner){if(door.open)playFor(owner,'fridgeOpen');else doorTimer.current=setTimeout(()=>playFor(owner,'fridgeClose'),300);}
     }
-    for(const [id,brew]of brews.current){const m=state.room.members.find(m=>m.id===id);if(!m||m.station!=='coffee'||m.pantry?.coffee.stage!=='brewing'||m.pantry.coffee.readyAt!==brew.end){brew.voice?.stop();brews.current.delete(id);}}
     const now=state.serverTime+performance.now()-latest.current.received;
-    for(const [id,p] of pours.current){const m=state.room.members.find(m=>m.id===id),t=m?.pantry.rest?.tea;if(!m?.connected||m.station!=='tea'||!t?.pourAt||t.pourEnd!==p.end){p.voice?.stop();pours.current.delete(id);}}
+    for(const [id,brew]of brews.current){const m=state.room.members.find(m=>m.id===id);if(!m?.connected||m.station!=='coffee'||m.pantry?.coffee.stage!=='brewing'||m.pantry.coffee.readyAt!==brew.end||brew.end<=now){brew.voice?.stop();brews.current.delete(id);}}
+    for(const [id,p] of pours.current){const m=state.room.members.find(m=>m.id===id),t=m?.pantry.rest?.tea;if(!m?.connected||m.station!=='tea'||!t?.pourAt||t.pourEnd!==p.end||p.end<=now){p.voice?.stop();pours.current.delete(id);}}
     for(const m of state.room.members){const t=m.pantry.rest?.tea;if(!m.connected||m.station!=='tea'||!t?.pourAt||t.pourEnd<=now||pours.current.has(m.id))continue;const self=state.room.members.find(v=>v.id===state.self.id),p=sampleMotion(m,now),q=self?sampleMotion(self,now):p,remaining=(t.pourEnd-now)/1000;const voice=playTeaPour(Math.max(0,3-remaining),remaining,{remote:m.id!==state.self.id,distance:Math.hypot(p.x-q.x,p.z-q.z),pan:(p.x-q.x)/5});if(voice)pours.current.set(m.id,{end:t.pourEnd,voice});}
-    for(const m of state.room.members){const coffee=m.pantry?.coffee;if(m.station!=='coffee'||coffee?.stage!=='brewing'||coffee.readyAt<=now||brews.current.has(m.id))continue;
+    for(const m of state.room.members){const coffee=m.pantry?.coffee;if(!m.connected||m.station!=='coffee'||coffee?.stage!=='brewing'||coffee.readyAt<=now||brews.current.has(m.id))continue;
       const self=state.room.members.find(v=>v.id===state.self.id),p=sampleMotion(m,state.serverTime),q=self?sampleMotion(self,state.serverTime):p;
       const voice=playMachine(Math.max(0,(COFFEE_BREW_MS-coffee.readyAt+now)/1000),{remote:m.id!==state.self.id,distance:Math.hypot(p.x-q.x,p.z-q.z),pan:(p.x-q.x)/5});if(voice)brews.current.set(m.id,{end:coffee.readyAt,voice});
     }

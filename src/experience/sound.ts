@@ -63,7 +63,8 @@ export async function setSeaSound(on:boolean){
 export function setSoundVolume(value:number){volume=Math.max(0,Math.min(1,value));if(context&&master){master.gain.cancelAndHoldAtTime(context.currentTime);master.gain.linearRampToValueAtTime(enabled?volume:0,context.currentTime+.04);}}
 export function setBiteSound(on:boolean){mouth=on;if(!on)stopSnackSound();}
 export function setOtherSounds(on:boolean){others=on;if(!on)for(const v of voices)if(v.remote)v.stop();}
-export function setActionSounds(on:boolean){actions=on;if(!on){stopRoomSounds();document.dispatchEvent(new Event('pantry-audio-muted'));}else{loadActionSounds();document.dispatchEvent(new Event('pantry-audio-ready'));}}
+function notifyAudioReady(){if(enabled&&actions&&!document.hidden&&context?.state==='running')document.dispatchEvent(new Event('pantry-audio-ready'));}
+export function setActionSounds(on:boolean){actions=on;if(!on){stopRoomSounds();document.dispatchEvent(new Event('pantry-audio-muted'));}else{loadActionSounds();notifyAudioReady();}}
 export function stopRoomSounds(){stopSandSound();stopWrapperSound();for(const voice of voices)voice.stop();}
 function loadActionSounds(){
   if(!enabled||!actions||!context||loading)return;
@@ -71,7 +72,10 @@ function loadActionSounds(){
   loading=Promise.allSettled(missing.map(async([key,url])=>{
     const response=await fetch(url);if(!response.ok)throw new Error('Audio unavailable');
     buffers.set(key as Clip,await context!.decodeAudioData(await response.arrayBuffer()));
-  })).then(()=>{loading=undefined;if(enabled&&actions)document.dispatchEvent(new Event('pantry-audio-ready'));});
+    // Resume only still-active room sounds as soon as their own clip is usable.
+    // An unrelated slow download must not hold up a coffee or tea already pouring.
+    notifyAudioReady();
+  })).then(()=>{loading=undefined;});
 }
 export async function enableSound(on:boolean){
   enabled=on;const ticket=++generation;
@@ -81,21 +85,25 @@ export async function enableSound(on:boolean){
       context=new AudioContext();master=context.createGain();master.gain.value=volume;
       limiter=context.createDynamicsCompressor();limiter.threshold.value=-18;limiter.knee.value=9;limiter.ratio.value=4;limiter.attack.value=.005;limiter.release.value=.16;
       limiter.connect(master).connect(context.destination);
-      document.addEventListener('visibilitychange',()=>{if(document.hidden){stopSandSound();stopWrapperSound();for(const v of voices)v.stop();document.dispatchEvent(new Event('pantry-audio-muted'));void context?.suspend();}else if(enabled)void context?.resume().then(()=>document.dispatchEvent(new Event('pantry-audio-ready')));});
+      document.addEventListener('visibilitychange',()=>{if(document.hidden){stopSandSound();stopWrapperSound();for(const v of voices)v.stop();document.dispatchEvent(new Event('pantry-audio-muted'));void context?.suspend();}else if(enabled)void context?.resume().then(notifyAudioReady);});
     }
     master!.gain.setTargetAtTime(volume,context.currentTime,.025);if(!document.hidden)await context.resume();
+    if(!enabled||ticket!==generation)return false;
     loadActionSounds();
+    notifyAudioReady();
     // Ocean playback must not wait for (or fail with) an unrelated object clip.
     return enabled&&ticket===generation;
   }catch{if(ticket===generation)enabled=false;loading=undefined;return false;}
 }
 function play(clip:Clip,{gain=1,rate=1,pan=0,remote=false,rustle=false,offset=0,duration}:{gain?:number;rate?:number;pan?:number;remote?:boolean;rustle?:boolean;offset?:number;duration?:number}={}){
   if(!enabled||!actions||document.hidden||!context||context.state!=='running'||!limiter||!buffers.has(clip)||(remote&&!others))return;
+  const buffer=buffers.get(clip)!,length=Math.min(duration??buffer.duration-offset,buffer.duration-offset);
+  if(!Number.isFinite(offset)||offset<0||!Number.isFinite(rate)||rate<=0||!Number.isFinite(length)||length<=0)return;
   if(remote&&(voices.size>=4||[...voices].filter(v=>v.remote).length>=2))return;
   if(voices.size>=6){const old=[...voices].find(v=>v.remote)||[...voices][0];old?.stop();}
-  const a=context,buffer=buffers.get(clip)!,source=a.createBufferSource(),g=a.createGain(),panner=a.createStereoPanner();
+  const a=context,source=a.createBufferSource(),g=a.createGain(),panner=a.createStereoPanner();
   source.buffer=buffer;source.playbackRate.value=rate;panner.pan.value=Math.max(-.65,Math.min(.65,pan));
-  const length=Math.min(duration??buffer.duration-offset,buffer.duration-offset),seconds=length/rate,now=a.currentTime;
+  const seconds=length/rate,now=a.currentTime;
   g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(gain,now+Math.min(.014,seconds/4));
   g.gain.setValueAtTime(gain,now+Math.max(.015,seconds-.055));g.gain.linearRampToValueAtTime(0,now+seconds);
   source.connect(g).connect(panner).connect(limiter);
@@ -116,9 +124,9 @@ export function playSound(kind:SoundKind,options:{remote?:boolean;distance?:numb
   play(clip,{gain:kind==='candy'?gain*.6:gain,remote:options.remote,pan:options.pan,rate:(kind==='putdown'?.9:kind==='candy'?1.22:1)+(Math.random()-.5)*.05,...(kind==='candy'?{duration:.18,offset:.35}:kind==='paper'?{duration:.18,offset:.1}:{})});
 }
 export function playMachine(offset:number,options:{remote:boolean;distance:number;pan:number}){
-  return play('coffeeMachine',{offset:Math.max(0,offset),duration:Math.max(.01,COFFEE_BREW_MS/1000-offset),gain:options.remote?.18/(1+options.distance*.3):.8,remote:options.remote,pan:options.pan});
+  return play('coffeeMachine',{offset:Math.max(0,offset),duration:COFFEE_BREW_MS/1000-offset,gain:options.remote?.18/(1+options.distance*.3):.8,remote:options.remote,pan:options.pan});
 }
-export function playTeaPour(offset:number,seconds:number,options:{remote:boolean;distance:number;pan:number}){const rate=2.15/3;return play('pour',{offset:Math.max(0,offset*rate),duration:Math.max(.01,seconds*rate),rate,gain:options.remote?.17/(1+options.distance*.4):.65,remote:options.remote,pan:options.pan});}
+export function playTeaPour(offset:number,seconds:number,options:{remote:boolean;distance:number;pan:number}){const rate=2.15/3;return play('pour',{offset:Math.max(0,offset*rate),duration:seconds*rate,rate,gain:options.remote?.17/(1+options.distance*.4):.65,remote:options.remote,pan:options.pan});}
 export function candyWrapperMotion(){const now=performance.now();if(now-lastGrain<120)return;lastGrain=now;play('rustleA',{rustle:true,duration:.15,offset:.2,gain:.5,rate:1.22});}
 export function wrapperMotion(speed:number,progress:number,kind:SnackKind='lemonPie'){
   if(!enabled||speed<.015){stopWrapperSound();return;}
