@@ -107,6 +107,7 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
     const key=[kind,progress.toFixed(2),eaten,sips,drink].join(':');if(key===handKey)return;handKey=key;
     if(handItem)kit.release(handItem);handItem=new T.Group();hands.add(handItem);
     const item=kind==='candy'?candyModel(kit,handItem,progress,eaten):kind==='bottle'?bottleModel(kit,handItem,sips):mug(kit,handItem,.02,-.09,0,drink,.95,1,false);
+    item.name='foreground-'+kind;
     if(kind==='bottle'){item.position.set(.06,-.12,0);item.rotation.z=-.12;item.rotation.x=.05;}
     for(const side of kind==='candy'?[-1,1]:[1]){
       const arm=new T.Group();handItem.add(arm);arm.position.set(side*(kind==='candy'?.14+progress*.18:.1),-.045,.075);
@@ -140,7 +141,9 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
     const bottom=camera instanceof T.PerspectiveCamera?-Math.tan(T.MathUtils.degToRad(camera.fov/2))*.66*.74:-.18;
     const lift=cup&&!reduced?1-T.MathUtils.smoothstep(now-me!.actionAt,0,CUP_LIFT_MS):0;
     const side=camera instanceof T.PerspectiveCamera?Math.min(.19,Math.tan(T.MathUtils.degToRad(camera.fov/2))*.66*camera.aspect*.5):.19;
-    hands.position.set(isCandy?0:side,Math.max(-.28,bottom)-lift*.18,-.66-lift*.08).applyQuaternion(camera.quaternion).add(camera.position);hands.quaternion.copy(camera.quaternion);hands.scale.setScalar(.72);
+    // Leave room for both torn wrapper ends on narrow portrait screens.
+    const candyScale=camera instanceof T.PerspectiveCamera?Math.min(.78,Math.tan(T.MathUtils.degToRad(camera.fov/2))*.66*camera.aspect*.77/.48):.72;
+    hands.position.set(isCandy?0:side,Math.max(-.28,bottom)-lift*.18,-.66-lift*.08).applyQuaternion(camera.quaternion).add(camera.position);hands.quaternion.copy(camera.quaternion);hands.scale.setScalar(isCandy?candyScale:.72);
   }
   return{reveal,hits:visible?hits:[],interactionTargets:visible?[hands,doorPieces,doorHit]:[hands],tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
 }

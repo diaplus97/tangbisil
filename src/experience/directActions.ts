@@ -14,7 +14,8 @@ export function directActionKey(state:Snapshot|null,target:string):string{
 
 // World hits and their keyboard-accessible buttons use the same state transition.
 // Scene taps and keyboard focus share the same existing transition.
-export function directAction(state:Snapshot,target:string):DirectAction|null{
+export function directAction(state:Snapshot,target:string|null|undefined):DirectAction|null{
+  if(typeof target!=='string'||!target)return null;
   if(target==='cigarette'||target==='ashtray'){
     const m=state.room.members.find(m=>m.id===state.self.id),s=m?.smoking;
     if(m?.area!=='smoking'||m.seat==null||m.travel)return null;

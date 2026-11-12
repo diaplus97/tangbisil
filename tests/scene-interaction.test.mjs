@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Scene,Group,Mesh,BoxGeometry,MeshBasicMaterial} from 'three';
+import {Scene,Group,Mesh,BoxGeometry,MeshBasicMaterial,PerspectiveCamera,Raycaster,Vector3} from 'three';
 import {floorDestination,pickSceneTarget,isVisibleInScene,selectionSurface,stationInArea} from '../src/experience/three/sceneInteraction.ts';
+import {createSightFade} from '../src/experience/three/sightFade.ts';
 
 test('mouse clicks above the stone bowl walk to the visible floor while touch keeps the large target',()=>{
  const scene=new Scene(),basket=new Group(),bowl=new Mesh(),proxy=new Mesh(),floor=new Mesh();
@@ -33,6 +34,26 @@ test('a decorative canopy passes taps through while a faded solid cabinet still 
  hits.splice(1,0,{object:cabinet,distance:4});
  assert.equal(selectionSurface(hits,scene).object,cabinet);
  for(const m of [leaf,cabinet,floor]){m.geometry.dispose();m.material.dispose();}
+});
+
+test('decorative leaves skip mesh raycasting before, during, and after fading without disabling watering leaves',()=>{
+ const scene=new Scene(),canopy=new Group(),geometry=new BoxGeometry(),material=new MeshBasicMaterial();
+ const leaf=new Mesh(geometry,material),wateringLeaf=new Mesh(geometry,material);
+ canopy.add(leaf);scene.add(canopy,wateringLeaf);wateringLeaf.position.z=-2;
+ wateringLeaf.userData={action:'leaf',station:'plant',directSurface:true};
+ const kit={materials:new Map()},fade=createSightFade(kit,canopy,true,.08),camera=new PerspectiveCamera();
+ camera.position.set(0,0,3);scene.updateMatrixWorld(true);
+ const ray=new Raycaster(camera.position,new Vector3(0,0,-1));
+ for(const actor of [null,{x:0,z:-2},null]){
+  fade(camera,actor,true);
+  assert.notEqual(leaf.raycast,Mesh.prototype.raycast);
+  const hits=ray.intersectObjects(scene.children,true);
+  assert.ok(hits.length>0);assert.ok(hits.every(hit=>hit.object===wateringLeaf));
+  assert.equal(selectionSurface(hits,scene).object,wateringLeaf);
+  assert.equal(wateringLeaf.raycast,Mesh.prototype.raycast);
+  assert.equal(wateringLeaf.material.opacity,1);
+ }
+ geometry.dispose();material.dispose();for(const material of kit.materials.values())material.dispose();
 });
 
 test('a fridge in the detached pantry helper scene is never a healing room target',()=>{

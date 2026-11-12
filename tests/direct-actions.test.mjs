@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import {directAction,directActionKey} from '../src/experience/directActions.ts';
 
 function state(){return{receivedAt:Date.now(),serverTime:10000,self:{id:'me',pantry:{coffee:{stage:'carried'},candy:null,bottle:null,rest:{sprayer:false,stone:null,tea:null,sand:null,vase:null}}},room:{area:'pantry',members:[{id:'me',area:'pantry',seat:null,station:'tea'}],fixtures:{fridge:{open:false}}}};}
+test('empty and non-object targets from seat focus have no direct action',()=>{
+ const s=state();s.room.members[0].station=null;s.room.members[0].seat=0;
+ for(const target of [null,undefined,'','seat-1','unknown'])assert.equal(directAction(s,target),null);
+ assert.equal(directAction(s,'cup').type,'cup-sip');
+ assert.equal(directAction(s,'snack').type,'snack');
+});
 test('carried tea and stone only expose seated use; their stations expose return instead',()=>{
  const s=state(),p=s.self.pantry;p.rest.stone={id:'stone',held:true};
  assert.equal(directAction(s,'held'),null);assert.equal(directAction(s,'stone-basket').type,'stone-return');

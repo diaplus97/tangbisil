@@ -50,6 +50,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
   const moveButton=useRef<HTMLButtonElement>(null);
   const [destinationList,setDestinationList]=useState(false);
   const focusObject=useRef<((target:string)=>void)|null>(null);
+  const focusedAccess=useRef<string|null>(null);
   const interactionState=useRef({movementMode,destinationList,hovered});interactionState.current={movementMode,destinationList,hovered};
   const intentGeneration=useRef(0);
   const cancelNavigation=useRef<Promise<unknown>>(Promise.resolve());
@@ -156,7 +157,11 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     let cameraAspect=container.current!.clientWidth/Math.max(1,container.current!.clientHeight);
     function eyeFor(f:Framing):Eye{
       const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id),p=m?room.pose(m.id):null;
-      if(f==='activity'&&m?.station){const station=stations[m.station],fridge=m.station==='fridge',closeTea=m.station==='tea'&&matchMedia('(max-width:650px)').matches;return{x:station.x-Math.sin(station.yaw)*(fridge?2.45:m.station==='coffee'?1.45:m.station==='tea'?(closeTea?.98:1.3):1.65),y:m.station==='coffee'?2.02:m.station==='tea'?1.95:1.75,z:station.z-Math.cos(station.yaw)*(fridge?2.45:m.station==='coffee'?1.45:m.station==='tea'?(closeTea?.98:1.3):1.65),yaw:station.yaw,pitch:m.station==='coffee'?-.31:m.station==='sand'?-.3:fridge?-.24:m.station==='stone'?-.42:m.station==='tea'?(closeTea?-.60:-.36):m.station==='plant'?-.28:-.15};}
+      if(f==='activity'&&m?.station){
+        const station=stations[m.station],fridge=m.station==='fridge',closeTea=m.station==='tea'&&matchMedia('(max-width:650px)').matches;
+        const distance=fridge?2.45:m.station==='coffee'?1.45:m.station==='tea'?(closeTea?.98:1.3):m.station==='candy'?1.08:1.65;
+        return{x:station.x-Math.sin(station.yaw)*distance,y:m.station==='coffee'?2.02:m.station==='tea'?1.95:m.station==='candy'?1.92:m.station==='plant'?1.94:1.75,z:station.z-Math.cos(station.yaw)*distance,yaw:station.yaw,pitch:m.station==='coffee'?-.31:m.station==='sand'?-.3:fridge?-.24:m.station==='stone'?-.42:m.station==='tea'?(closeTea?-.60:-.36):m.station==='plant'?-.38:m.station==='candy'?-.45:-.15};
+      }
       if(f==='walking'&&p)return{x:p.x,y:T.MathUtils.lerp(1.78,area==='healing'?(m?.seat!=null&&m.seat<4?1.27:1.48):1.623,p.sit),z:p.z,yaw:p.yaw,pitch:-.06};
       const seat=m?.seat??0,seated=seatedView(seat,area);
       if(area==='pantry'){
@@ -183,7 +188,9 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     function positionLabels(){
       if(!container.current||!canvas.current)return;
       const points:Record<string,T.Vector3>={...anchors},width=container.current!.clientWidth,height=container.current!.clientHeight;
-      for(const id of labels.current.keys())if(id.startsWith('access-')){const point=room.objectPoint(id.slice(7));if(point)points[id]=point;}
+      // Unfocused keyboard targets are clipped to 1px and need no world lookup.
+      const access=focusedAccess.current;
+      if(access&&labels.current.has('access-'+access)){const point=room.objectPoint(access);if(point)points['access-'+access]=point;}
       const smoke=room.smokingPositions();if(smoke){points['smoke-cigarette']=smoke.cigarette;points['smoke-ashtray']=smoke.ashtray;}
       const snack=room.snackPosition();if(snack)points['my-snack']=snack;const cup=room.cupPosition();if(cup)points['my-cup']=cup;
       const member=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),currentCue=cueState.current;
@@ -300,7 +307,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     function setCamera(f:Framing){
       const reduced=reduceRef.current;
       const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id),personal=isPersonal(f);
-      const atEye=personal&&Boolean(m)&&(f==='seated'||(f==='activity'&&(m?.station==='coffee'||m?.station==='tea')));
+      const atEye=personal&&Boolean(m)&&(f==='seated'||(f==='activity'&&['coffee','tea','candy','plant'].includes(m?.station??'')));
       if(f==='choosing'&&!debug){
         if(!chooser){
           savedView={first,follower,camera,framing:previousFraming,seat:previousSeat};
@@ -345,7 +352,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       }
       previousFraming=f;previousMotion=m?.motion?.id;previousSeat=m?.seat;previousOwner=current?.self.id;
       room.interior(f!=='diorama'&&f!=='map'&&f!=='third',f!=='diorama'&&f!=='map');
-      room.firstPerson(first?current?.self.id??null:null,foodRef.current);room.reveal(camera,null,true);room.tick(performance.now(),current,reduced);
+      room.firstPerson(first?current?.self.id??null:null,foodRef.current);room.selectionViewer(chooser?current?.self.id??null:null);room.reveal(camera,null,true);room.tick(performance.now(),current,reduced);
       Object.assign(container.current!.dataset,{perspective:f,firstPerson:String(Boolean(first)),cameraMode:chooser?'choose':first?'eye':follower?'follow':'study',cameraSeat:String(m?.seat??0),area});
       resize();
     }
@@ -509,7 +516,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
           captureKeyboardBasis();
         }
         void keyboard.tick(time);
-        room.firstPerson(first?self??null:null,foodRef.current);room.tick(time,current,reduced);
+        room.firstPerson(first?self??null:null,foodRef.current);room.selectionViewer(chooser?self??null:null);room.tick(time,current,reduced);
         room.reveal(camera,(follower||f==='third')&&pose?pose:null,reduced);
         room.foreground(camera,current,Boolean(first)&&!foodRef.current,null,reduced);
         const choice=interactionState.current,h=choice.hovered?.startsWith('seat-')?Number(choice.hovered.slice(5)):null;room.seatMarkers.update(current,choice.movementMode&&!choice.destinationList,h,camera,container.current.clientHeight);
@@ -530,7 +537,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
   const ref=(key:string)=>(el:HTMLElement|null)=>{if(el)labels.current.set(key,el);else labels.current.delete(key);};
   const hoverStation=stationInArea(area,hovered?.startsWith('station-')?hovered.slice(8):null),hoverSeat=hovered?.startsWith('seat-')?Number(hovered.slice(5)):null;
   const hoverOwner=state?.room.members.find(m=>m.id!==state.self.id&&(hoverStation?m.station===hoverStation:hoverSeat!=null&&m.seat===hoverSeat));
-  const hoverText=hovered?.startsWith('action-')&&state?directAction(state,hovered.slice(7))?.label??'':hovered?.startsWith('portal-')?(exits.find(e=>e.to===hovered.slice(7))?.name??portal.name)+(area==='healing'&&(state?.self.pantry.rest.sand?.held||state?.self.pantry.rest.vase?.held)?' · 내 휴식 도구는 여기에 보관돼요':' · 눌러서 이동'):hovered?(hoverStation?stations[hoverStation]?.name??map.name:`${(hoverSeat??0)+1}번 자리`)+(hoverOwner?' · 이용 중':(hoverStation===me?.station&&!moving?' · '+(state?directAction(state,hoverStation!)?.label??'천천히 기다려요':''):' · 눌러서 이동')):input==='touch'?'손가락으로 밀어 둘러보기':input==='keyboard'?'방향키로 둘러보기 · Home은 풍경':'드래그로 둘러보기';
+  const hoverText=hovered?.startsWith('action-')&&state?directAction(state,hovered.slice(7))?.label??'':hovered?.startsWith('portal-')?(exits.find(e=>e.to===hovered.slice(7))?.name??portal.name)+(area==='healing'&&(state?.self.pantry.rest.sand?.held||state?.self.pantry.rest.vase?.held)?' · 내 휴식 도구는 여기에 보관돼요':' · 눌러서 이동'):hovered?(hoverStation?stations[hoverStation]?.name??map.name:`${(hoverSeat??0)+1}번 자리`)+(hoverOwner?' · 이용 중':(hoverStation&&hoverStation===me?.station&&!moving?' · '+(state?directAction(state,hoverStation)?.label??'천천히 기다려요':''):' · 눌러서 이동')):input==='touch'?'손가락으로 밀어 둘러보기':input==='keyboard'?'방향키로 둘러보기 · Home은 풍경':'드래그로 둘러보기';
   const destination=me?.travel?exits.find(e=>e.to===me.travel!.to)?.name:objectTarget?stations[objectTarget]?.name??null:target!=null?`${target+1}번 자리`:null;
   const showFloorHint=showHint&&Boolean(me)&&me?.seat==null&&!me?.station&&!moving;
   return <>
@@ -543,11 +550,11 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       {!ready&&!error&&<div className="three-message">창가의 빛을 들이는 중…</div>}
       {error?<div className="three-message" role="alert"><p>{error}</p><button className="primary" onClick={onFallback}>도트로 이어가기</button>{area!=='pantry'&&<button disabled={disabled} onClick={()=>void choosePortal()}>탕비실로 돌아가기</button>}</div>:<>
         {debug&&<><button ref={ref('shelf')} className="hotspot three-hotspot" onClick={onShelf} disabled={disabled}>오늘의 레몬파이</button><button ref={ref('drink')} className="hotspot three-hotspot" onClick={onDrink} disabled={disabled}>한 잔</button></>}
-        {!debug&&state&&!tvOpen&&!foodInHand&&<ObjectAccess state={state} disabled={disabled} moving={moving} sampleAvailable={sampleAvailable} onUse={id=>void useNearObject(id)} onSeat={id=>void chooseSeat(id)} anchor={ref} onFocus={id=>{setHovered(id);if(id)focusObject.current?.(id);}}/>}
+        {!debug&&state&&!tvOpen&&!foodInHand&&<ObjectAccess state={state} disabled={disabled} moving={moving} sampleAvailable={sampleAvailable} onUse={id=>void useNearObject(id)} onSeat={id=>void chooseSeat(id)} anchor={ref} onFocus={id=>{focusedAccess.current=id?.replace(/^action-/,'')??null;setHovered(id);if(id)focusObject.current?.(id);}}/>}
         {state?.room.members.filter(m=>debug||m.id!==state.self.id).map(m=><div ref={ref(m.id)} key={m.id} className={`visitor-name three-name ${!m.connected?'reconnecting':''}`}><span className="presence-dot"/>{m.name}</div>)}
       </>}
       {onTv&&!tvOpen&&<button className="tv-entry" disabled={disabled||moving||me?.seat==null} onClick={onTv}>TV 함께 보기</button>}
-      {!debug&&!tvOpen&&!foodInHand&&state&&area!=='smoking'&&!moving&&!tabledDrink&&<div ref={context} data-station={me?.station} className={'object-context'+(me?.station?' at-station':' held-context')} aria-label="가까이 있는 물건">
+      {!debug&&!tvOpen&&!foodInHand&&state&&area!=='smoking'&&!moving&&!movementMode&&!tabledDrink&&<div ref={context} data-station={me?.station} className={'object-context'+(me?.station?' at-station':' held-context')} aria-label="가까이 있는 물건">
         {arrival&&me?.station&&!(me.station==='coffee'&&state.self.pantry.coffee.stage==='brewing')&&<span className="arrival-note" role="status">도착했어요</span>}
         {me?.station==='coffee'&&state.self.pantry.coffee.stage==='brewing'&&<div className="brew-feedback"><span role="status">커피가 차오르고 있어요</span><progress ref={brewProgress} max={1} value={0} aria-label="커피 추출"/></div>}
         {(me?.station||heldName(state.self.pantry)||state.self.pantry.rest.stone||state.self.pantry.rest.tea||state.self.pantry.rest.sand||state.self.pantry.rest.vase||state.self.pantry.candy&&state.self.pantry.candy.state!=='eaten'||state.self.pantry.bottle&&state.self.pantry.bottle.sips<3)&&<details className="object-options" onKeyDown={e=>{if(e.key==='Escape'){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();e.stopPropagation();}}} onToggle={e=>{if(e.currentTarget.open)dismissHint();}}><summary aria-label="이 물건의 다른 행동">{me?.station||heldName(state.self.pantry)?'더보기':'내 물건'}</summary><div className="object-options-panel">{contextContent}</div></details>}

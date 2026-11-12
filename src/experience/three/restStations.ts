@@ -29,7 +29,9 @@ export function createRestStations(kit:Workshop,scene:T.Scene,visible=true){
    for(let d=0;d<2;d++){const dew=kit.mesh(pivot,new T.SphereGeometry(.009+d*.003,10,8),dropletMat,(d?-.04:.028),.011,.18+d*.065);dew.scale.set(1,.5,1.2);dew.visible=false;dew.castShadow=false;droplets.push(dew);}
   }
  }
- const parkedMister=misterModel(kit,furniture);parkedMister.position.set(.55,1.08,.2);parkedMister.userData={directSurface:true,station:'plant',action:'plant'};
+ // A small coaster keeps the bottle's return spot legible while it is in hand.
+ kit.cylinder(furniture,.14,.14,.008,.55,1.079,.2,'#9fad94');
+ const parkedMister=misterModel(kit,furniture);parkedMister.position.set(.55,1.084,.2);parkedMister.userData={directSurface:true,station:'plant',action:'plant'};
  // Keep the bottle separate: it disappears from its stand while held.
  furniture.remove(parkedMister);shelf.add(parkedMister);consolidate(furniture,kit);
  const mistMaterial=new T.MeshBasicMaterial({color:'#e5fff4',transparent:true,opacity:.42,depthWrite:false});
@@ -68,7 +70,7 @@ export function createRestStations(kit:Workshop,scene:T.Scene,visible=true){
   }
   hand.traverse(o=>{if(o instanceof T.Mesh)o.castShadow=false;});
   const now=state?state.serverTime+performance.now()-received:Date.now();heldTea?.update(r?.tea??null,now,performance.now(),false);
-  const bottom=camera instanceof T.PerspectiveCamera?-Math.tan(T.MathUtils.degToRad(camera.fov/2))*.68*.7:-.2;
+  const bottom=camera instanceof T.PerspectiveCamera?-Math.tan(T.MathUtils.degToRad(camera.fov/2))*.68*(kind==='sprayer'?.48:.7):-.2;
   hand.position.set(.19,bottom,-.68).applyQuaternion(camera.quaternion).add(camera.position);hand.quaternion.copy(camera.quaternion);hand.scale.setScalar(.75);
   if(kind==='sprayer'&&r){const age=now-r.sprayAt;hand.rotateX(age>=0&&age<650?Math.sin(age/650*Math.PI)*-.12:0);}
  }

@@ -7,14 +7,14 @@ type Point = {x:number; z:number};
 // the watering station, whose leaves must remain visible and interactive.
 export function createSightFade(kit:Workshop, group:T.Group, decorative:boolean, fadedOpacity:number) {
   const copies = new Map<T.Material,T.Material>();
-  const canopyMeshes:T.Mesh[]=[];
   const skipRaycast=()=>{};
   group.traverse(mesh => {
     if (!(mesh instanceof T.Mesh) || Array.isArray(mesh.material) || !mesh.material.visible) return;
     const original:T.Material = mesh.material;
     if (decorative) {
       mesh.userData.decorativeCanopy = true;
-      canopyMeshes.push(mesh);
+      // Decorative foliage always passes input through, including after it fades back in.
+      mesh.raycast=skipRaycast;
     } else if (!original.transparent || original.opacity >= .9) {
       mesh.userData.blocksSelection = true;
     }
@@ -53,12 +53,8 @@ export function createSightFade(kit:Workshop, group:T.Group, decorative:boolean,
     );
     const target = blocks ? fadedOpacity : 1;
     if (opacity === target) return blocks;
-    const concealed=opacity>.4;
     opacity = reduced || !actor ? target : T.MathUtils.lerp(opacity,target,.24);
     if (Math.abs(opacity-target)<.008) opacity=target;
-    if(decorative&&concealed!==(opacity>.4)){
-      for(const mesh of canopyMeshes)mesh.raycast=opacity>.4?T.Mesh.prototype.raycast:skipRaycast;
-    }
     for (const base of materials) {
       const transparent = base.transparent || opacity < 1;
       if (base.material.transparent !== transparent) {
