@@ -13,6 +13,8 @@ import {candyModel,bottleModel} from './stations';
 
 export function createCharacter(kit:Workshop,member:Member){
   const {group,body,head,eyes,legs,left,right}=sculptColleague(kit,member.avatar,member.id);
+  const heldHitMaterial=new T.MeshBasicMaterial({visible:false});
+  const heldHit=kit.mesh(right.wrist,new T.BoxGeometry(.28,.24,.30),heldHitMaterial,0,.015,.04);heldHit.userData.action='held';heldHit.visible=false;heldHit.castShadow=false;heldHit.receiveShadow=false;
   const cupGrip=new T.Group(),cupSocket=new T.Group();
   left.wrist.add(cupGrip);cupGrip.position.set(.016,-.055,.030);cupGrip.add(cupSocket);
   // The handle is on the thumb side of the left hand.
@@ -67,6 +69,8 @@ export function createCharacter(kit:Workshop,member:Member){
     const rest=m.pantry.rest,kind=m.area==='smoking'?'':rest?.sprayer?'sprayer':rest?.stone?.held?'stone':rest?.tea&&(rest.tea.held&&pose.inSeat==null||gesture&&!seatedDrink&&m.action==='tea-sip')?'tea':'';
     const nextItem=JSON.stringify([kind,holdCandy,holdBottle,c?.progress,b?.sips]);
     if(itemKey!==nextItem){restTea?.dispose();restTea=null;restStone=null;if(heldItem)kit.release(heldItem);heldItem=kind==='sprayer'?misterModel(kit,right.wrist):kind==='stone'?(restStone=stoneModel(kit,right.wrist)).group:kind==='tea'?(restTea=teaModel(kit,right.wrist)).group:holdCandy?candyModel(kit,right.wrist,c?.progress??1):holdBottle?bottleModel(kit,right.wrist,b?.sips??0):null;itemKey=nextItem;if(heldItem){heldItem.scale.setScalar(holdCandy?.65:.7);heldItem.position.set(0,.025,.04);if(kind==='sprayer')heldItem.rotation.y=Math.PI;}}
+    if(heldItem)heldItem.userData={directSurface:isMe,action:isMe?'held':undefined};
+    heldHit.visible=isMe&&Boolean(heldItem);
     restTea?.update(rest?.tea??null,now,time,reduced);if(restStone&&rest?.stone)restStone.deform(now-rest.stone.pressAt,rest.stone.point,reduced);
     const contact=m.connected&&m.contact&&m.contact.until>now&&rest.sand?.held&&sit>.95?m.contact:null;
     const sandActive=Boolean(contact);sandBlend+=(Number(sandActive)-sandBlend)*(1-Math.exp(-dt*18));
@@ -86,6 +90,7 @@ export function createCharacter(kit:Workshop,member:Member){
       a.wrist.quaternion.copy(a.shoulder.quaternion).multiply(a.elbow.quaternion).invert();
       const grasp=holding||(side===-1?drinking:eating);
       a.open.visible=!grasp;a.grip.visible=grasp;
+      if(side===1)a.wrist.userData={directSurface:isMe&&holding,action:isMe&&holding?'held':undefined};
       if(sandBlend>.001&&side===1){
         // Reach onto the low tray; one small forearm stroke only while contact is live.
         const sweep=reduced?0:Math.sin(time*.006)*.11;
@@ -129,5 +134,5 @@ export function createCharacter(kit:Workshop,member:Member){
     ring.visible=isMe&&sit<.95;group.updateMatrixWorld(true);
     return {cupSocket,lift:seatedDrink?amount:0,eating};
   }
-  return {group,avatar:member.avatar,update,labelPosition(pose:Pose){return new T.Vector3(pose.x,2.32-pose.sit*(member.area==='healing'?((pose.inSeat??0)<4?.67:.465):.32),pose.z);},dispose(){cigarette?.dispose();smoke?.dispose();flameMaterial.dispose();restTea?.dispose();(ring.material as T.Material).dispose();kit.release(group);}};
+  return {group,avatar:member.avatar,update,labelPosition(pose:Pose){return new T.Vector3(pose.x,2.32-pose.sit*(member.area==='healing'?((pose.inSeat??0)<4?.67:.465):.32),pose.z);},dispose(){heldHitMaterial.dispose();cigarette?.dispose();smoke?.dispose();flameMaterial.dispose();restTea?.dispose();(ring.material as T.Material).dispose();kit.release(group);}};
 }

@@ -32,11 +32,11 @@ export function createHealingArchitecture(kit:Workshop,scene:T.Scene){
  const reveal=indoorTree(kit,fixed,scene,4,-3.8,s,51);
  const shelf=box(1.8,.88,.65,-3.5,.44,4.1,'#c4ae8b',.04);shelf.material=s.wood;metricUvs(shelf.geometry);
  box(1.86,.05,.72,-3.5,.91,4.1,'#e2d4b6',.025);
- for(const x of[-3.98,-3.02]){const tray=sandModel(kit,fixed);tray.group.position.set(x,.95,4.08);tray.group.scale.setScalar(.68);}
+ for(const x of[-3.98,-3.02]){const tray=sandModel(kit,scene);consolidate(tray.group,kit);tray.group.userData={directSurface:true,station:'sand',action:'sand'};tray.group.position.set(x,.95,4.08);tray.group.scale.setScalar(.68);}
  label(kit,fixed,'나만의 모래 트레이',1.2,.17,-3.5,.73,3.758,'#56705c','#ede9d7',90).rotation.y=Math.PI;
  const flowerShelf=box(1.8,.94,.6,-.5,.47,4.1,'#c4ae8b',.04);flowerShelf.material=s.wood;metricUvs(flowerShelf.geometry);
  box(1.86,.05,.68,-.5,.965,4.1,'#e2d4b6',.025);
- flowers.forEach((flower,i)=>{const v=vaseModel(kit,fixed,flower.id);v.position.set(-1+i*.5,.995,4.08);v.scale.setScalar(1.35);});
+ flowers.forEach((flower,i)=>{const v=vaseModel(kit,scene,flower.id);consolidate(v,kit);v.userData={directSurface:true,station:'flower',action:'flower-'+flower.id};v.position.set(-1+i*.5,.995,4.08);v.scale.setScalar(1.35);});
  label(kit,fixed,'마음에 드는 한 송이',1.2,.17,-.5,.76,3.778,'#56705c','#ede9d7',90).rotation.y=Math.PI;
  // A woven wall panel softens the rear wall without adding another activity.
  const textile=box(2.2,.75,.04,-.3,2.42,4.38,'#c8cfb6',.05);textile.material=s.fabrics[2];

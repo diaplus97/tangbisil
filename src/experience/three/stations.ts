@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {tableDrink} from '../../../shared/table-drink.mjs';
 import {createSightFade} from './sightFade';
 import {Workshop,mug,label,consolidate} from './assets';
 import {stations,type StationId} from '../../../shared/space.mjs';
@@ -101,7 +102,7 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
   }
   const reveal=visible?createSightFade(kit,fridge,false,.09):null;
   const lamp=new T.PointLight('#f1fff1',0,2.6,2);lamp.position.set(0,2.04,.2);fridge.add(lamp);
-  const hands=new T.Group();hands.userData.action='held';foregroundScene.add(hands);let handKey='',handItem:T.Group|null=null;
+  const hands=new T.Group();hands.userData={action:'held',directSurface:true};foregroundScene.add(hands);let handKey='',handItem:T.Group|null=null;
   function held(kind:'candy'|'bottle'|'cup',progress:number,eaten:boolean,sips:number,drink:string){
     const key=[kind,progress.toFixed(2),eaten,sips,drink].join(':');if(key===handKey)return;handKey=key;
     if(handItem)kit.release(handItem);handItem=new T.Group();hands.add(handItem);
@@ -133,12 +134,13 @@ export function createStations(kit:Workshop,scene:T.Scene,visible=true){
     const p=state?.self.pantry,candy=p?.candy,bottle=p?.bottle;
     const me=state?.room.members.find(m=>m.id===state.self.id),cup=me?.station==='coffee'&&me.action==='coffee-take'&&p?.coffee.stage==='carried';
     const isCandy=me?.station!=='coffee'&&Boolean(candy?.held&&candy.state!=='eaten'),isBottle=me?.station!=='coffee'&&!isCandy&&Boolean(bottle?.held&&bottle.sips<3);
-    hands.visible=show&&(isCandy||isBottle||Boolean(cup));if(!hands.visible)return;
+    hands.visible=show&&(isCandy||isBottle&&!(me?.seat!=null&&tableDrink(p!)==='bottle')||Boolean(cup));if(!hands.visible)return;
     held(isCandy?'candy':isBottle?'bottle':'cup',pull??candy?.progress??0,false,bottle?.sips??0,state?.self.drink??'coffee');
     hands.traverse(o=>{if(o instanceof T.Mesh)o.castShadow=false;});
     const bottom=camera instanceof T.PerspectiveCamera?-Math.tan(T.MathUtils.degToRad(camera.fov/2))*.66*.74:-.18;
     const lift=cup&&!reduced?1-T.MathUtils.smoothstep(now-me!.actionAt,0,CUP_LIFT_MS):0;
-    hands.position.set(isCandy?0:.22,bottom-lift*.18,-.66-lift*.08).applyQuaternion(camera.quaternion).add(camera.position);hands.quaternion.copy(camera.quaternion);hands.scale.setScalar(.72);
+    const side=camera instanceof T.PerspectiveCamera?Math.min(.19,Math.tan(T.MathUtils.degToRad(camera.fov/2))*.66*camera.aspect*.5):.19;
+    hands.position.set(isCandy?0:side,Math.max(-.28,bottom)-lift*.18,-.66-lift*.08).applyQuaternion(camera.quaternion).add(camera.position);hands.quaternion.copy(camera.quaternion);hands.scale.setScalar(.72);
   }
   return{reveal,hits:visible?hits:[],interactionTargets:visible?[hands,doorPieces,doorHit]:[hands],tick,foreground,dispose(){hitMaterial.dispose();steamMaterial.dispose();}};
 }

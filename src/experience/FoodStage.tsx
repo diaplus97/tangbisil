@@ -70,18 +70,18 @@ export function FoodStage({onFlush,serving,busy,appearance='pixel',onProgress,on
   }
   async function bite(){const now=performance.now();if(biting.current||busy||now-lastBite.current<380)return;lastBite.current=now;biting.current=true;try{await onBite();}finally{biting.current=false;}}
   return <div className="food-interaction">
-    <div className={`food-stage ${dragging?'dragging':''} ${serving.state}`} data-testid="food-stage" data-serving-id={serving.id} data-bites={serving.bites} data-state={serving.state} data-progress={progress.toFixed(3)}
+    <div className={`food-stage ${dragging?'dragging':''} ${serving.state}`} tabIndex={0} role="button" aria-label={serving.state==='sealed'?'레몬 샌드파이 포장 열기':serving.state==='open'?'레몬 샌드파이 한입 먹기':'다 먹은 레몬 샌드파이'} aria-disabled={busy||serving.state==='empty'} onKeyDown={e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();e.stopPropagation();if(!busy&&!e.repeat){if(serving.state==='sealed')accessibleOpen();else if(serving.state==='open')void bite();}}}} data-testid="food-stage" data-serving-id={serving.id} data-bites={serving.bites} data-state={serving.state} data-progress={progress.toFixed(3)}
       onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp}
       onPointerCancel={cancelGesture} onLostPointerCapture={()=>{if(drag.current||tap.current)cancelGesture();}}>
       {pixel?<canvas ref={canvas} width="320" height="200" aria-label={label}/>:<Suspense fallback={<div className="food-three-loading">접시를 놓는 중…</div>}><Food3D progress={progress} bites={serving.bites} empty={serving.state==='empty'} sample={serving.portions===1} crunch={crunch} label={label} onUnavailable={()=>setFallback(true)}/></Suspense>}
-      {serving.state==='sealed'&&<div className="drag-hint" aria-hidden="true">{progress>.01?(dragging?'사각사각, 원하는 만큼.':'뜯던 곳에서 이어 당겨요.'):'포장을 잡고 오른쪽으로'} <span>⟶</span></div>}
+      {serving.state==='sealed'&&<div className="drag-hint" aria-hidden="true">{progress>.01?(dragging?'사각사각, 원하는 만큼.':'뜯던 곳에서 이어 당기거나 톡 누르세요.'):'포장을 톡 누르거나 오른쪽으로 당겨요'} <span>⟶</span></div>}
       {serving.state==='sealed'&&<div className="wrapper-progress" role="progressbar" aria-label="포장 열림" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress*100)}><span style={{width:progress*100+'%'}}/></div>}
       {serving.state==='empty'&&<span className="plate-note">잘 먹었습니다.</span>}
     </div>
-    <div className="food-action-row">
+    {appearance==='pixel'&&<div className="food-action-row">
       {serving.state==='sealed'?<><span className="interaction-note">{progress>.01?'뜯던 곳에서 이어서 열어요.':'오른쪽으로 당기거나 버튼을 눌러요.'}</span><button className="primary" onClick={accessibleOpen} disabled={busy||unwrapping}>{unwrapping?'포장을 여는 중…':progress>.01?'이어서 포장 열기':'포장 열기'} <span aria-hidden="true">↗</span></button></>:
         serving.state==='open'?<><span className="interaction-note">{serving.portions===1?'누군가 나눠준, 작은 한 조각.':serving.bites===0?'바삭한 겉면, 부드러운 크림.':serving.bites===1?'사이사이 레몬잼이 보여요.':'접시에 조금 남아 있어요.'}</span><button className="primary" disabled={busy} onClick={()=>void bite()}>{busy?'접시에 남기는 중…':'한입 먹기'} <span>↗</span></button></>:
         <span className="interaction-note">맛본 기억은 앨범에 남아 있어요.</span>}
-    </div>
+    </div>}
   </div>;
 }

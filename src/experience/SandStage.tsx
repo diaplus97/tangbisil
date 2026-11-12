@@ -1,3 +1,4 @@
+import {passPointerToRoom} from './stagePointer';
 import {useEffect,useRef} from 'react';
 import {decodeSand,rakeSand,gentleStroke,SAND_WIDTH,SAND_HEIGHT} from '../../shared/sand.mjs';
 import {sandMotion,stopSandSound,playSound,sandStrokeSound} from './sound';
@@ -60,7 +61,7 @@ export default function SandStage({state,disabled,connected,contact,act}:Props){
   function down(e:PointerEvent){
    e.preventDefault();e.stopPropagation();if(e.button!==0||!e.isPrimary||latest.current.disabled||pending)return;
    const b=el.getBoundingClientRect(),x=(e.clientX-b.left)/b.width*600,y=(e.clientY-b.top)/b.height*380;
-   if(x<rect.x||x>rect.x+rect.w||y<rect.y||y>rect.y+rect.h)return;
+   if(x<rect.x||x>rect.x+rect.w||y<rect.y||y>rect.y+rect.h){passPointerToRoom(e,el);return;}
    el.focus({preventScroll:true});gestureId=crypto.randomUUID();sequence=0;lastPointAt=performance.now();const p=point(e),stone=stones.findIndex(s=>Math.hypot((s[0]-p[0])*rect.w,(s[1]-p[1])*rect.h)<30);
    drag={id:e.pointerId,stone:stone<0?null:stone,points:[p],origin:p,moved:false,placing:selected!=null&&stone<0};if(stone>=0)selected=stone;el.setPointerCapture(e.pointerId);draw();
   }

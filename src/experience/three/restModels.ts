@@ -47,7 +47,7 @@ export function teaModel(kit:Workshop,parent:T.Object3D){
  kit.tube(bag,[new T.Vector3(0,.17,.025),new T.Vector3(.045,.245,.05),new T.Vector3(.075,.247,.095),new T.Vector3(.085,.16,.112)],.0016,'#dfd4b4');kit.box(bag,.033,.038,.004,.085,.15,.114,'#7c9985',.003);
  const steam=new T.Group();group.add(steam);let texture=[...kit.textures].find(t=>t.name==='tea-steam');if(!texture){texture=kit.texture(c=>{const gr=c.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,'#ffffff80');gr.addColorStop(.55,'#ffffff20');gr.addColorStop(1,'#ffffff00');c.fillStyle=gr;c.fillRect(0,0,64,64);},64,64);texture.name='tea-steam';}
  const puffs=Array.from({length:5},()=>{const material=new T.SpriteMaterial({map:texture,transparent:true,depthWrite:false,opacity:0});const sprite=new T.Sprite(material);steam.add(sprite);return sprite;});
- return{group,update(raw:Omit<Tea,'id'>|null,now:number,time:number,reduced:boolean){const t=sampleTea(raw as Tea|null,now),volume=t?.volume??0,strength=t?.strength??0;
+ return{group,bag,update(raw:Omit<Tea,'id'>|null,now:number,time:number,reduced:boolean){const t=sampleTea(raw as Tea|null,now),volume=t?.volume??0,strength=t?.strength??0;
   liquid.visible=bloom.visible=volume>.001;liquid.position.y=.045+volume*.155;bloom.position.y=liquid.position.y+.0005;bloomMaterial.uniforms.strength.value=strength;bloomMaterial.uniforms.clock.value=reduced?0:time*.0005;
   bag.visible=Boolean(t?.bagIn);steam.visible=volume>0;
   puffs.forEach((p,i)=>{const life=((reduced?850:time)/2700+i/5)%1;p.position.set(Math.sin(i+life*2)*.035,.24+life*.32,Math.cos(i)*.025);p.scale.set(.055+life*.07,.1+life*.12,1);p.material.opacity=reduced?.11:Math.sin(life*Math.PI)*.27;});

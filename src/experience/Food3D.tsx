@@ -1,3 +1,4 @@
+import {passPointerToRoom} from './stagePointer';
 import {useEffect,useRef} from 'react';
 import * as T from 'three';
 import {Workshop,makeRenderer,pie} from './three/assets';
@@ -83,8 +84,11 @@ export default function Food3D(props:Props){
     function resize(){const parent=canvas.current!.parentElement!,width=parent.clientWidth,ratio=getComputedStyle(parent).aspectRatio.split('/').map(Number),aspect=Number.isFinite(ratio[0])?ratio[0]/(ratio[1]||1):1.6,height=width/aspect;camera.left=-1.7;camera.right=1.7;camera.top=1.7/aspect;camera.bottom=-1.7/aspect;camera.updateProjectionMatrix();renderer.setSize(width,height,false);sync();}
     const observer=new ResizeObserver(resize);observer.observe(canvas.current!.parentElement!);
     const lost=(event:Event)=>{event.preventDefault();latest.current.onUnavailable();};const element=canvas.current!;element.addEventListener('webglcontextlost',lost);
+    const ray=new T.Raycaster();
+    const down=(event:PointerEvent)=>{const rect=element.getBoundingClientRect();ray.setFromCamera(new T.Vector2((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2),camera);const hit=ray.intersectObjects(scene.children,true).some(hit=>{for(let o:T.Object3D|null=hit.object;o;o=o.parent)if(!o.visible)return false;return hit.object instanceof T.Mesh;});if(!hit)passPointerToRoom(event,element);};
+    element.addEventListener('pointerdown',down);
     resize();element.dataset.ready='true';
-    return()=>{observer.disconnect();element.removeEventListener('webglcontextlost',lost);update.current=null;kit.dispose();renderer.dispose();renderer.forceContextLoss();};
+    return()=>{element.removeEventListener('pointerdown',down);observer.disconnect();element.removeEventListener('webglcontextlost',lost);update.current=null;kit.dispose();renderer.dispose();renderer.forceContextLoss();};
   },[]);
   return <canvas ref={canvas} width="640" height="400" className="food-three-canvas" aria-label={props.label}/>;
 }

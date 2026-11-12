@@ -1,3 +1,4 @@
+import {passPointerToRoom} from './stagePointer';
 import {useEffect,useRef} from 'react';
 import {flowers} from '../../shared/vase.mjs';
 import type {Vase} from './types';
@@ -25,7 +26,9 @@ export default function VaseStage({vase,disabled,act}:Props){
   function sync(){if(drag||pending)return;position=latest.current.vase.position;tilt=latest.current.vase.tilt;draw();}refresh.current=sync;
   const clamp=(v:number,max:number)=>Math.max(-max,Math.min(max,v));
   async function save(){pending=true;try{await latest.current.act('vase-edit',{itemId:latest.current.vase.id,revision:latest.current.vase.revision,position,tilt});}finally{pending=false;sync();}}
-  function down(e:PointerEvent){if(e.button!==0||!e.isPrimary||pending||latest.current.disabled)return;e.preventDefault();e.stopPropagation();el.focus({preventScroll:true});const b=el.getBoundingClientRect();drag={id:e.pointerId,x:e.clientX,position,tilt,mode:(e.clientY-b.top)/b.height<.48?'tilt':'position'};el.setPointerCapture(e.pointerId);}
+  function down(e:PointerEvent){if(e.button!==0||!e.isPrimary||pending||latest.current.disabled)return;const b=el.getBoundingClientRect(),px=(e.clientX-b.left)/b.width*420,py=(e.clientY-b.top)/b.height*340;
+   let touches=false;for(let y=-12;y<=12;y+=4)for(let x=-12;x<=12;x+=4){const sx=Math.round(px+x),sy=Math.round(py+y);if(sx>=0&&sx<420&&sy>=0&&sy<340&&c.getImageData(sx,sy,1,1).data[3]>96)touches=true;}
+   if(!touches){passPointerToRoom(e,el);return;}e.preventDefault();e.stopPropagation();el.focus({preventScroll:true});drag={id:e.pointerId,x:e.clientX,position,tilt,mode:(e.clientY-b.top)/b.height<.48?'tilt':'position'};el.setPointerCapture(e.pointerId);}
   function move(e:PointerEvent){if(!drag||e.pointerId!==drag.id)return;e.preventDefault();e.stopPropagation();const dx=(e.clientX-drag.x)/el.getBoundingClientRect().width;if(drag.mode==='position')position=clamp(drag.position+dx*3,.6);else tilt=clamp(drag.tilt+dx*1.7,.35);draw();}
   function up(e:PointerEvent){if(!drag||e.pointerId!==drag.id)return;e.preventDefault();e.stopPropagation();const d=drag;drag=null;if(Math.abs(e.clientX-d.x)<3){const x=(e.clientX-el.getBoundingClientRect().left)/el.getBoundingClientRect().width-.5;if(d.mode==='position')position=clamp(x*2,.6);else tilt=clamp(x,.35);}draw();void save();el.releasePointerCapture(e.pointerId);}
   function cancel(){drag=null;sync();}

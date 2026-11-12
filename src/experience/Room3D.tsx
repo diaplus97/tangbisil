@@ -16,7 +16,7 @@ import {createFirstPersonCamera,type Eye} from './three/firstPersonCamera';
 import {createKeyboardWalk,keyboardVector,movementCodes,bearingChanged} from './keyboardWalk';
 import {useInputMethod} from './useInputMethod';
 import {placeTableActions} from './tableActionPlacement';
-import {SmokingActions} from './SmokingActions';
+import {ObjectAccess} from './ObjectAccess';
 import {directAction,directActionKey} from './directActions';
 import {coffeePhase} from '../../shared/coffee.mjs';
 import {tableDrink} from '../../shared/table-drink.mjs';
@@ -26,7 +26,7 @@ import type {Snapshot} from './types';
 
 type Props={reduceMotion:boolean;cameraMemory:Map<string,{yaw:number;pitch:number}>;inputReady:()=>boolean;keyboardEnabled:boolean;onSteer:(direction:[number,number])=>Promise<unknown>;onExplore:()=>void;onUse:(target:string)=>Promise<unknown>;contextContent?:ReactNode;landscapeId:LandscapeId;tvOpen:boolean;windowContent?:ReactNode;onTv?:()=>void;onTravel:(to:Area)=>Promise<unknown>;onToolsMount:(element:HTMLDivElement|null)=>void;onApproach:(station:StationId)=>Promise<unknown>;seaMotion:boolean;waves:boolean;onWaves:()=>void;state:Snapshot|null;debug:boolean;movementMode:boolean;foodInHand:boolean;onFinishMove:()=>void;sampleAvailable:boolean;sampleLabel:string;onShelf:()=>void;onPlate:()=>void;onDrink:()=>void;disabled:boolean;onFallback:()=>void;onMove:(x:number,z:number)=>Promise<unknown>;onSit:(seat:number)=>Promise<unknown>;onStand:()=>Promise<unknown>};
 type Study='diorama'|'inside'|'table'|'lounge'|'map'|'third';
-type Framing=Study|'seated'|'walking'|'activity';
+type Framing=Study|'seated'|'walking'|'activity'|'choosing';
 const frames:Record<Study,string>={inside:'입구 시점',table:'테이블 시점',lounge:'창가 자리',diorama:'전체 배치',map:'개발용 평면',third:'이전 3인칭'};
 export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEnabled,onSteer,onExplore,onUse,contextContent,landscapeId,tvOpen,windowContent,onTv,onTravel,onToolsMount,onApproach,seaMotion,waves,onWaves,state,debug,movementMode,foodInHand,onFinishMove,sampleAvailable,sampleLabel,onShelf,onPlate,onDrink,disabled,onFallback,onMove,onSit,onStand}:Props){
   const input=useInputMethod(),reduceRef=useRef(reduceMotion);reduceRef.current=reduceMotion;
@@ -48,13 +48,21 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
   const requesting=useRef(false),origin=useRef<number|null>(null);
   const stopKeyboard=useRef<()=>Promise<void>>(async()=>{});
   const moveButton=useRef<HTMLButtonElement>(null);
-  function closeDestinations(){onFinishMove();requestAnimationFrame(()=>moveButton.current?.focus({preventScroll:true}));}
+  const [destinationList,setDestinationList]=useState(false);
+  const focusObject=useRef<((target:string)=>void)|null>(null);
+  const interactionState=useRef({movementMode,destinationList,hovered});interactionState.current={movementMode,destinationList,hovered};
+  const intentGeneration=useRef(0);
+  const cancelNavigation=useRef<Promise<unknown>>(Promise.resolve());
+  const pendingUse=useRef<{station:StationId;target:string;type:string}|null>(null);
+  useEffect(()=>{if(!movementMode)setDestinationList(false);},[movementMode]);
+  function closeDestinations(){pendingUse.current=null;intentGeneration.current++;nextFloor.current=null;if(moving)cancelNavigation.current=stopKeyboard.current().then(()=>stand());world.current?.destination.clear();onFinishMove();requestAnimationFrame(()=>moveButton.current?.focus({preventScroll:true}));}
   function openDestinations(){void stopKeyboard.current().then(()=>onExplore());}
   const usingObject=useRef(false),usedAt=useRef(-Infinity),usedTarget=useRef('');
   async function useNearObject(id:string){
     const step=directActionKey(latest.current,id);
     if(disabled&&id!=='cup'||usingObject.current||usedTarget.current===step&&performance.now()-usedAt.current<380)return;
-    usingObject.current=true;
+    if(id==='held'&&latest.current&&!directAction(latest.current,id)){const p=latest.current.self.pantry;if(p.rest.tea?.held||p.rest.stone?.held)setWalkHint('편한 자리에 앉아서 사용해요.');return;}
+    usingObject.current=true;setIntro(false);
     try{return await onUse(id);}
     finally{usedAt.current=performance.now();usedTarget.current=step;usingObject.current=false;}
   }
@@ -63,33 +71,37 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
   useEffect(()=>{if(['tea-hold','bottle-hold'].includes(me?.action??''))container.current?.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>{d.open=false;});},[me?.actionAt]);
   const moving=Boolean(me?.travel||me?.motion&&me.motion.id!==arrived&&state&&me.motion.endsAt>state.serverTime);
   cueState.current={input,intro,hovered,discovery};
-  useEffect(()=>{if(!state?.self.id)return;const key='pantry:first-action:'+state.self.id;try{if(sessionStorage.getItem(key))return;}catch{}setIntro(true);const timer=setTimeout(()=>{setIntro(false);try{sessionStorage.setItem(key,'1');}catch{}},6500);return()=>clearTimeout(timer);},[state?.self.id]);
+  useEffect(()=>{if(!state?.self.id)return;const key='pantry:direct-objects:v1:'+state.self.id+':'+area;try{if(sessionStorage.getItem(key))return;}catch{}setIntro(true);const timer=setTimeout(()=>{setIntro(false);try{sessionStorage.setItem(key,'1');}catch{}},6500);return()=>clearTimeout(timer);},[state?.self.id,area]);
   useEffect(()=>{setArrival(Boolean(me?.station&&!moving));if(!me?.station||moving)return;const timer=setTimeout(()=>setArrival(false),1800);return()=>clearTimeout(timer);},[me?.station,moving]);
   useEffect(()=>{if(!walkHint)return;const timer=setTimeout(()=>setWalkHint(''),3600);return()=>clearTimeout(timer);},[walkHint]);
-  const framing:Framing=debug?study:moving||me&&me.seat==null&&!me.station?'walking':me?.station?'activity':'seated';
+  const framing:Framing=debug?study:movementMode?'choosing':moving||me&&me.seat==null&&!me.station?'walking':me?.station?'activity':'seated';
   const framingRef=useRef(framing),foodRef=useRef(foodInHand),seaMotionRef=useRef(seaMotion);
   latest.current=state;framingRef.current=framing;foodRef.current=tvOpen;seaMotionRef.current=seaMotion;
   const pointView=useRef<((target:'coffee'|'window-seat')=>void)|null>(null);
   const cameraUpdate=useRef<((f:Framing)=>void)|null>(null),lookAtSea=useRef<(()=>void)|null>(null);
   const originOwner=state?.room.members.find(m=>m.seat===origin.current&&m.id!==state.self.id);
   function rememberSeat(){if(!moving&&me?.seat!=null)origin.current=me.seat;}
-  async function stand(){world.current?.destination.clear();rememberSeat();const brewing=state?.self.pantry.coffee.stage==='brewing';const result=await onStand();if(result){setTarget(null);setObjectTarget(null);setWalkHint(brewing?'추출을 멈추고 컵을 챙겼어요.':'');}return result;}
+  async function stand(){pendingUse.current=null;world.current?.destination.clear();rememberSeat();const brewing=state?.self.pantry.coffee.stage==='brewing';const result=await onStand();if(result){setTarget(null);setObjectTarget(null);setWalkHint(brewing?'추출을 멈추고 컵을 챙겼어요.':'');}return result;}
   async function returnToRest(){const index=origin.current!=null&&!originOwner?origin.current:seats.findIndex((_,i)=>!state?.room.members.some(m=>m.seat===i));if(index>=0){await chooseSeat(index);if(originOwner)setWalkHint('원래 자리에 동료가 있어 가까운 빈 자리로 가요.');}}
   async function chooseSeat(index:number){
     if(disabled||requesting.current)return;
-    await stopKeyboard.current();rememberSeat();requesting.current=true;world.current?.destination.set(map.approaches[index],'pending');
+    pendingUse.current=null;intentGeneration.current++;
+    await cancelNavigation.current;await stopKeyboard.current();rememberSeat();requesting.current=true;world.current?.destination.set(map.approaches[index],'pending');
     try{if(await onSit(index)){world.current?.destination.set(map.approaches[index],'moving');setTarget(index);setObjectTarget(null);setWalkHint('');onFinishMove();}else world.current?.destination.set(map.approaches[index],'blocked');}finally{requesting.current=false;}
   }
-  async function chooseObject(id:StationId){
+  async function chooseObject(id:StationId,use?:string){
     if(!stationInArea(area,id)||disabled||requesting.current)return;
-    if(!moving&&me?.station===id){await useNearObject(id);return;}
-    await stopKeyboard.current();rememberSeat();requesting.current=true;world.current?.destination.set(stations[id].approach,'pending');
-    try{if(await onApproach(id)){world.current?.destination.set(stations[id].approach,'moving');setObjectTarget(id);setTarget(null);setWalkHint('');onFinishMove();}else world.current?.destination.set(stations[id].approach,'blocked');}finally{requesting.current=false;}
+    if(!moving&&me?.station===id){await useNearObject(use??id);return;}
+    const generation=++intentGeneration.current;pendingUse.current=null;
+    await cancelNavigation.current;await stopKeyboard.current();if(generation!==intentGeneration.current)return;
+    pendingUse.current=use&&latest.current?{station:id,target:use,type:directAction(latest.current,use)?.type??''}:null;rememberSeat();requesting.current=true;world.current?.destination.set(stations[id].approach,'pending');
+    try{const accepted=await onApproach(id);if(generation!==intentGeneration.current)return;if(accepted){world.current?.destination.set(stations[id].approach,'moving');setObjectTarget(id);setTarget(null);setWalkHint('');onFinishMove();}else{pendingUse.current=null;world.current?.destination.set(stations[id].approach,'blocked');}}finally{requesting.current=false;}
   }
-  async function choosePortal(to:Area=portal.to){if(disabled||requesting.current)return;await stopKeyboard.current();requesting.current=true;try{if(await onTravel(to)){setTarget(null);setObjectTarget(null);onFinishMove();}}finally{requesting.current=false;}}
+  async function choosePortal(to:Area=portal.to){if(disabled||requesting.current)return;pendingUse.current=null;intentGeneration.current++;await stopKeyboard.current();requesting.current=true;try{if(await onTravel(to)){setTarget(null);setObjectTarget(null);onFinishMove();}}finally{requesting.current=false;}}
   const floorInFlight=useRef(false),nextFloor=useRef<{x:number;z:number}|null>(null);
   async function walkTo(x:number,z:number){
     if(requesting.current||disabled&&!floorInFlight.current)return;
+    pendingUse.current=null;intentGeneration.current++;
     const scene=world.current;if(!scene)return;
     nextFloor.current={x,z};scene.destination.set(nextFloor.current,'pending');
     if(floorInFlight.current)return;
@@ -106,13 +118,14 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       }
     }finally{floorInFlight.current=false;}
   }
-  const actions=useRef({onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse:useNearObject,onStand:stand,onSteer,keyboardEnabled,inputReady,tvOpen,disabled,debug});
-  actions.current={onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse:useNearObject,onStand:stand,onSteer,keyboardEnabled,inputReady,tvOpen,disabled,debug};
+  const actions=useRef({onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse:useNearObject,onStand:stand,onSteer,keyboardEnabled,inputReady,tvOpen,disabled,debug,onCancelMove:closeDestinations});
+  actions.current={onMove:walkTo,chooseSeat,chooseObject,choosePortal,onUse:useNearObject,onStand:stand,onSteer,keyboardEnabled,inputReady,tvOpen,disabled,debug,onCancelMove:closeDestinations};
   useEffect(()=>{
     if(!me?.motion||!state)return;
     const timer=setTimeout(()=>setArrived(me.motion!.id),Math.max(0,me.motion.endsAt-state.serverTime)+40);return()=>clearTimeout(timer);
   },[me?.motion?.id,state?.serverTime]);
   useEffect(()=>{if(!moving){setTarget(null);setObjectTarget(null);}},[moving]);
+  useEffect(()=>{const intent=pendingUse.current;if(!state||moving||disabled||!intent||me?.station!==intent.station)return;pendingUse.current=null;if(directAction(state,intent.target)?.type===intent.type)void useNearObject(intent.target);},[moving,me?.station,state,disabled]);
   useEffect(()=>{world.current?.sync(state);},[state]);
   useEffect(()=>{origin.current=null;setTarget(null);setObjectTarget(null);setWalkHint('');},[area]);
   useEffect(()=>{world.current?.lighting(warm||landscapeId==='fire');},[warm,landscapeId]);
@@ -128,6 +141,8 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     const studio=new RoomEnvironment(),pmrem=new T.PMREMGenerator(renderer),reflection=pmrem.fromScene(studio,.04);
     room.scene.environment=reflection.texture;room.scene.environmentIntensity=.35;studio.dispose();pmrem.dispose();
     let follower:ReturnType<typeof createFollowCamera>|null=null;
+    let chooser:ReturnType<typeof createFirstPersonCamera>|null=null;
+    let savedView:{first:ReturnType<typeof createFirstPersonCamera>|null;follower:ReturnType<typeof createFollowCamera>|null;camera:T.OrthographicCamera|T.PerspectiveCamera;framing:Framing|undefined;seat:number|null|undefined}|null=null;
     let camera:T.OrthographicCamera|T.PerspectiveCamera,first:ReturnType<typeof createFirstPersonCamera>|null=null,third:ReturnType<typeof createExploreCamera>|null=null;
     const raycaster=new T.Raycaster(),floor=new T.Plane(new T.Vector3(0,1,0),area==='healing'?-.008:.025);
     renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
@@ -148,7 +163,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
         const yaw=seats[seat][2],companion=seats[seat^1];
         const across=companion?Math.atan2(companion[0]-seated.x,companion[1]-seated.z):yaw;
         const portrait=1-T.MathUtils.smoothstep(cameraAspect,.72,1.35);
-        return{...seated,yaw:yaw+.56*portrait*Math.atan2(Math.sin(across-yaw),Math.cos(across-yaw)),pitch:-.20};
+        return{...seated,yaw:yaw+.12*portrait*Math.atan2(Math.sin(across-yaw),Math.cos(across-yaw)),pitch:-.20};
       }
       return{...seated,pitch:matchMedia('(max-width:650px)').matches?-.23:-.12};
     }
@@ -168,28 +183,12 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     function positionLabels(){
       if(!container.current||!canvas.current)return;
       const points:Record<string,T.Vector3>={...anchors},width=container.current!.clientWidth,height=container.current!.clientHeight;
+      for(const id of labels.current.keys())if(id.startsWith('access-')){const point=room.objectPoint(id.slice(7));if(point)points[id]=point;}
       const smoke=room.smokingPositions();if(smoke){points['smoke-cigarette']=smoke.cigarette;points['smoke-ashtray']=smoke.ashtray;}
       const snack=room.snackPosition();if(snack)points['my-snack']=snack;const cup=room.cupPosition();if(cup)points['my-cup']=cup;
       const member=latest.current?.room.members.find(m=>m.id===latest.current?.self.id),currentCue=cueState.current;
       const stationId=stationInArea(area,member?.station),travelling=Boolean(member?.motion&&member.motion.endsAt>room.now());
-      let next:StationId|null=null;
-      if(travelling||member?.travel)next=member?.travel?null:stationId;
-      else if(!stationId&&!currentCue.intro){
-        const hover=stationInArea(area,currentCue.hovered?.startsWith('station-')?currentCue.hovered.slice(8):null);
-        if(cueFocus.current&&currentCue.discovery)next=currentCue.discovery;
-        else if(hover&&stations[hover])next=hover;
-        else if(currentCue.input!=='mouse'&&!(snack&&Math.abs(snack.clone().project(camera).x)<.9&&snack.clone().project(camera).y>-.65&&snack.clone().project(camera).z<1)){
-          let best=.95;
-          for(const [id,s]of Object.entries(stations)){
-            if(latest.current?.room.members.some(m=>m.id!==latest.current?.self.id&&m.station===id))continue;
-            const point=new T.Vector3(s.x,s.y,s.z),p=point.clone().project(camera),distance=point.distanceTo(camera.position);
-            const score=Math.abs(p.x)+Math.abs(p.y)*.45+distance*.025;
-            if(p.z>-1&&p.z<1&&Math.abs(p.x)<.8&&p.y<.64&&p.y>-.65&&distance<11&&score<best){const rect=canvas.current!.getBoundingClientRect(),hit=hitAt(rect.left+(p.x+1)*width/2,rect.top+(1-p.y)*height/2);if(hit?.object.userData.station===id){best=score;next=id as StationId;}}
-          }
-        }
-      }
-      if(next!==currentCue.discovery){cueState.current.discovery=next;setDiscovery(next);}
-      if(next){const s=stations[next];points.discovery=new T.Vector3(s.x,s.y+.12,s.z);}
+      const next:StationId|null=null;
       if(travelling&&!stationId&&member?.seat!=null){const [x,z]=seats[member.seat];points.destination=new T.Vector3(x,1.35,z);}
       for(const m of latest.current?.room.members??[]){const point=room.labelPosition(m.id);if(point)points[m.id]=point;}
       const appliance=machineOnScreen(width,height);
@@ -245,6 +244,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       }
       for(const [id,el]of entries){
         const point=points[id],p=point.clone().project(camera),w=el.offsetWidth,h=el.offsetHeight,distance=camera.position.distanceToSquared(point);
+        if(id.startsWith('access-')){el.style.setProperty('--object-x',Math.max(12,Math.min(width-220,(p.x+1)*width/2-90))+'px');el.style.setProperty('--object-y',Math.max(100,Math.min(height-130,(1-p.y)*height/2-60))+'px');continue;}
         const table=id==='my-snack'||id==='my-cup',slot=tableSlots.get(id);
         const rawX=(p.x+1)*width/2-w/2,rawY=(1-p.y)*height/2-h-8;
         let x=slot?.x??(['discovery','destination','smoke-cigarette','smoke-ashtray'].includes(id)?Math.max(10,Math.min(width-w-10,rawX)):rawX);
@@ -286,7 +286,8 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       const {width,height}=container.current.getBoundingClientRect();if(!width||!height||!camera)return;
       container.current!.closest<HTMLElement>('.game-space')?.style.setProperty('--rendered-scene-height',height+'px');
       const aspect=width/height,f=framingRef.current;cameraAspect=aspect;
-      if(follower&&isPersonal(f))follower.resize(aspect,f==='walking');
+      if(chooser)chooser.resize(aspect);
+      else if(follower&&isPersonal(f))follower.resize(aspect,f==='walking');
       else if(first&&isPersonal(f)){
         first.resize(aspect,f==='seated'&&area==='pantry');
         if(f==='seated'){const eye=eyeFor(f);first.frame(eye.yaw,eye.pitch);if(reduceRef.current)first.update(1,true);}
@@ -300,7 +301,17 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       const reduced=reduceRef.current;
       const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id),personal=isPersonal(f);
       const atEye=personal&&Boolean(m)&&(f==='seated'||(f==='activity'&&m?.station==='coffee'));
-      if(atEye&&!debug){
+      if(f==='choosing'&&!debug){
+        if(!chooser){
+          savedView={first,follower,camera,framing:previousFraming,seat:previousSeat};
+          const p=area==='smoking'?{x:2.65,y:2.3,z:3.5,yaw:-2.55,pitch:-.13}:area==='healing'?{x:3.95,y:2.35,z:3.8,yaw:-2.35,pitch:-.18}:{x:1,y:2.45,z:6.5,yaw:-2.9,pitch:-.14};
+          chooser=createFirstPersonCamera(p);first=null;follower=null;
+        }
+        camera=chooser.camera;
+      }else if(chooser&&savedView&&savedView.framing===f&&savedView.seat===m?.seat){
+        ({first,follower,camera}=savedView);chooser=null;savedView=null;
+      }else if(atEye&&!debug){
+        chooser=null;savedView=null;
         if(follower&&previousOwner===m?.id&&m)cameraMemory.set(m.id+'/'+area,follower.angles);
         follower=null;
         if(!first||f!==previousFraming||m?.seat!==previousSeat||current?.self.id!==previousOwner){
@@ -308,6 +319,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
         }
         camera=first.camera;
       }else if(personal&&!debug){
+        chooser=null;savedView=null;
         if(!follower||current?.self.id!==previousOwner){
           const pose=m?room.pose(m.id):null,memory=m?cameraMemory.get(m.id+'/'+area):null;
           const bearing=memory?.yaw??(pose&&area==='pantry'&&!m?.enteredAt?Math.atan2(stations.coffee.x-pose.x,stations.coffee.z-pose.z)-.5:Math.PI);
@@ -334,7 +346,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       previousFraming=f;previousMotion=m?.motion?.id;previousSeat=m?.seat;previousOwner=current?.self.id;
       room.interior(f!=='diorama'&&f!=='map'&&f!=='third',f!=='diorama'&&f!=='map');
       room.firstPerson(first?current?.self.id??null:null,foodRef.current);room.reveal(camera,null,true);room.tick(performance.now(),current,reduced);
-      Object.assign(container.current!.dataset,{perspective:f,firstPerson:String(Boolean(first)),cameraMode:first?'eye':follower?'follow':'study',cameraSeat:String(m?.seat??0),area});
+      Object.assign(container.current!.dataset,{perspective:f,firstPerson:String(Boolean(first)),cameraMode:chooser?'choose':first?'eye':follower?'follow':'study',cameraSeat:String(m?.seat??0),area});
       resize();
     }
     pointView.current=target=>{
@@ -350,6 +362,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       basisDirty=true;
     };
     cameraUpdate.current=setCamera;lookAtSea.current=()=>{basisDirty=true;follower?.aim(Math.PI,-.13);first?.aim(Math.PI,-.02);if(reduceRef.current)first?.update(1,true);};setCamera(framingRef.current);
+    focusObject.current=id=>{const point=room.objectPoint(id.replace(/^action-/,''));if(!point)return;const p=point.clone().project(camera);if(p.z<0||p.z>1||Math.abs(p.x)>.8||Math.abs(p.y)>.7){const v=point.clone().sub(camera.position);(chooser||first||follower)?.aim(Math.atan2(v.x,v.z),Math.atan2(v.y,Math.hypot(v.x,v.z)));basisDirty=true;}labelSnapshot=null;};
     const element=canvas.current!;
     let down:{x:number;y:number;lastX:number;lastY:number;id:number;slop:number;touch:boolean;dragged:boolean}|null=null;
     let lastHover=0,basisDirty=false;
@@ -359,11 +372,18 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       raycaster.setFromCamera(new T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),camera);
       const member=latest.current?.room.members.find(m=>m.id===latest.current?.self.id);
       const objects=room.objectTargets.filter(o=>!(o.userData.station==='fridge'&&member?.station==='fridge'));
-      const hits=raycaster.intersectObjects([...room.interactionTargets(),...room.portalTargets,...objects,...room.seatTargets],true);
+      const hits=raycaster.intersectObjects([...room.interactionTargets(),...room.portalTargets,...objects,...room.seatTargets.filter(o=>o.userData.seat!==member?.seat),...room.seatMarkers.markers],true);
       const surface=selectionSurface(raycaster.intersectObjects(room.scene.children,true),room.scene);
-      return {hit:pickSceneTarget(hits,surface,room.scene,area,precise),surface};
+      const hit=pickSceneTarget(hits,surface,room.scene,area,precise);
+      return {hit:hit?.object.userData.seat===member?.seat?undefined:hit,surface};
     }
     function hitAt(x:number,y:number){return pickAt(x,y)?.hit;}
+    function markerClear(marker:T.Object3D){
+      const direction=marker.position.clone().sub(camera.position),distance=direction.length();
+      raycaster.set(camera.position,direction.normalize());
+      const surface=selectionSurface(raycaster.intersectObjects(room.scene.children,true),room.scene);
+      return !surface||surface.distance>=distance-.06;
+    }
     const pointerDown=(e:PointerEvent)=>{
       if(e.button!==0||!e.isPrimary)return;
       element.focus({preventScroll:true});
@@ -379,7 +399,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       const d=down;
       if(d&&d.id===e.pointerId){
         if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>d.slop)d.dragged=true;
-        if(d.dragged&&(follower||first)){const rect=element.getBoundingClientRect();(follower||first)!.drag(e.clientX-d.lastX,e.clientY-d.lastY,rect.width,rect.height);basisDirty=true;setHovered(null);element.style.cursor='grabbing';}
+        if(d.dragged&&(chooser||follower||first)){const rect=element.getBoundingClientRect();(chooser||follower||first)!.drag(e.clientX-d.lastX,e.clientY-d.lastY,rect.width,rect.height);basisDirty=true;setHovered(null);element.style.cursor='grabbing';}
         d.lastX=e.clientX;d.lastY=e.clientY;return;
       }
       if(e.pointerType==='touch'||performance.now()-lastHover<80)return;lastHover=performance.now();
@@ -395,6 +415,25 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       const pick=pickAt(start.touch?start.x:e.clientX,start.touch?start.y:e.clientY,!start.touch);
       if(!pick)return;
       const {hit,surface}=pick;
+      if(interactionState.current.movementMode&&!interactionState.current.destinationList){
+        let index=hit?.object.userData.seat;
+        if(index==null){
+          const rect=element.getBoundingClientRect();let best=26;
+          room.seatMarkers.markers.forEach((marker,i)=>{if(!marker.visible)return;const p=marker.position.clone().project(camera),x=rect.left+(p.x+1)*rect.width/2,y=rect.top+(1-p.y)*rect.height/2,d=Math.hypot(x-e.clientX,y-e.clientY);if(p.z>0&&p.z<1&&d<best&&markerClear(marker)){index=i;best=d;}});
+        }
+        if(index!=null&&!latest.current?.room.members.some(m=>m.seat===index))void actions.current.chooseSeat(index);else actions.current.onCancelMove();
+        return;
+      }
+      // A steering request may still be in flight when an object is tapped.
+      // Stop it first, then use the latest render's action callbacks.
+      if(keyboard.active&&(hit?.object.userData.station||hit?.object.userData.seat!=null)){
+        const data={...hit.object.userData},generation=++intentGeneration.current;pendingUse.current=null;
+        void keyboard.stop().then(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()))).then(()=>{
+          if(generation!==intentGeneration.current)return;
+          if(data.station)void actions.current.chooseObject(data.station,data.action??data.station);
+          else if(!latest.current?.room.members.some(m=>m.seat===data.seat))void actions.current.chooseSeat(data.seat);
+        });return;
+      }
       const retargeting=floorInFlight.current&&!hit&&surface?.object.userData.walkSurface;
       if(actions.current.disabled&&!retargeting&&hit?.object.userData.action!=='cup')return;
       if(hit?.object.userData.smokingSeat!=null){
@@ -404,9 +443,9 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
           void actions.current.chooseSeat(index);return;
         }
       }
-      if(hit?.object.userData.action){dismissHint();const data=hit.object.userData,m=latest.current?.room.members.find(m=>m.id===latest.current?.self.id);if(data.station&&(m?.station!==data.station||m&&room.pose(m.id)?.moving))void actions.current.chooseObject(data.station);else void actions.current.onUse(data.action);return;}
+      if(hit?.object.userData.action){dismissHint();setIntro(false);const data=hit.object.userData,m=latest.current?.room.members.find(m=>m.id===latest.current?.self.id);if(data.station&&(m?.station!==data.station||m&&room.pose(m.id)?.moving))void actions.current.chooseObject(data.station,data.action);else void actions.current.onUse(data.action);return;}
       if(hit?.object.userData.portal){void actions.current.choosePortal(hit.object.userData.portal);return;}
-      if(hit?.object.userData.station){void actions.current.chooseObject(hit.object.userData.station);return;}
+      if(hit?.object.userData.station){void actions.current.chooseObject(hit.object.userData.station,hit.object.userData.station);return;}
       if(hit?.object.userData.seat!=null){const index=hit.object.userData.seat;
         if(latest.current?.room.members.some(m=>m.seat===index)){setWalkHint('이미 누군가 앉아 있는 자리예요.');return;}
         void actions.current.chooseSeat(index);return;
@@ -430,16 +469,16 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     };
     const pointerLeave=(e:PointerEvent)=>{if(!down){if(!(e.relatedTarget instanceof Element&&e.relatedTarget.closest('.discovery-cue,.object-context')))setHovered(null);element.style.cursor='';}};
     const keyDown=(e:KeyboardEvent)=>{
-      const controls=follower||first;if(!controls||e.ctrlKey||e.metaKey||e.altKey)return;
+      const controls=chooser||follower||first;if(!controls||e.ctrlKey||e.metaKey||e.altKey)return;
       const delta:Record<string,[number,number]>={ArrowLeft:[.12,0],ArrowRight:[-.12,0],ArrowUp:[0,.08],ArrowDown:[0,-.08]};
-      if(e.key==='Escape'){e.preventDefault();if(keyboard.active)void keyboard.stop();else void actions.current.onStand();return;}
+      if(e.key==='Escape'){e.preventDefault();if(interactionState.current.movementMode)actions.current.onCancelMove();else if(keyboard.active)void keyboard.stop();else void actions.current.onStand();return;}
       if(e.key==='Home'){e.preventDefault();controls.aim(Math.PI,-.13);basisDirty=true;return;}
       if(delta[e.key]){e.preventDefault();setHovered(null);controls.turn(...delta[e.key]);basisDirty=true;}
     };
     const forward=new T.Vector3(),right=new T.Vector3(),visibleForward=new T.Vector3();
     const captureKeyboardBasis=()=>{camera.getWorldDirection(forward);right.setFromMatrixColumn(camera.matrixWorld,0);basisDirty=false;};captureKeyboardBasis();
     const keyboardBlocked=()=>!actions.current.keyboardEnabled||actions.current.tvOpen||document.hidden||Boolean(document.querySelector('dialog[open],details[open]'))||Boolean(document.activeElement?.closest('input,textarea,select,[contenteditable=true],[role=textbox]'));
-    const keyboard=createKeyboardWalk({ready:()=>actions.current.inputReady(),direction:keys=>{if(keyboardBlocked())return null;return keyboardVector(keys,forward,right);},move:async direction=>{const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id);if(m?.seat!=null&&!room.pose(m.id)?.moving)origin.current=m.seat;room.destination.clear();return await actions.current.onSteer(direction);},stop:()=>actions.current.onStand()});
+    const keyboard=createKeyboardWalk({ready:()=>actions.current.inputReady(),direction:keys=>{if(keyboardBlocked())return null;return keyboardVector(keys,forward,right);},move:async direction=>{const current=latest.current,m=current?.room.members.find(m=>m.id===current.self.id);if(m?.seat!=null&&!room.pose(m.id)?.moving)origin.current=m.seat;pendingUse.current=null;intentGeneration.current++;room.destination.clear();return await actions.current.onSteer(direction);},stop:()=>actions.current.onStand()});
     stopKeyboard.current=()=>keyboard.stop();
     const walkKeyDown=(event:KeyboardEvent)=>{if(event.code==='Escape'&&keyboard.active&&!keyboardBlocked()){event.preventDefault();void keyboard.stop();return;}if(!movementCodes.has(event.code)||event.ctrlKey||event.metaKey||event.altKey||keyboardBlocked())return;event.preventDefault();if(!event.repeat){captureKeyboardBasis();keyboard.press(event.code);void keyboard.tick(performance.now());}};
     const walkKeyUp=(event:KeyboardEvent)=>{if(!movementCodes.has(event.code))return;captureKeyboardBasis();keyboard.release(event.code);void keyboard.tick(performance.now());};
@@ -462,6 +501,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       const active=visible&&!document.hidden&&!actions.current.tvOpen&&!document.querySelector('dialog[open]');room.active(active);
       if(active&&time>=nextFrame-.5){
         const current=latest.current,self=current?.self.id,pose=self?room.pose(self):null,f=framingRef.current,dt=last?(time-last)/1000:1/30;
+        chooser?.update(dt,reduced);
         if(first&&isPersonal(f)){first.anchor(eyeFor(f));first.update(dt,reduced);}
         if(third&&f==='third'&&pose)third.follow(pose,dt,reduced);
         if(follower&&pose){const station=current?.room.members.find(m=>m.id===self)?.station;follower.follow({...pose,stableHeading:f==='walking',steering:keyboard.keys.size>0,focus:f==='walking'?null:station==='fridge'?fridgeShelfView:station?stations[station]:null},dt,reduced);}
@@ -471,8 +511,9 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
         void keyboard.tick(time);
         room.firstPerson(first?self??null:null,foodRef.current);room.tick(time,current,reduced);
         room.reveal(camera,(follower||f==='third')&&pose?pose:null,reduced);
-        room.foreground(camera,current,debug&&isPersonal(f)&&f!=='walking'&&!foodRef.current,null,reduced);
-        Object.assign(container.current!.dataset,{cameraX:camera.position.x.toFixed(4),cameraY:camera.position.y.toFixed(4),cameraZ:camera.position.z.toFixed(4),cameraFov:camera instanceof T.PerspectiveCamera?String(camera.fov):'ortho',cameraYaw:(follower||first)?.angles.yaw.toFixed(4)??'',cameraPitch:(follower||first)?.angles.pitch.toFixed(4)??'',actorX:pose?.x.toFixed(3)??'',actorZ:pose?.z.toFixed(3)??''});
+        room.foreground(camera,current,Boolean(first)&&!foodRef.current,null,reduced);
+        const choice=interactionState.current,h=choice.hovered?.startsWith('seat-')?Number(choice.hovered.slice(5)):null;room.seatMarkers.update(current,choice.movementMode&&!choice.destinationList,h,camera,container.current.clientHeight);
+        Object.assign(container.current!.dataset,{cameraX:camera.position.x.toFixed(4),cameraY:camera.position.y.toFixed(4),cameraZ:camera.position.z.toFixed(4),cameraFov:camera instanceof T.PerspectiveCamera?String(camera.fov):'ortho',cameraYaw:(chooser||follower||first)?.angles.yaw.toFixed(4)??'',cameraPitch:(chooser||follower||first)?.angles.pitch.toFixed(4)??'',actorX:pose?.x.toFixed(3)??'',actorZ:pose?.z.toFixed(3)??''});
         const now=room.now(),animated=current?.room.members.some(m=>m.motion&&m.motion.endsAt>now||now-m.actionAt<4500||m.pantry.coffee.stage==='brewing'||Boolean(m.pantry.rest.tea?.pourAt));
         if(shadowState!==current||animated&&time-shadowTime>100){renderer.shadowMap.needsUpdate=true;shadowState=current;shadowTime=time;}
         const cue=JSON.stringify([cueState.current,framingRef.current,foodRef.current,reduced]);
@@ -502,35 +543,26 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
       {!ready&&!error&&<div className="three-message">창가의 빛을 들이는 중…</div>}
       {error?<div className="three-message" role="alert"><p>{error}</p><button className="primary" onClick={onFallback}>도트로 이어가기</button>{area!=='pantry'&&<button disabled={disabled} onClick={()=>void choosePortal()}>탕비실로 돌아가기</button>}</div>:<>
         {debug&&<><button ref={ref('shelf')} className="hotspot three-hotspot" onClick={onShelf} disabled={disabled}>오늘의 레몬파이</button><button ref={ref('drink')} className="hotspot three-hotspot" onClick={onDrink} disabled={disabled}>한 잔</button></>}
-        {!debug&&state&&area==='smoking'&&!moving&&me?.seat!=null&&<SmokingActions state={state} disabled={disabled} onUse={id=>void useNearObject(id)} anchor={ref}/>}
-        {!debug&&state&&!tvOpen&&!foodInHand&&!moving&&!discovery&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-snack')} className="world-action snack-world-hint" disabled={disabled} onClick={()=>{setIntro(false);onShelf();}}>{directAction(state,'snack')?.label}</button>}
-        {!debug&&state&&!tvOpen&&!moving&&me?.seat!=null&&area==='pantry'&&<button ref={ref('my-cup')} className="world-action cup-world-hint" disabled={disabled&&!foodInHand} onClick={()=>void useNearObject('cup')}>{directAction(state,'cup')?.label??'잔 준비 중'}</button>}
-        {!debug&&!tvOpen&&!foodInHand&&discovery&&stations[discovery]&&(!moving||(!me?.travel&&me?.station===discovery))&&(moving?<span ref={ref('discovery')} className="world-status discovery-cue" role="status">{stations[discovery].name} · 이동 중</span>:<button ref={ref('discovery')} className="world-action discovery-cue" onFocus={()=>{cueFocus.current=true;}} onBlur={()=>{cueFocus.current=false;}} disabled={disabled||state?.room.members.some(m=>m.id!==state.self.id&&m.station===discovery)} onClick={()=>void chooseObject(discovery)}>{stations[discovery].name} 가기</button>)}
-        {!debug&&!tvOpen&&!foodInHand&&moving&&me?.seat!=null&&!me.station&&<span ref={ref('destination')} className="world-status destination-cue" role="status">자리로 가는 중</span>}
-        {!debug&&!tvOpen&&!foodInHand&&<span ref={beacon} className="target-beacon" aria-hidden="true"/>}
-        {!debug&&sampleAvailable&&!intro&&!discovery&&!tvOpen&&!foodInHand&&!moving&&area==='pantry'&&<button ref={ref('plate')} className="world-action shared-world-hint" disabled={disabled} aria-label={sampleLabel} onClick={onPlate}>한 조각 맛보기</button>}
+        {!debug&&state&&!tvOpen&&!foodInHand&&<ObjectAccess state={state} disabled={disabled} moving={moving} sampleAvailable={sampleAvailable} onUse={id=>void useNearObject(id)} onSeat={id=>void chooseSeat(id)} anchor={ref} onFocus={id=>{setHovered(id);if(id)focusObject.current?.(id);}}/>}
         {state?.room.members.filter(m=>debug||m.id!==state.self.id).map(m=><div ref={ref(m.id)} key={m.id} className={`visitor-name three-name ${!m.connected?'reconnecting':''}`}><span className="presence-dot"/>{m.name}</div>)}
       </>}
       {onTv&&!tvOpen&&<button className="tv-entry" disabled={disabled||moving||me?.seat==null} onClick={onTv}>TV 함께 보기</button>}
       {!debug&&!tvOpen&&!foodInHand&&state&&area!=='smoking'&&!moving&&!tabledDrink&&<div ref={context} className={'object-context'+(me?.station?' at-station':' held-context')} aria-label="가까이 있는 물건">
-        {me?.station&&directAction(state,me.station)&&<button className="world-action" disabled={disabled} onClick={()=>void useNearObject(me.station!)}>{directAction(state,me.station)!.label}</button>}
         {arrival&&me?.station&&!(me.station==='coffee'&&state.self.pantry.coffee.stage==='brewing')&&<span className="arrival-note" role="status">도착했어요</span>}
-        {me?.station==='coffee'&&state.self.pantry.coffee.stage==='brewing'&&<div className="brew-feedback"><span role="status">커피가 차오르고 있어요</span><progress ref={brewProgress} max={1} value={0} aria-label="커피 추출"/><button className="world-action" disabled={disabled} onClick={()=>void stand()}>추출 멈추기</button></div>}
-        {!me?.station&&heldName(state.self.pantry)&&directAction(state,'held')&&<button className="world-action" disabled={disabled} onClick={()=>void useNearObject('held')}>{directAction(state,'held')!.label}</button>}
+        {me?.station==='coffee'&&state.self.pantry.coffee.stage==='brewing'&&<div className="brew-feedback"><span role="status">커피가 차오르고 있어요</span><progress ref={brewProgress} max={1} value={0} aria-label="커피 추출"/></div>}
         {(me?.station||heldName(state.self.pantry)||state.self.pantry.rest.stone||state.self.pantry.rest.tea||state.self.pantry.rest.sand||state.self.pantry.rest.vase||state.self.pantry.candy&&state.self.pantry.candy.state!=='eaten'||state.self.pantry.bottle&&state.self.pantry.bottle.sips<3)&&<details className="object-options" onKeyDown={e=>{if(e.key==='Escape'){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();e.stopPropagation();}}} onToggle={e=>{if(e.currentTarget.open)dismissHint();}}><summary aria-label="이 물건의 다른 행동">{me?.station||heldName(state.self.pantry)?'더보기':'내 물건'}</summary><div className="object-options-panel">{contextContent}</div></details>}
       </div>}
       {!debug&&!tvOpen&&<div className={'room-assist'+(me?.station?' at-object':'')+(foodInHand?' with-wrapper':'')}>
-        {!foodInHand&&!moving&&<button className="look-window" onClick={()=>lookAtSea.current?.()} aria-label="창밖 풍경 보기">풍경 보기</button>}
         {!foodInHand&&moving&&<button disabled={disabled} onClick={()=>void stand()}>멈추기</button>}
-        <button ref={moveButton} className="move-primary" disabled={disabled} aria-expanded={movementMode} aria-haspopup="dialog" onClick={openDestinations}><svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true"><path d="M3 10h13m-5-5 5 5-5 5M3 4v12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>{moving?'목적지 바꾸기':'자리 옮기기'}</button>
+        <button ref={moveButton} className="move-primary" disabled={disabled} aria-pressed={movementMode} onClick={movementMode?closeDestinations:openDestinations}><svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true"><path d="M3 10h13m-5-5 5 5-5 5M3 4v12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>{movementMode?'이동 취소':moving?'목적지 바꾸기':'자리 옮기기'}</button>{movementMode&&<button className="destination-list-toggle" aria-haspopup="dialog" onClick={()=>setDestinationList(true)}>목록으로 고르기</button>}
       </div>}
-      {!debug&&!tvOpen&&!foodInHand&&(showFloorHint||walkHint||hovered&&!hovered.startsWith('station-')&&hovered!=='action-snack')&&<div className="direct-hint" role="status">{walkHint||hovered&&hoverText||(input==='touch'?'바닥을 누르면 걸어가요':'WASD로 걷거나 바닥을 누르세요')}{showFloorHint&&!hovered&&<button aria-label="조작 안내 닫기" onClick={dismissHint}>×</button>}</div>}
+      {!debug&&!tvOpen&&!foodInHand&&(movementMode&&!destinationList||intro||showFloorHint||walkHint||hovered)&&<div className="direct-hint" role="status">{walkHint||(movementMode?'빈 의자를 눌러 앉아요':hovered?hoverText:intro?'물건은 톡 누르고, 풍경은 밀어서 둘러봐요':input==='touch'?'바닥을 누르면 걸어가요':'WASD로 걷거나 바닥을 누르세요')}{showFloorHint&&!hovered&&<button aria-label="조작 안내 닫기" onClick={dismissHint}>×</button>}</div>}
       {windowContent}
       {debug&&<div className="camera-switch" role="group" aria-label="개발용 시점">{(Object.keys(frames) as Study[]).map(f=><button key={f} aria-pressed={study===f} onClick={()=>setStudy(f)}>{frames[f]}</button>)}</div>}
       {debug&&<button className="light-switch" onClick={()=>setWarm(v=>!v)}>조명 비교</button>}
     </div>
-    <div className={"room-navigation"+(foodInHand?" food-navigation":"")}>{!debug&&<div className="look-controls"><p>{walkHint||hoverText}</p><button onClick={()=>lookAtSea.current?.()}>풍경 보기</button></div>}
-    {state&&!foodInHand&&!tvOpen&&movementMode&&<ExploreDestinations onTravel={choosePortal} state={state} disabled={disabled} moving={moving} canReturn={origin.current!=null&&!originOwner&&(me?.seat!==origin.current||moving)} onReturn={returnToRest} onStand={stand} onClose={closeDestinations} onSeat={chooseSeat} onObject={chooseObject}/>}</div>
+    <div className={"room-navigation"+(foodInHand?" food-navigation":"")}>
+    {state&&!foodInHand&&!tvOpen&&movementMode&&destinationList&&<ExploreDestinations onTravel={choosePortal} state={state} disabled={disabled} moving={moving} canReturn={origin.current!=null&&!originOwner&&(me?.seat!==origin.current||moving)} onReturn={returnToRest} onStand={stand} onClose={closeDestinations} onSelected={onFinishMove} onSeat={chooseSeat} onObject={chooseObject}/>}</div>
     {debug&&sampleAvailable&&!moving&&<button className="shared-sample-action secondary" onClick={onPlate} disabled={disabled}>{sampleLabel}</button>}
     {debug&&moving&&<div className="walk-actions" role="group" aria-label="이동 중"><button className="secondary" disabled={disabled} onClick={()=>{setTarget(null);setObjectTarget(null);void stand();}}>멈추기</button>{origin.current!=null&&!originOwner&&<button className="secondary" disabled={disabled} onClick={()=>void chooseSeat(origin.current!)}>원래 자리로</button>}</div>}
   </>;

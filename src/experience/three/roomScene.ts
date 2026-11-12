@@ -1,6 +1,7 @@
 import * as T from 'three';
 import {createCameraCollision} from './cameraCollision';
 import {createDestinationMarker} from './destinationMarker';
+import {createSeatMarkers} from './seatMarkers';
 import {Workshop,mug,mugSaucer,packet,pie,consolidate} from './assets';
 import type {Snapshot} from '../types';
 import {windowLandscape,type LandscapeStatus} from './environment';
@@ -30,6 +31,7 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
   const architecture=smoking?createSmokingArchitecture(kit,scene):healing?createHealingArchitecture(kit,scene):createArchitecture(kit,scene),lights=createLighting(scene),landscape=windowLandscape(kit,scene,onLandscapeStatus,video,onPlayback,smoking?{width:9.28,height:2.57,y:1.94,z:-4.25}:healing?{width:9.72,height:2.76,y:1.66,z:-4.59}:undefined,view);
   let objects=area==='pantry'?createStations(kit,scene):null,restObjects=area==='pantry'?createRestStations(kit,scene):null;
   const smokingObjects=smoking?createSmokingScene(kit,scene):null;
+  const seatMarkers=createSeatMarkers(kit,scene,area);
   const people=new Map<string,ReturnType<typeof createCharacter>>();
   const trays=new Map<string,{group:T.Group;food:T.Group;cup:T.Group;key:string;tea?:ReturnType<typeof teaModel>}>();
   const dynamic=new T.Group();scene.add(dynamic);let clockOffset=0,current:Snapshot|null=null,firstPerson:string|null=null,holding=false;
@@ -40,7 +42,7 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
   if(shelfHit)shelfHit.userData.station='candy';
   const plateHit=hit(shared,'shared',0,0,0,2.4,1.3,1.7);
   const objectTargets=healing?Object.entries(map.stations).map(([id,station])=>{const hit=kit.mesh(scene,new T.BoxGeometry(1.8,1.2,.7),hitMaterial,station!.x,.6,station!.z);hit.userData.station=id;hit.castShadow=false;hit.receiveShadow=false;return hit;}):objects?.hits??[];
-  const seatTargets=seats.map(([x,z],index)=>{const mesh=kit.mesh(scene,new T.BoxGeometry(.8,1.25,.8),hitMaterial,x,.65,z);mesh.castShadow=false;mesh.receiveShadow=false;mesh.userData.seat=index;return mesh;});
+  const seatTargets=seats.map(([x,z],index)=>{const wide=healing&&index<4?1.36:smoking?.98:.84;const mesh=kit.mesh(scene,new T.BoxGeometry(wide,1.45,wide),hitMaterial,x,.725,z);mesh.castShadow=false;mesh.receiveShadow=false;mesh.userData.seat=index;return mesh;});
   const destination=createDestinationMarker(kit,scene);
   const steam=new T.Group();scene.add(steam);
   const steamMaterial=new T.MeshBasicMaterial({color:'#faf2da',transparent:true,opacity:.28,depthWrite:false});
@@ -84,11 +86,16 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
       if(rest?.stone&&!rest.stone.held){const stone=stoneModel(kit,g);stone.group.position.set(healing?-.25:-.62,.14,healing?.22:.2);stone.group.scale.setScalar(.8);}
       if(m.id===state?.self.id){
         foodGroup.userData.action='snack';
+        foodGroup.userData.directSurface=true;
         cup.userData.action='cup';
+        cup.userData.directSurface=true;
         // The table remains a stable target while the cup is in the hand.
         hit(g,'cup',healing?.25:-.23,.11,healing?-.15:0,.245,.15,.24);
-        if(!healing)hit(g,'snack',.16,.10,.02,.36,.12,.25);
+        if(!healing)hit(g,'snack',.16,.12,.03,.56,.24,.42);
         if(m.pantry?.candy&&!m.pantry.candy.held&&m.pantry.candy.state!=='eaten')hit(g,'candy',.29,.15,.12,.2,.18,.2);
+        if(rest?.stone&&!rest.stone.held)hit(g,'stone-held',healing?-.25:-.62,.14,healing?.22:.2,.32,.25,.3);
+        if(healing&&rest?.sand&&!rest.sand.held)hit(g,'sand-held',.03,.10,.09,.48,.18,.32);
+        if(healing&&rest?.vase&&!rest.vase.held)hit(g,'vase-held',-.25,.20,-.16,.26,.42,.26);
       }
       trays.set(m.id,{group:g,food:foodGroup,cup,key,tea});
     }
@@ -132,6 +139,20 @@ export function createRoomScene(onLandscapeStatus:(status:LandscapeStatus)=>void
     const poseNow=pose(self);if(poseNow?.phase!=='seated')return;
     return trays.get(self);
   }
+  function objectPoint(action:string){
+    if(action.startsWith('seat-'))return seatMarkers.point(Number(action.slice(5)));
+    if(action==='coffee'){const machine=scene.getObjectByName('pantry-coffee-machine');if(machine)return machine.localToWorld(new T.Vector3(0,.45,.34));}
+    if(action==='stone-basket'&&map.stations.stone){const s=map.stations.stone;return new T.Vector3(s.x,.95,s.z);}
+    if(action==='plant-stand'&&map.stations.plant){const s=map.stations.plant;return new T.Vector3(s.x+.55,1.075,s.z+.2);}
+    if(action==='cigarette'||action==='ashtray'){const points=smokingObjects?.positions();return points?.[action];}
+    if(action==='shared')return shared.visible?shared.getWorldPosition(new T.Vector3()):undefined;
+    let found:T.Vector3|undefined;
+    const groups=[ownTable()?.group,...(objects?.interactionTargets??[]),...(restObjects?.interactionTargets??[]),people.get(current?.self.id??'')?.group,scene];
+    for(const group of groups)group?.traverseVisible(o=>{if(!found&&o.userData.action===action)found=o.getWorldPosition(new T.Vector3());});
+    if(found)return found;
+    const id=action==='leaf'?'plant':action.startsWith('fridge-')?'fridge':action,station=map.stations[id as keyof typeof map.stations];
+    return station?new T.Vector3(station.x,station.y,station.z):undefined;
+  }
   function lighting(warm:boolean){lights.setWarm(warm);architecture.lighting(warm);landscape.lighting(warm);}
-  return {scene,sync,tick,lighting,constrainCamera,destination,now:()=>Date.now()+clockOffset,interactionTargets(){const tray=ownTable();return [...(smokingObjects?.targets()??[]),...(objects?.interactionTargets??[]),...(restObjects?.interactionTargets??[]),...(shelfHit?[shelfHit]:[]),...(shared.visible?[plateHit]:[]),...(tray?[tray.group]:[])];},landscape:landscape.select,reveal(camera:T.Camera,actor:{x:number;z:number}|null,reduced:boolean){architecture.reveal(camera,actor,reduced,destination.point);objects?.reveal?.(camera,actor,reduced);},seaMotion:landscape.motion,active:landscape.active,seatTargets,objectTargets,portalTargets:architecture.portalTargets,foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null,reduced=false){if(healing&&show&&!objects){objects=createStations(kit,scene,false);restObjects=createRestStations(kit,scene,false);}const r=state?.self.pantry.rest;smokingObjects?.foreground(camera,state,firstPerson!==null,reduced,Date.now()+clockOffset);objects?.foreground(camera,state,show&&!r?.sprayer&&!r?.stone?.held&&!r?.tea?.held,pull,reduced,Date.now()+clockOffset);restObjects?.foreground(camera,state,show);},smokingPositions(){return smokingObjects?.positions()??null;},cupPosition(){const tray=ownTable();return tray?.group.visible?tray.group.localToWorld(new T.Vector3(-.23,.20,0)):null;},snackPosition(){const tray=ownTable();return tray?.group.visible?tray.group.localToWorld(new T.Vector3(.16,.20,0)):null;},pose,firstPerson(id:string|null,foodInHand=false){firstPerson=id;holding=foodInHand;},labelPosition(id:string){const p=pose(id);return p?people.get(id)?.labelPosition(p):undefined;},interior(enabled:boolean,perspective=enabled){architecture.interior(enabled);landscape.interior(perspective);},dispose(){smokingObjects?.dispose();for(const p of people.values())p.dispose();objects?.dispose();restObjects?.dispose();for(const tray of trays.values())tray.tea?.dispose();landscape.dispose();kit.dispose();steamMaterial.dispose();hitMaterial.dispose();destination.dispose();}};
+  return {scene,sync,tick,lighting,seatMarkers,objectPoint,constrainCamera,destination,now:()=>Date.now()+clockOffset,interactionTargets(){const tray=ownTable(),ownCharacter=people.get(current?.self.id??'');return [...(ownCharacter?[ownCharacter.group]:[]),...(smokingObjects?.targets()??[]),...(objects?.interactionTargets??[]),...(restObjects?.interactionTargets??[]),...(shelfHit?[shelfHit]:[]),...(shared.visible?[plateHit]:[]),...(tray?[tray.group]:[])];},landscape:landscape.select,reveal(camera:T.Camera,actor:{x:number;z:number}|null,reduced:boolean){architecture.reveal(camera,actor,reduced,destination.point);objects?.reveal?.(camera,actor,reduced);},seaMotion:landscape.motion,active:landscape.active,seatTargets,objectTargets,portalTargets:architecture.portalTargets,foreground(camera:T.Camera,state:Snapshot|null,show:boolean,pull:number|null,reduced=false){if(healing&&show&&!objects){objects=createStations(kit,scene,false);restObjects=createRestStations(kit,scene,false);}const r=state?.self.pantry.rest;smokingObjects?.foreground(camera,state,firstPerson!==null,reduced,Date.now()+clockOffset);objects?.foreground(camera,state,show&&!r?.sprayer&&!r?.stone?.held&&!r?.tea?.held,pull,reduced,Date.now()+clockOffset);restObjects?.foreground(camera,state,show);},smokingPositions(){return smokingObjects?.positions()??null;},cupPosition(){const tray=ownTable();return tray?.group.visible?tray.group.localToWorld(new T.Vector3(-.23,.20,0)):null;},snackPosition(){const tray=ownTable();return tray?.group.visible?tray.group.localToWorld(new T.Vector3(.16,.20,0)):null;},pose,firstPerson(id:string|null,foodInHand=false){firstPerson=id;holding=foodInHand;},labelPosition(id:string){const p=pose(id);return p?people.get(id)?.labelPosition(p):undefined;},interior(enabled:boolean,perspective=enabled){architecture.interior(enabled);landscape.interior(perspective);},dispose(){seatMarkers.dispose();smokingObjects?.dispose();for(const p of people.values())p.dispose();objects?.dispose();restObjects?.dispose();for(const tray of trays.values())tray.tea?.dispose();landscape.dispose();kit.dispose();steamMaterial.dispose();hitMaterial.dispose();destination.dispose();}};
 }

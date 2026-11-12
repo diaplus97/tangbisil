@@ -1,12 +1,12 @@
 import {useEffect,useRef,useState} from 'react';
 import {exitsFrom,getSpace,type Area,stations as pantryStations,type StationId} from '../../shared/space.mjs';
 import type {Snapshot} from './types';
-type Props={onTravel:(to:Area)=>Promise<void>;state:Snapshot;disabled:boolean;moving:boolean;canReturn:boolean;onReturn:()=>Promise<void>;onStand:()=>Promise<unknown>;onClose:()=>void;onSeat:(seat:number)=>Promise<void>;onObject:(id:StationId)=>Promise<void>};
-export default function ExploreDestinations({onTravel,state,disabled,moving,canReturn,onReturn,onStand,onClose,onSeat,onObject}:Props){
+type Props={onTravel:(to:Area)=>Promise<void>;state:Snapshot;disabled:boolean;moving:boolean;canReturn:boolean;onReturn:()=>Promise<void>;onStand:()=>Promise<unknown>;onClose:()=>void;onSelected?:()=>void;onSeat:(seat:number)=>Promise<void>;onObject:(id:StationId)=>Promise<void>};
+export default function ExploreDestinations({onTravel,state,disabled,moving,canReturn,onReturn,onStand,onClose,onSelected=onClose,onSeat,onObject}:Props){
  const map=getSpace(state.room.area),{seats,seatTables,tables}=map,stations=map.stations as typeof pantryStations;
  const [section,setSection]=useState<'seats'|'objects'|'rooms'>('seats'),panel=useRef<HTMLDivElement>(null);
  useEffect(()=>{document.querySelectorAll<HTMLDetailsElement>('.pantry-app details[open]').forEach(d=>{d.open=false;});panel.current?.querySelector<HTMLButtonElement>('[aria-pressed=true]')?.focus({preventScroll:true});},[]);
- function choose(action:()=>Promise<unknown>){onClose();void action();}
+ function choose(action:()=>Promise<unknown>){onSelected();void action();}
  const me=state.room.members.find(m=>m.id===state.self.id);
  return <>
   {/* Keep the complete pointer gesture off the canvas, including the release. */}
