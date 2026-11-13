@@ -4,6 +4,7 @@ import {drawSnackFallback} from './snackFallback';
 import type {Serving} from './types';
 import {snackOpenSound,wrapperMotion,stopWrapperSound,stopSnackSound} from './sound';
 import {snackDefinition,LEGACY_SNACK_ID} from '../../shared/snacks.mjs';
+import {snackBiteProfiles} from './snackBiteMotion';
 const Food3D=lazy(()=>import('./Food3D'));
 
 type Props={onFlush?:(flush:(()=>Promise<boolean>)|null)=>void;serving:Serving;busy:boolean;appearance?:'pixel'|'3d';onProgress:(progress:number)=>Promise<unknown>;onOpen:()=>Promise<unknown>;onBite:()=>Promise<unknown>};
@@ -13,6 +14,7 @@ export function FoodStage({onFlush,serving,busy,appearance='pixel',onProgress,on
   const canvas=useRef<HTMLCanvasElement>(null),drag=useRef<{x:number;y:number;id:number;progress:number;moved:boolean}|null>(null);
   const pendingSave=useRef<Promise<unknown>|null>(null);
   const live=useRef(true),biting=useRef(false),lastBite=useRef(-Infinity);
+  const suppressBite=useRef(false),[cancelToken,setCancelToken]=useState(0);
   const anim=useRef(0),progressRef=useRef(initial),submitted=useRef(initial),opening=useRef(false),animating=useRef(false);
   const latest=useRef({onProgress,serving});latest.current={onProgress,serving};
   const lastMotion=useRef(performance.now()),tap=useRef<{x:number;y:number;id:number;moved:boolean}|null>(null);
@@ -21,7 +23,7 @@ export function FoodStage({onFlush,serving,busy,appearance='pixel',onProgress,on
   const prevBites=useRef(serving.bites),pixel=appearance==='pixel'||fallback;
   const label=definition.name+' · '+(serving.state==='sealed'?definition.openingLabel:serving.state==='empty'?'다 먹은 접시':definition.description);
   useEffect(()=>{const p=serving.state==='sealed'?(serving.open_progress||0):1;submitted.current=Math.max(submitted.current,p);if(p>progressRef.current){setProgress(p);progressRef.current=p;}},[serving.id,serving.state,serving.open_progress]);
-  useEffect(()=>{if(serving.bites>prevBites.current)setCrunch(Date.now());prevBites.current=serving.bites;},[serving.bites]);
+  useEffect(()=>{if(serving.bites>prevBites.current&&!suppressBite.current)setCrunch(Date.now());prevBites.current=serving.bites;},[serving.bites]);
   useEffect(()=>{
     if(!pixel)return;
     let frame=0;const c=canvas.current!.getContext('2d')!;
@@ -35,7 +37,7 @@ export function FoodStage({onFlush,serving,busy,appearance='pixel',onProgress,on
     submitted.current=p;pendingSave.current=latest.current.onProgress(p);const result=await pendingSave.current;pendingSave.current=null;
     if(!result)submitted.current=latest.current.serving.open_progress||0;return Boolean(result);
   }
-  async function cancelGesture(){tap.current=null;drag.current=null;cancelAnimationFrame(anim.current);animating.current=false;setDragging(false);setUnwrapping(false);stopWrapperSound();stopSnackSound();return await saveProgress();}
+  async function cancelGesture(){suppressBite.current=true;setCancelToken(n=>n+1);tap.current=null;drag.current=null;cancelAnimationFrame(anim.current);animating.current=false;setDragging(false);setUnwrapping(false);stopWrapperSound();stopSnackSound();return await saveProgress();}
   useEffect(()=>{onFlush?.(cancelGesture);return()=>onFlush?.(null);},[onFlush]);
   useEffect(()=>{live.current=true;const hidden=()=>{if(document.hidden)cancelGesture();};document.addEventListener('visibilitychange',hidden);window.addEventListener('blur',cancelGesture);return()=>{live.current=false;document.removeEventListener('visibilitychange',hidden);window.removeEventListener('blur',cancelGesture);cancelAnimationFrame(anim.current);stopWrapperSound();void saveProgress();};},[]);
   async function finish(){
@@ -72,12 +74,12 @@ export function FoodStage({onFlush,serving,busy,appearance='pixel',onProgress,on
     if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
     if(progressRef.current>=.985)void finish();else if(!moved)accessibleOpen();else void saveProgress();
   }
-  async function bite(){const now=performance.now();if(biting.current||busy||now-lastBite.current<1450)return;lastBite.current=now;biting.current=true;try{await onBite();}finally{biting.current=false;}}
+  async function bite(){const now=performance.now();if(biting.current||busy||now-lastBite.current<snackBiteProfiles[definition.kind].duration)return;suppressBite.current=false;lastBite.current=now;biting.current=true;try{await onBite();}finally{biting.current=false;}}
   return <div className="food-interaction">
     <div className={`food-stage ${dragging?'dragging':''} ${serving.state}`} tabIndex={0} role="button" aria-label={definition.name+' '+(serving.state==='sealed'?'포장 열기':serving.state==='open'?'한입 먹기':'다 먹은 접시')} aria-disabled={busy||serving.state==='empty'} onKeyDown={e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();e.stopPropagation();if(!busy&&!e.repeat){if(serving.state==='sealed')accessibleOpen();else if(serving.state==='open')void bite();}}}} data-testid="food-stage" data-serving-id={serving.id} data-bites={serving.bites} data-state={serving.state} data-progress={progress.toFixed(3)}
       onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp}
       onPointerCancel={cancelGesture} onLostPointerCapture={()=>{if(drag.current||tap.current)cancelGesture();}}>
-      {pixel?<canvas ref={canvas} width="320" height="200" aria-label={label}/>:<Suspense fallback={<div className="food-three-loading">접시를 놓는 중…</div>}><Food3D food={serving} progress={progress} bites={serving.bites} empty={serving.state==='empty'} sample={serving.portions===1} crunch={crunch} label={label} onUnavailable={()=>setFallback(true)}/></Suspense>}
+      {pixel?<canvas ref={canvas} width="320" height="200" aria-label={label}/>:<Suspense fallback={<div className="food-three-loading">접시를 놓는 중…</div>}><Food3D food={serving} progress={progress} bites={serving.bites} empty={serving.state==='empty'} sample={serving.portions===1} crunch={crunch} cancelToken={cancelToken} label={label} onUnavailable={()=>setFallback(true)}/></Suspense>}
       {serving.state==='sealed'&&<div className="drag-hint" aria-hidden="true">{progress>.01?(dragging?'사각사각, 원하는 만큼.':'뜯던 곳에서 이어 당기거나 톡 누르세요.'):definition.openingLabel+' · 톡 눌러도 열려요'} <span>⟶</span></div>}
       {serving.state==='sealed'&&<div className="wrapper-progress" role="progressbar" aria-label="포장 열림" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress*100)}><span style={{width:progress*100+'%'}}/></div>}
       {serving.state==='empty'&&<span className="plate-note">잘 먹었습니다.</span>}

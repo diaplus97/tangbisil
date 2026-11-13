@@ -1,4 +1,5 @@
 export type Point={x:number;z:number};
+export const walkingSpeed:number;
 export type Pose=Point&{yaw:number;sit:number;phase:'seated'|'standing'|'walking'|'rising'|'sitting';inSeat:number|null;moving:boolean;distance:number};
 export type Motion={id:string;start:Point&{yaw:number;sit:number};points:Point[];fromSeat:number|null;toSeat:number|null;startedAt:number;departMs:number;walkMs:number;arriveMs:number;endsAt:number};
 export const tableCenter:{x:number;z:number;y:number};

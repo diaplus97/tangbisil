@@ -4,6 +4,11 @@ import {directAction,directActionKey} from '../src/experience/directActions.ts';
 import {snackDisplay} from '../shared/snacks.mjs';
 
 function state(){return{receivedAt:Date.now(),serverTime:10000,self:{id:'me',pantry:{coffee:{stage:'carried'},candy:null,bottle:null,rest:{sprayer:false,stone:null,tea:null,sand:null,vase:null}}},room:{area:'pantry',members:[{id:'me',area:'pantry',seat:null,station:'tea'}],fixtures:{fridge:{open:false}}}};}
+test('held objects have a direct put-down action without an intermediate picker',()=>{
+ for(const kind of ['stone','tea','sand','vase']){const s=state();s.self.pantry.rest[kind]={id:kind,held:true,volume:.4,pourAt:0};const action=directAction(s,'put-down');assert.equal(action.type,kind+'-hold');assert.deepEqual(action.extra,{itemId:kind,held:false});}
+ for(const kind of ['candy','bottle']){const s=state();s.self.pantry[kind]={id:kind,held:true,state:'open',sips:0};assert.equal(directAction(s,'put-down').type,kind+'-hold');}
+ const s=state();assert.equal(directAction(s,'put-down'),null);s.self.pantry.rest.sand={id:'sand',held:true,revision:3};assert.equal(directAction(s,'sand-smooth'),null);s.room.area='healing';assert.deepEqual(directAction(s,'sand-smooth').extra,{itemId:'sand',revision:3,operation:'smooth'});
+});
 
 test('display choice carries recipe and date; a rotation cancels a pending automatic pickup',()=>{
  const s=state();s.room.snackDisplay=snackDisplay(Date.parse('2026-11-12T00:00:00+09:00'));const key=directActionKey(s,'snack-slot-0'),choice=directAction(s,'snack-slot-0');assert.equal(choice.extra.snackId,s.room.snackDisplay.slots[0].snackId);assert.equal(choice.extra.definitionVersion,1);

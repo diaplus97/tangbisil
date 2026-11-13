@@ -144,7 +144,7 @@ export function snackBiteSound(kind:SnackKind){
  if(!mouth)return;
  // Material Foley, not a recording of a branded food or a person's chewing.
  const clip:Clip=kind==='lemonPie'?'bite':kind==='dubaiCookie'?(variant++%2?'crispA':'crispB'):'release';
- const v=play(clip,{gain:kind==='lemonPie'?.5:kind==='dubaiCookie'?.32:.14,rate:kind==='fruitMochi'?.72:1,duration:kind==='lemonPie'?.28:.16});if(v){snackVoices.add(v);v.source.addEventListener('ended',()=>snackVoices.delete(v),{once:true});}
+ const v=play(clip,{gain:kind==='lemonPie'?.5:kind==='dubaiCookie'||kind==='layeredMochi'?.32:.14,rate:kind==='fruitMochi'?.72:1,duration:kind==='lemonPie'?.28:.16});if(v){snackVoices.add(v);v.source.addEventListener('ended',()=>snackVoices.delete(v),{once:true});}
 }
 export function snackOpenSound(kind:SnackKind,options:{remote?:boolean;distance?:number;pan?:number}={}){if(kind==='lemonPie'){playSound('open',options);return;}const v=play(kind==='fruitMochi'?'thinB':kind==='layeredMochi'?'waxB':'release',{gain:.35*(options.remote?.22/(1+(options.distance??0)*.4):1),duration:.18,remote:options.remote,pan:options.pan});if(v){snackVoices.add(v);v.source.addEventListener('ended',()=>snackVoices.delete(v),{once:true});}}
 export function stopWrapperSound(){clearTimeout(dragTimer);for(const v of voices)if(v.rustle)v.stop();lastGrain=-Infinity;}

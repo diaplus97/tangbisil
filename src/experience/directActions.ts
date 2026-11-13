@@ -30,6 +30,14 @@ export function directAction(state:Snapshot,target:string|null|undefined):Direct
   const p=state.self.pantry,r=p.rest,c=p.candy,b=p.bottle,t=sampleTea(r.tea,Date.now()+(state.receivedAt!==undefined?state.serverTime-state.receivedAt:0));
   const me=state.room.members.find(m=>m.id===state.self.id),seated=me?.seat!=null&&!me.travel;
   const pick=(label:string,type:string,except:string,extra:Record<string,unknown>={}):DirectAction=>({label,type,extra:{...extra,stow:Boolean(heldName(p,except))}});
+  if(target==='put-down'){
+    if(c?.held&&c.state!=='eaten')return{label:'사탕 내려놓기',type:'candy-hold',extra:{itemId:c.id,held:false}};
+    if(b?.held&&b.sips<3)return{label:'병 내려놓기',type:'bottle-hold',extra:{itemId:b.id,held:false}};
+    if(r.sprayer)return{label:'분무기 내려놓기',type:'plant-put'};
+    for(const [kind,item]of [['stone',r.stone],['tea',t],['sand',r.sand],['vase',r.vase]] as const)if(item?.held)return{label:'내려놓기',type:kind+'-hold',extra:{itemId:item.id,held:false}};
+    return null;
+  }
+  if(target==='sand-smooth')return r.sand?.held&&state.room.area==='healing'?{label:'모래 고르기',type:'sand-edit',extra:{itemId:r.sand.id,revision:r.sand.revision,operation:'smooth'}}:null;
   if(target==='stone-held')return r.stone&&!r.stone.held?pick('말랑돌 다시 집기','stone-hold','stone',{itemId:r.stone.id,held:true}):null;
   if(target==='sand-held')return r.sand&&!r.sand.held?pick('모래 트레이 다시 집기','sand-hold','sand',{itemId:r.sand.id,held:true}):null;
   if(target==='vase-held')return r.vase&&!r.vase.held?pick('꽃병 다시 만지기','vase-hold','vase',{itemId:r.vase.id,held:true}):null;

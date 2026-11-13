@@ -1,10 +1,11 @@
 import * as T from 'three';
 import {Workshop,consolidate} from './assets';
-import {appearance} from '../../../shared/appearance.mjs';
+import {appearance,avatarDimensions} from '../../../shared/appearance.mjs';
 
 type Look=ReturnType<typeof appearance>;
 type Ring=[y:number,rx:number,rz:number,z?:number,x?:number];
 type XYZ=[number,number,number];
+export const avatarProportions=avatarDimensions;
 const tau=2*Math.PI,skin='#deb093',warmSkin='#c59178';
 const shade=(hex:string,light:number,hue=0)=>'#'+new T.Color(hex).offsetHSL(hue,0,light).getHexString();
 
@@ -116,19 +117,19 @@ function hairStyle(kit:Workshop,head:T.Group,l:Look){
  }
 }
 function face(kit:Workshop,body:T.Group,l:Look){
- const head=new T.Group();head.position.set(0,.84,.012);body.add(head);
- form(kit,head,skin,[[-.226,.045,.062,.028],[-.214,.103,.106,.025],[-.179,.149,.151,.02],[-.115,.191,.173,.015],[-.05,.219,.196,.01],[.03,.225,.2],[.10,.214,.192],[.18,.17,.158],[.237,.087,.083],[.253,.015,.018]]);
+ const head=new T.Group();head.name='avatar-head';head.position.set(0,avatarProportions.headY,.012);head.scale.setScalar(avatarProportions.headScale);body.add(head);
+ form(kit,head,skin,[[-.226,.058,.068,.028],[-.214,.116,.111,.025],[-.179,.161,.155,.02],[-.115,.199,.177,.015],[-.05,.219,.196,.01],[.03,.225,.2],[.10,.214,.192],[.18,.17,.158],[.237,.087,.083],[.253,.015,.018]]);
  for(const s of [-1,1]){
   const ear=oval(kit,head,skin,s*.214,-.028,.01,.042,.059,.04);ear.rotation.x=-.20;
   oval(kit,head,warmSkin,s*.246,-.025,.015,.009,.029,.019);
   seam(kit,head,l.hair,.007,[s*.055,.061,.190],[s*.092,.072,.177],[s*.126,.06,.161]);
  }
  // The profile of the bridge and rounded nose tip is visible in a side view.
- const bridge=oval(kit,head,skin,0,-.02,.187,.036,.063,.031);bridge.rotation.x=-.23;
- oval(kit,head,skin,0,-.049,.201,.034,.024,.031);
+ const bridge=oval(kit,head,skin,0,-.02,.187,.029,.050,.025);bridge.rotation.x=-.23;
+ oval(kit,head,skin,0,-.049,.201,.029,.023,.025);
  seam(kit,head,'#8b5b51',.0055,[-.032,-.116,.181],[0,-.122,.185],[.034,-.112,.18]);
  hairStyle(kit,head,l);batch(kit,head);
- const eyes=[-1,1].map(s=>{const eye=oval(kit,head,'#382e2a',s*.081,.008,.195,.017,.023,.009);eye.rotation.y=s*.30;return eye;});
+ const eyes=[-1,1].map(s=>{const eye=oval(kit,head,'#382e2a',s*.081,.008,.195,.017,.023,.009);eye.name='avatar-eye-'+(s<0?'left':'right');eye.rotation.y=s*.30;return eye;});
  return {head,eyes};
 }
 function clothing(kit:Workshop,body:T.Group,l:Look){
@@ -188,7 +189,8 @@ function makeArm(kit:Workshop,body:T.Group,side:number,l:Look,coat:string,cream:
 }
 function makeLeg(kit:Workshop,group:T.Group,side:number,l:Look){
  const hip=new T.Group(),knee=new T.Group(),ankle=new T.Group();group.add(hip);hip.add(knee);knee.add(ankle);
- hip.position.x=side*.119;knee.position.y=-.42;ankle.position.y=-.55;
+ ankle.name='avatar-ankle-'+(side<0?'left':'right');
+ hip.position.x=side*.119;knee.position.y=-avatarProportions.legUpper;ankle.position.y=-avatarProportions.legLower;
  const color=l.pants;
  form(kit,hip,color,[[-.478,.087,.091,.003],[-.439,.10,.107,.007],[-.354,.102,.112],[-.224,.111,.119],[-.088,.122,.135,-.012],[.008,.127,.146,-.015],[.084,.108,.123]]);
  form(kit,knee,color,[[-.53,.087,.095,.003],[-.517,.098,.108,.006],[-.484,.101,.108,.002],[-.385,.093,.099,-.004],[-.223,.091,.105,-.009],[-.09,.101,.11],[.01,.103,.106],[.059,.074,.081],[.071,.023,.029]]);
@@ -197,6 +199,8 @@ function makeLeg(kit:Workshop,group:T.Group,side:number,l:Look){
  form(kit,ankle,sole,[[-.122,.082,.148,.07],[-.118,.10,.164,.07],[-.093,.104,.168,.07],[-.086,.101,.163,.07]]);
  form(kit,ankle,shoe,[[-.091,.10,.161,.068],[-.073,.101,.163,.068],[-.046,.099,.153,.064],[-.026,.086,.114,.032],[.011,.070,.087,.004],[.019,.060,.068,-.004]]);
  if(!l.quilt)for(let i=0;i<2;i++)seam(kit,ankle,sole,.005,[-.047,-.017-i*.015,.088+i*.026],[0,-.006-i*.015,.087+i*.026],[.045,-.017-i*.015,.09+i*.026]);
+ for(const child of hip.children)if(child instanceof T.Mesh)child.geometry.scale(1,avatarProportions.legUpper/.42,1);
+ for(const child of knee.children)if(child instanceof T.Mesh)child.geometry.scale(1,avatarProportions.legLower/.55,1);
  batch(kit,hip);batch(kit,knee);batch(kit,ankle);return {hip,knee,ankle,side};
 }
 export function sculptColleague(kit:Workshop,avatar:number,id:string){

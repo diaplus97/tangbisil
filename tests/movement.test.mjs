@@ -3,8 +3,19 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {seats,approaches,isWalkable,findPath,sampleMotion,planMotion,seatedView,seatedHorizontalFov,stations} from '../shared/space.mjs';
 import {moveVisitor} from '../server/movement.mjs';
+import {walkingSpeed} from '../shared/space.mjs';
 
 const member=(id,seat)=>({id,seat,motion:null,moves:new Map()});
+test('new walks are brisker while stored old-duration paths still sample their own timeline',()=>{
+ const a=member('speed',0),m=planMotion(a,approaches[4],4,1000,'new');
+ const length=m.points.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-m.points[i].x,p.z-m.points[i].z),0);
+ assert.equal(walkingSpeed,2);assert.ok(Math.abs(m.walkMs-length/2*1000)<1e-8);assert.ok(m.walkMs<length/1.65*1000);assert.ok(m.departMs<=420);assert.equal(m.arriveMs,480);
+ for(const walkMs of [3500,7000,9000]){
+  const stored={area:'pantry',seat:null,station:null,motion:{id:'stored',start:{x:0,z:0,yaw:0,sit:0},points:[{x:0,z:0},{x:3,z:0},{x:3,z:4}],fromSeat:null,toSeat:null,startedAt:1000,departMs:0,walkMs,arriveMs:0,endsAt:1000+walkMs}};
+  const half=sampleMotion(stored,1000+walkMs/2);assert.equal(half.x,3);assert.equal(half.z,.5);assert.equal(half.distance,3.5);
+  const end=sampleMotion(stored,1000+walkMs-1),done=sampleMotion(stored,1000+walkMs);assert.ok(Math.hypot(end.x-done.x,end.z-done.z)<.003);assert.equal(done.x,3);assert.equal(done.z,4);
+ }
+});
 test('all seated views include the opposite companion and part of the window; every seat pair has a path',()=>{
  const half=seatedHorizontalFov*Math.PI/360;
  const visible=(eye,x,z)=>Math.acos(Math.min(1,Math.max(-1,((x-eye.x)*Math.sin(eye.yaw)+(z-eye.z)*Math.cos(eye.yaw))/Math.hypot(x-eye.x,z-eye.z))))<half;

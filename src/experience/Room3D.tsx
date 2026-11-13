@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 import type {LandscapeId} from '../../shared/room-media.mjs';
+import {avatarEyeHeight} from '../../shared/appearance.mjs';
 import * as T from 'three';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {makeRenderer} from './three/assets';
@@ -19,16 +20,14 @@ import {placeTableActions} from './tableActionPlacement';
 import {ObjectAccess} from './ObjectAccess';
 import {directAction,directActionKey} from './directActions';
 import {coffeePhase} from '../../shared/coffee.mjs';
-import {tableDrink} from '../../shared/table-drink.mjs';
-import {heldName} from '../../shared/rest.mjs';
 import ExploreDestinations from './ExploreDestinations';
 import type {Snapshot} from './types';
 
-type Props={reduceMotion:boolean;cameraMemory:Map<string,{yaw:number;pitch:number}>;inputReady:()=>boolean;keyboardEnabled:boolean;onSteer:(direction:[number,number])=>Promise<unknown>;onExplore:()=>void;onUse:(target:string)=>Promise<unknown>;contextContent?:ReactNode;landscapeId:LandscapeId;tvOpen:boolean;windowContent?:ReactNode;onTv?:()=>void;onTravel:(to:Area)=>Promise<unknown>;onToolsMount:(element:HTMLDivElement|null)=>void;onApproach:(station:StationId)=>Promise<unknown>;seaMotion:boolean;waves:boolean;onWaves:()=>void;state:Snapshot|null;debug:boolean;movementMode:boolean;foodInHand:boolean;onFinishMove:()=>void;sampleAvailable:boolean;sampleLabel:string;onShelf:()=>void;onPlate:()=>void;onDrink:()=>void;disabled:boolean;onFallback:()=>void;onMove:(x:number,z:number)=>Promise<unknown>;onSit:(seat:number)=>Promise<unknown>;onStand:()=>Promise<unknown>};
+type Props={reduceMotion:boolean;cameraMemory:Map<string,{yaw:number;pitch:number}>;inputReady:()=>boolean;keyboardEnabled:boolean;onSteer:(direction:[number,number])=>Promise<unknown>;onExplore:()=>void;onUse:(target:string)=>Promise<unknown>;landscapeId:LandscapeId;tvOpen:boolean;windowContent?:ReactNode;onTv?:()=>void;onTravel:(to:Area)=>Promise<unknown>;onToolsMount:(element:HTMLDivElement|null)=>void;onApproach:(station:StationId)=>Promise<unknown>;seaMotion:boolean;waves:boolean;onWaves:()=>void;state:Snapshot|null;debug:boolean;movementMode:boolean;foodInHand:boolean;onFinishMove:()=>void;sampleAvailable:boolean;sampleLabel:string;onShelf:()=>void;onPlate:()=>void;onDrink:()=>void;disabled:boolean;onFallback:()=>void;onMove:(x:number,z:number)=>Promise<unknown>;onSit:(seat:number)=>Promise<unknown>;onStand:()=>Promise<unknown>};
 type Study='diorama'|'inside'|'table'|'lounge'|'map'|'third';
 type Framing=Study|'seated'|'walking'|'activity'|'choosing';
 const frames:Record<Study,string>={inside:'입구 시점',table:'테이블 시점',lounge:'창가 자리',diorama:'전체 배치',map:'개발용 평면',third:'이전 3인칭'};
-export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEnabled,onSteer,onExplore,onUse,contextContent,landscapeId,tvOpen,windowContent,onTv,onTravel,onToolsMount,onApproach,seaMotion,waves,onWaves,state,debug,movementMode,foodInHand,onFinishMove,sampleAvailable,sampleLabel,onShelf,onPlate,onDrink,disabled,onFallback,onMove,onSit,onStand}:Props){
+export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEnabled,onSteer,onExplore,onUse,landscapeId,tvOpen,windowContent,onTv,onTravel,onToolsMount,onApproach,seaMotion,waves,onWaves,state,debug,movementMode,foodInHand,onFinishMove,sampleAvailable,sampleLabel,onShelf,onPlate,onDrink,disabled,onFallback,onMove,onSit,onStand}:Props){
   const input=useInputMethod(),reduceRef=useRef(reduceMotion);reduceRef.current=reduceMotion;
   const [intro,setIntro]=useState(false),[discovery,setDiscovery]=useState<StationId|null>(null),[arrival,setArrival]=useState(false);
   const cueFocus=useRef(false),beacon=useRef<HTMLSpanElement>(null),brewProgress=useRef<HTMLProgressElement>(null);
@@ -68,8 +67,8 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
     finally{usedAt.current=performance.now();usedTarget.current=step;usingObject.current=false;}
   }
   const me=state?.room.members.find(m=>m.id===state.self.id),seat=me?.seat??0;
-  const tabledDrink=me?.seat!=null&&state&&(tableDrink(state.self.pantry)==='tea'&&heldName(state.self.pantry)==='찻잔'||tableDrink(state.self.pantry)==='bottle'&&heldName(state.self.pantry)==='음료 병');
   useEffect(()=>{if(['tea-hold','bottle-hold'].includes(me?.action??''))container.current?.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>{d.open=false;});},[me?.actionAt]);
+  const putDownAction=state?directAction(state,'put-down'):null;
   const moving=Boolean(me?.travel||me?.motion&&me.motion.id!==arrived&&state&&me.motion.endsAt>state.serverTime);
   cueState.current={input,intro,hovered,discovery};
   useEffect(()=>{if(!state?.self.id)return;const key='pantry:direct-objects:v1:'+state.self.id+':'+area;try{if(sessionStorage.getItem(key))return;}catch{}setIntro(true);const timer=setTimeout(()=>{setIntro(false);try{sessionStorage.setItem(key,'1');}catch{}},6500);return()=>clearTimeout(timer);},[state?.self.id,area]);
@@ -163,7 +162,7 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
         const distance=fridge?2.45:m.station==='coffee'?1.45:m.station==='tea'?(closeTea?.98:1.3):m.station==='candy'?1.08:m.station==='snacks'?Math.max(1.4,1.18/(Math.tan(Math.PI*46/180)*cameraAspect)):1.65;
         return{x:station.x-Math.sin(station.yaw)*distance,y:m.station==='coffee'?2.02:m.station==='tea'?1.95:m.station==='candy'?1.92:m.station==='snacks'?2.07:m.station==='plant'?1.94:1.75,z:station.z-Math.cos(station.yaw)*distance,yaw:station.yaw,pitch:m.station==='coffee'?-.31:m.station==='sand'?-.3:fridge?-.24:m.station==='stone'?-.42:m.station==='tea'?(closeTea?-.60:-.36):m.station==='plant'?-.38:m.station==='candy'?-.45:m.station==='snacks'?-.14:-.15};
       }
-      if(f==='walking'&&p)return{x:p.x,y:T.MathUtils.lerp(1.78,area==='healing'?(m?.seat!=null&&m.seat<4?1.27:1.48):1.623,p.sit),z:p.z,yaw:p.yaw,pitch:-.06};
+      if(f==='walking'&&p)return{x:p.x,y:T.MathUtils.lerp(avatarEyeHeight(),avatarEyeHeight(area,m?.seat??p.inSeat??0),p.sit),z:p.z,yaw:p.yaw,pitch:-.06};
       const seat=m?.seat??0,seated=seatedView(seat,area);
       if(area==='pantry'){
         const yaw=seats[seat][2],companion=seats[seat^1];
@@ -557,14 +556,15 @@ export default function Room3D({reduceMotion,cameraMemory,inputReady,keyboardEna
         {state?.room.members.filter(m=>debug||m.id!==state.self.id).map(m=><div ref={ref(m.id)} key={m.id} className={`visitor-name three-name ${!m.connected?'reconnecting':''}`}><span className="presence-dot"/>{m.name}</div>)}
       </>}
       {onTv&&!tvOpen&&<button className="tv-entry" disabled={disabled||moving||me?.seat==null} onClick={onTv}>TV 함께 보기</button>}
-      {!debug&&!tvOpen&&!foodInHand&&state&&area!=='smoking'&&!moving&&!movementMode&&!tabledDrink&&<div ref={context} data-station={me?.station} className={'object-context'+(me?.station?' at-station':' held-context')} aria-label="가까이 있는 물건">
+      {!debug&&!tvOpen&&!foodInHand&&state&&area!=='smoking'&&!moving&&!movementMode&&me?.station&&(arrival||state.self.pantry.coffee.stage==='brewing')&&<div ref={context} data-station={me?.station} className={'object-context'+(me?.station?' at-station':' held-context')} aria-label="가까이 있는 물건">
         {arrival&&me?.station&&!(me.station==='coffee'&&state.self.pantry.coffee.stage==='brewing')&&<span className="arrival-note" role="status">도착했어요</span>}
         {me?.station==='coffee'&&state.self.pantry.coffee.stage==='brewing'&&<div className="brew-feedback"><span role="status">커피가 차오르고 있어요</span><progress ref={brewProgress} max={1} value={0} aria-label="커피 추출"/></div>}
-        {(me?.station!=='snacks'&&(me?.station||heldName(state.self.pantry)||state.self.pantry.rest.stone||state.self.pantry.rest.tea||state.self.pantry.rest.sand||state.self.pantry.rest.vase||state.self.pantry.candy&&state.self.pantry.candy.state!=='eaten'||state.self.pantry.bottle&&state.self.pantry.bottle.sips<3))&&<details className="object-options" onKeyDown={e=>{if(e.key==='Escape'){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();e.stopPropagation();}}} onToggle={e=>{if(e.currentTarget.open)dismissHint();}}><summary aria-label="이 물건의 다른 행동">{me?.station||heldName(state.self.pantry)?'더보기':'내 물건'}</summary><div className="object-options-panel">{contextContent}</div></details>}
       </div>}
       {!debug&&!tvOpen&&<div className={'room-assist'+(me?.station?' at-object':'')+(foodInHand?' with-wrapper':'')}>
         {!foodInHand&&!moving&&!movementMode&&me?.seat==null&&area==='pantry'&&state?.self.serving&&state.self.serving.state!=='empty'&&<button className="snack-resume" onClick={onShelf} disabled={disabled}>내 간식 {state.self.serving.state==='sealed'?'이어서 열기':'한입 먹기'}</button>}
         {!foodInHand&&!moving&&!movementMode&&area==='pantry'&&me?.seat!=null&&(!state?.self.serving||state.self.serving.state==='empty')&&<button className="snack-discover" onClick={onShelf} disabled={disabled}>오늘의 간식 ↗</button>}
+        {!foodInHand&&!moving&&!movementMode&&me?.seat!=null&&putDownAction&&<button className="put-down-object" disabled={disabled} onClick={()=>void useNearObject('put-down')}>{putDownAction.label}</button>}
+        {!foodInHand&&!moving&&!movementMode&&me?.seat!=null&&state?.self.pantry.rest.sand?.held&&area==='healing'&&<button disabled={disabled} onClick={()=>void useNearObject('sand-smooth')}>모래 고르기</button>}
         {!foodInHand&&moving&&<button disabled={disabled} onClick={()=>void stand()}>멈추기</button>}
         <button ref={moveButton} className="move-primary" disabled={disabled} aria-pressed={movementMode} onClick={movementMode?closeDestinations:openDestinations}><svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true"><path d="M3 10h13m-5-5 5 5-5 5M3 4v12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>{movementMode?'이동 취소':moving?'목적지 바꾸기':'자리 옮기기'}</button>{movementMode&&<button className="destination-list-toggle" aria-haspopup="dialog" onClick={()=>setDestinationList(true)}>목록으로 고르기</button>}
       </div>}

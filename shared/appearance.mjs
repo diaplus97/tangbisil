@@ -1,5 +1,12 @@
 // The stored choice selects the outfit. The immutable visitor id tailors it
 // identically in every room and on every viewer, including older accounts.
+export const avatarDimensions=Object.freeze({legUpper:.34,legLower:.43,standHip:.892,headY:.76,headScale:1.18,footY:.122});
+export function avatarEyeHeight(area='pantry',seat=null){
+ const eyeY=avatarDimensions.headY+.008*avatarDimensions.headScale,eyeZ=.012+.195*avatarDimensions.headScale;
+ if(seat==null)return avatarDimensions.standHip+eyeY;
+ if(area==='healing')return seat<4?.41+eyeY*Math.cos(.2)+eyeZ*Math.sin(.2):.61+eyeY;
+ return .755+eyeY;
+}
 export const outfits=[
  {name:'남색 카디건',coat:'#38556c',sleeve:'#38556c',pants:'#938578',shoe:'#ddd2bd',quilt:false},
  {name:'베이지 셔츠',coat:'#b5a38c',sleeve:'#d9c8ae',pants:'#5d6563',shoe:'#70665e',quilt:false},

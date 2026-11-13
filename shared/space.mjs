@@ -1,6 +1,8 @@
 import {healingSeats,healingTables,healingBounds,healingStations,portals} from './healing.mjs';
+import {avatarEyeHeight} from './appearance.mjs';
 import {smokingSeats,smokingTable,smokingBounds,smokingEntrance,smokingExit,smokingCenter} from './smoking.mjs';
 export {portals};
+export const walkingSpeed=2;
 export function exitsFrom(area='pantry'){
   if(area==='smoking')return [smokingExit];
   return area==='healing'?[portals.healing]:[portals.pantry,smokingEntrance];
@@ -29,9 +31,9 @@ export const stations={
  fridge:{name:'냉장고',x:-7.05,z:3,y:1.3,approach:{x:-5.8,z:3},yaw:-Math.PI/2},
 };
 export const approaches=seats.map(([x,z,yaw])=>({x:x-Math.sin(yaw)*.96,z:z-Math.cos(yaw)*.96}));
-export const seatedEyeHeight=1.623;
+export const seatedEyeHeight=avatarEyeHeight('pantry',0);
 export const seatedHorizontalFov=96;
-export function seatedView(seat,area='pantry'){const [x,z,yaw]=getSpace(area).seats[seat],low=area==='healing',offset=low?(seat<4?.02:.1):.19;return{x:x+Math.sin(yaw)*offset,y:low?(seat<4?1.27:1.48):seatedEyeHeight,z:z+Math.cos(yaw)*offset,yaw};}
+export function seatedView(seat,area='pantry'){const [x,z,yaw]=getSpace(area).seats[seat],low=area==='healing',offset=low?(seat<4?.02:.1):.19;return{x:x+Math.sin(yaw)*offset,y:avatarEyeHeight(area,seat),z:z+Math.cos(yaw)*offset,yaw};}
 export const walkBounds={minX:-6.3,maxX:7.25,minZ:-5.3,maxZ:6.8};
 const radius=.21;
 const shapes=[
@@ -92,7 +94,8 @@ export function sampleMotion(member,now){
   const age=Math.max(0,now-m.startedAt),start=m.points[0],last=m.points.at(-1);
   if(age<m.departMs){const t=smooth(age/m.departMs);return{x:mix(m.start.x,start.x,t),z:mix(m.start.z,start.z,t),yaw:m.start.yaw,sit:m.start.sit*(1-t),phase:'rising',inSeat:m.fromSeat,moving:true,distance:0};}
   if(age<m.departMs+m.walkMs){
-    let remaining=(age-m.departMs)/1000*1.65,total=remaining;
+    let length=0;for(let i=1;i<m.points.length;i++)length+=distance(m.points[i-1],m.points[i]);
+    let remaining=length*(age-m.departMs)/m.walkMs,total=remaining;
     for(let i=1;i<m.points.length;i++){
       const a=m.points[i-1],b=m.points[i],length=distance(a,b);
       if(remaining<=length){const t=length?remaining/length:1;return{x:mix(a.x,b.x,t),z:mix(a.z,b.z,t),yaw:Math.atan2(b.x-a.x,b.z-a.z),sit:0,phase:'walking',inSeat:null,moving:true,distance:total};}remaining-=length;
@@ -109,7 +112,7 @@ export function planMotion(member,destination,toSeat,now,id){
   const area=member.area??'pantry',{approaches}=getSpace(area),pose=sampleMotion(member,now),fromSeat=pose.inSeat,start=fromSeat!=null?approaches[fromSeat]:{x:pose.x,z:pose.z};
   const end=toSeat!=null?approaches[toSeat]:destination,path=findPath(start,end,area);
   if(!path)return null;
-  const departMs=fromSeat!=null?Math.max(200,600*Math.min(1,distance(pose,start)/.85)):0;
-  const walkMs=path.slice(1).reduce((sum,p,i)=>sum+distance(path[i],p),0)/1.65*1000,arriveMs=toSeat!=null?650:0;
+  const departMs=fromSeat!=null?Math.max(160,420*Math.min(1,distance(pose,start)/.85)):0;
+  const walkMs=path.slice(1).reduce((sum,p,i)=>sum+distance(path[i],p),0)/walkingSpeed*1000,arriveMs=toSeat!=null?480:0;
   return {id,start:{x:pose.x,z:pose.z,yaw:pose.yaw,sit:pose.sit},points:path,fromSeat,toSeat,startedAt:now,departMs,walkMs,arriveMs,endsAt:now+departMs+walkMs+arriveMs};
 }
